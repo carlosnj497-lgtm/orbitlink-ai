@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orbitlink-agent"
+version = "0.1.0"
+description = "OrbitLink AI - agente local de monitoramento da Starlink Mini (projeto independente, sem afiliacao com a SpaceX)."
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "pydantic>=2.8",
+  "pydantic-settings>=2.4",
+  "grpcio>=1.66",
+  "grpcio-reflection>=1.66",
+  "protobuf>=5.27",
+  "httpx>=0.27",
+  "reportlab>=4.2",
+  "pyjwt[crypto]>=2.9",
+  "tzdata>=2024.1",
+  "cryptography>=43",
+]
+
+[project.optional-dependencies]
+ai = ["anthropic>=0.40"]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "ruff>=0.6",
+  "mypy>=1.11",
+  "grpcio-tools>=1.66",
+  "types-protobuf",
+  "pip-audit>=2.7",
+]
+
+[project.scripts]
+orbitlink-agent = "orbitlink_agent.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["orbitlink_agent*"]
+
+[tool.setuptools.package-data]
+orbitlink_agent = ["migrations/*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 140
+target-version = "py311"
+extend-exclude = ["tests/fakegrpc/generated"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC"]
+ignore = ["S101", "S311", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+exclude = ["tests/", "build/"]
+
+[[tool.mypy.overrides]]
+module = ["orbitlink_agent.reports.*"]
+disallow_untyped_calls = false
+

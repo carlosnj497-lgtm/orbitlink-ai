@@ -1,0 +1,33 @@
+export const SLUGS = [
+  "",
+  "ao-vivo",
+  "consumo",
+  "qualidade",
+  "interrupcoes",
+  "obstrucoes",
+  "dispositivos",
+  "controle",
+  "esp32",
+  "assistente",
+  "alertas",
+  "relatorios",
+  "configuracoes",
+  "instalacao",
+] as const;
+
+export const TITLES: Record<string, string> = {
+  "": "Visão Geral",
+  "ao-vivo": "Monitoramento ao Vivo",
+  consumo: "Consumo de Internet",
+  qualidade: "Qualidade da Conexão",
+  interrupcoes: "Interrupções",
+  obstrucoes: "Obstruções",
+  dispositivos: "Dispositivos da Rede",
+  controle: "Controle da Starlink",
+  esp32: "Centro ESP32",
+  assistente: "Assistente Claude AI",
+  alertas: "Alertas e Automações",
+  relatorios: "Relatórios",
+  configuracoes: "Configurações",
+  instalacao: "Assistente de Instalação",
+};

@@ -1,0 +1,57 @@
+[Unit]
+Description=OrbitLink AI - agente local (coleta Starlink, API em 127.0.0.1:8787)
+Documentation=file:///opt/orbitlink/current/docs/LINUX_SERVER.md
+After=network-online.target
+Wants=network-online.target
+PartOf=orbitlink.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=orbitlink
+Group=orbitlink
+WorkingDirectory=/var/lib/orbitlink
+EnvironmentFile=/etc/orbitlink/orbitlink.env
+Environment=ORBITLINK_ENV_FILE=/etc/orbitlink/orbitlink.env
+Environment=ORBITLINK_DATA_DIR=/var/lib/orbitlink
+Environment=ORBITLINK_SECRETS_KEY_FILE=/etc/orbitlink/secrets.key
+Environment=ORBITLINK_HOST=127.0.0.1
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/orbitlink/current/apps/agent/.venv/bin/python -m orbitlink_agent serve
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0027
+# Logs: stdout/stderr (JSON estruturado) -> journald.  journalctl -u orbitlink-agent
+SyslogIdentifier=orbitlink-agent
+
+# --- Endurecimento
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/orbitlink
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+# AF_NETLINK: leitura de rotas ("ip route get") no diagnóstico
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+MemoryMax=768M
+TasksMax=256
+
+[Install]
+WantedBy=orbitlink.target

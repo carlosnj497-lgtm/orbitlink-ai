@@ -1,0 +1,28 @@
+# Atualizações automáticas de dependências (PRs semanais, agrupados para não virar spam).
+# Python não entra aqui: as versões do agente ficam travadas com hash em apps/agent/requirements*.lock
+# (geradas pelo uv). Para atualizar: `npm run lock:agent -- --upgrade`, rodar os testes e commitar.
+# Vulnerabilidades novas nelas são pegas pelo job "audit" do CI, que roda toda segunda-feira.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      dependencias-de-producao:
+        dependency-type: production
+        update-types: [minor, patch]
+      dependencias-de-desenvolvimento:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]

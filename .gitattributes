@@ -1,0 +1,21 @@
+# Repositório em LF; o Git converte só o que precisa ser CRLF no Windows.
+* text=auto eol=lf
+
+# Scripts e configs executados no Linux precisam de LF (explícito, mesmo com core.autocrlf=true)
+*.sh text eol=lf
+deploy/linux/** text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
+*.target text eol=lf
+
+# PowerShell e cmd do Windows ficam em CRLF
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binários
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+*.pdf binary

@@ -1,0 +1,227 @@
+# CI do OrbitLink AI. Não usa segredos: nada aqui fala com a antena, com o Supabase ou com a Anthropic.
+#   agent          ruff + mypy + pytest com as versões travadas (requirements-dev.lock, com hash)
+#   web            lint + typecheck + vitest + testes de RLS (PGlite) + next build
+#   e2e            Playwright com o agente em modo fixture (dados sintéticos identificados)
+#   deploy-scripts shellcheck + testes da lib.sh + nenhum CRLF em deploy/linux
+#   audit          vulnerabilidades conhecidas (npm audit + pip-audit); também roda toda segunda-feira
+#   install-ubuntu instalação REAL num Ubuntu 24.04 limpo: install.sh, saúde, segurança, update, rollback, backup
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1" # segunda 06:17 UTC: pega vulnerabilidades novas mesmo sem commits
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  PYTHON_VERSION: "3.12" # a do Ubuntu 24.04
+  NODE_VERSION: "22" # a que o install.sh instala
+
+jobs:
+  agent:
+    name: Agente (Python)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/agent
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: apps/agent/requirements-dev.lock
+      - name: Ambiente virtual com versões travadas
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet --upgrade pip
+          .venv/bin/pip install --quiet --require-hashes -r requirements-dev.lock
+          .venv/bin/pip install --quiet --no-deps -e .
+          .venv/bin/pip check
+      - name: Lock em dia com o pyproject.toml
+        run: |
+          pip install --quiet uv
+          uv pip compile pyproject.toml --extra ai --universal --python-version 3.12 --generate-hashes \
+            --custom-compile-command "npm run lock:agent" --quiet -o /tmp/requirements.lock
+          diff -u requirements.lock /tmp/requirements.lock \
+            || { echo "::error::requirements.lock desatualizado: rode 'npm run lock:agent' e commite"; exit 1; }
+      - run: .venv/bin/ruff check orbitlink_agent tests
+      - run: .venv/bin/mypy orbitlink_agent
+      - run: .venv/bin/python -m pytest -q
+
+  web:
+    name: Painel (Next.js) e Supabase
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint -w apps/web
+      - run: npm run typecheck -w apps/web
+      - run: npm run test -w apps/web
+      - name: RLS do Supabase (PGlite, sem Docker)
+        run: npm run test -w supabase
+      - run: npm run build -w apps/web
+
+  e2e:
+    name: Ponta a ponta (Playwright)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: apps/agent/requirements-dev.lock
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Agente
+        working-directory: apps/agent
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet --require-hashes -r requirements-dev.lock
+          .venv/bin/pip install --quiet --no-deps -e .
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build -w apps/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7
+
+  deploy-scripts:
+    name: Scripts do servidor Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Sem CRLF em deploy/linux (o bash falharia no servidor)
+        run: |
+          if grep -rlI $'\r' deploy/linux; then echo "::error::arquivos com CRLF acima"; exit 1; fi
+      - name: bash -n
+        run: for f in deploy/linux/*.sh deploy/linux/orbitlinkctl deploy/linux/tests/*.sh; do bash -n "$f"; done
+      - name: shellcheck
+        # SC1091: arquivos que só existem no servidor (/etc/os-release, /usr/local/lib/orbitlink/lib.sh)
+        run: shellcheck -x --source-path=SCRIPTDIR -e SC1091 deploy/linux/*.sh deploy/linux/orbitlinkctl deploy/linux/tests/*.sh
+      - name: Testes da lib.sh e dos modelos do Nginx/systemd
+        run: bash deploy/linux/tests/test_lib.sh
+
+  audit:
+    name: Vulnerabilidades conhecidas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: npm audit (dependências de produção)
+        run: npm audit --omit=dev --audit-level=high
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: pip-audit (versões travadas do servidor)
+        run: |
+          pip install --quiet pip-audit
+          pip-audit -r apps/agent/requirements.lock --require-hashes --disable-pip --progress-spinner off
+
+  install-ubuntu:
+    name: Instalação real (Ubuntu 24.04)
+    needs: [agent, web, deploy-scripts]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - name: install.sh (systemd + Nginx + UFW, sem Tailscale)
+        run: sudo bash deploy/linux/install.sh --yes --server-name orbitlink-ci
+
+      - name: Saúde (serviços, HTTP, nginx -t, portas só no loopback, UFW)
+        run: sudo orbitlinkctl health
+
+      - name: Superfície exposta
+        run: |
+          set -x
+          # o painel responde pelo Nginx com TLS
+          test "$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1/login)" = 200
+          # HTTP redireciona para HTTPS
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/login)" = 301
+          # a API do agente e o listener do ESP32 não passam pelo Nginx
+          test "$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1/v1/status)" = 404
+          test "$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1/esp32/ingest)" = 404
+          # Host desconhecido: o Nginx fecha a conexão sem resposta (444), proteção contra DNS rebinding
+          if curl -sk -H 'Host: atacante.example' https://127.0.0.1/login; then echo "Host estranho foi aceito"; exit 1; fi
+          # agente e painel escutando, e só no loopback ("! cmd" não aciona o set -e, por isso o if explícito)
+          listen="$(sudo ss -Hltn '( sport = :8787 or sport = :3000 )' | awk '{print $4}')"
+          test -n "$listen"
+          if grep -v -E '^(127\.0\.0\.1|\[::1\]):' <<<"$listen"; then echo "porta fora do loopback"; exit 1; fi
+          # segredos com permissão restrita
+          test "$(sudo stat -c '%a %U:%G' /etc/orbitlink/orbitlink.env)" = "640 root:orbitlink"
+          test "$(sudo stat -c '%a %U' /etc/orbitlink/setup-code)" = "600 root"
+          sudo ufw status verbose
+
+      - name: Sem antena, o diagnóstico diz "inacessível" (não inventa conexão)
+        run: |
+          set +e
+          sudo orbitlinkctl diagnose --no-router | tee /tmp/diag.txt
+          code=${PIPESTATUS[0]}
+          set -e
+          test "$code" = 2
+          grep -qi "inacess" /tmp/diag.txt
+
+      - name: Backup
+        run: sudo orbitlinkctl backup && sudo ls -l /var/lib/orbitlink/backups/
+
+      - name: Update (nova release com troca atômica) e rollback
+        run: |
+          before="$(readlink -f /opt/orbitlink/current)"
+          sudo orbitlinkctl update --source "$GITHUB_WORKSPACE"
+          after="$(readlink -f /opt/orbitlink/current)"
+          test "$before" != "$after"
+          sudo orbitlinkctl health
+          sudo orbitlinkctl rollback
+          test "$(readlink -f /opt/orbitlink/current)" = "$before"
+          sudo orbitlinkctl health
+
+      - name: Reinício automático após falha
+        run: |
+          pid="$(systemctl show -p MainPID --value orbitlink-agent)"
+          test "$pid" != 0
+          sudo kill -9 "$pid"
+          restarted=0
+          for _ in $(seq 1 30); do
+            new="$(systemctl show -p MainPID --value orbitlink-agent)"
+            if [ "$new" != 0 ] && [ "$new" != "$pid" ] && systemctl is-active --quiet orbitlink-agent; then restarted=1; break; fi
+            sleep 1
+          done
+          test "$restarted" = 1
+          test "$(systemctl show -p NRestarts --value orbitlink-agent)" -ge 1
+          sudo orbitlinkctl health
+
+      - name: Logs (em caso de falha)
+        if: failure()
+        run: |
+          sudo journalctl -u 'orbitlink-*' --no-pager -n 300 || true
+          sudo tail -n 100 /var/log/nginx/error.log || true
+          sudo systemctl status 'orbitlink-*' --no-pager || true

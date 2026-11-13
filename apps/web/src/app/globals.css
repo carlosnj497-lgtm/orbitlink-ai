@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+/*
+ * OrbitLink — design tokens.
+ * Base: azul-marinho quase preto + grafite. Destaque: ciano elétrico.
+ * Verde/âmbar/vermelho são reservados a estados operacionais.
+ */
+:root {
+  --bg: #060a12;
+  --bg-elev: #0b111c;
+  --surface: #0f1622;
+  --surface-2: #141c2b;
+  --surface-3: #1a2436;
+  --border: #1e2a3d;
+  --border-strong: #2a3a54;
+  --fg: #e8eef7;
+  --fg-muted: #93a1b8;
+  --fg-subtle: #64738c;
+  --accent: #22d3ee;
+  --accent-strong: #06b6d4;
+  --accent-soft: rgb(34 211 238 / 0.12);
+  --accent-2: #60a5fa;
+  --ok: #34d399;
+  --ok-soft: rgb(52 211 153 / 0.12);
+  --warn: #fbbf24;
+  --warn-soft: rgb(251 191 36 / 0.12);
+  --crit: #f87171;
+  --crit-soft: rgb(248 113 113 / 0.12);
+  --info: #a78bfa;
+  --demo: #f472b6;
+  --demo-soft: rgb(244 114 182 / 0.14);
+  --chart-down: #22d3ee;
+  --chart-up: #a78bfa;
+  --chart-lat: #fbbf24;
+  --chart-loss: #f87171;
+  --chart-grid: #1b2638;
+  --ring: #38bdf8;
+  --radius: 0.75rem;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-2: var(--accent-2);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-crit: var(--crit);
+  --color-crit-soft: var(--crit-soft);
+  --color-info: var(--info);
+  --color-demo: var(--demo);
+  --color-demo-soft: var(--demo-soft);
+  --color-ring: var(--ring);
+  --radius-card: var(--radius);
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SF Mono", monospace;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(1200px 600px at 80% -10%, rgb(34 211 238 / 0.06), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgb(96 165 250 / 0.05), transparent 60%);
+  background-attachment: fixed;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgb(34 211 238 / 0.3);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

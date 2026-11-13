@@ -1,0 +1,242 @@
+/**
+ * DADOS DE DEMONSTRAÇÃO — gerados deterministicamente no navegador, usados SOMENTE na rota /demo.
+ * Toda resposta vem marcada com source="demonstracao". Nada aqui representa uma antena real.
+ */
+import type {
+  AgentInfo,
+  Capability,
+  EventsResponse,
+  ObstructionResponse,
+  Quality,
+  StatusResponse,
+  Telemetry,
+  UsagePlan,
+  UsageSeries,
+  UsageSummary,
+} from "@orbitlink/shared";
+
+function rng(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const now = () => Math.floor(Date.now() / 1000);
+const RANGES: Record<string, number> = { "15m": 900, "1h": 3600, "6h": 21600, "24h": 86400, "7d": 604800, "30d": 2592000, "90d": 7776000 };
+
+function rangeOf(q: URLSearchParams, def: string): [number, number] {
+  const e = Number(q.get("end")) || now();
+  const s = Number(q.get("start")) || e - (RANGES[q.get("range") ?? def] ?? 3600);
+  return [s, e];
+}
+
+function diurnal(t: number) {
+  const h = ((t / 3600 - 3) % 24 + 24) % 24; // hora local aproximada (UTC-3)
+  return 0.25 + 0.75 * Math.max(0, Math.sin(((h - 7) / 16) * Math.PI)) ** 1.5;
+}
+
+function telemetry(q: URLSearchParams): Telemetry {
+  const [s, e] = rangeOf(q, "1h");
+  const span = e - s;
+  const bucket = Math.max(1, Math.ceil(span / 600));
+  const r = rng(Math.floor(s / bucket));
+  const points = [];
+  for (let t = s - (s % bucket); t < e; t += bucket) {
+    const d = diurnal(t);
+    const drop = r() < 0.01 ? 100 : r() < 0.05 ? r() * 8 : 0;
+    points.push({
+      t,
+      n: bucket,
+      down_mbps: drop === 100 ? 0 : +(d * (18 + r() * 40)).toFixed(2),
+      up_mbps: drop === 100 ? 0 : +(d * (1.5 + r() * 5)).toFixed(2),
+      down_max_mbps: +(d * 90).toFixed(1),
+      up_max_mbps: +(d * 12).toFixed(1),
+      latency_ms: drop === 100 ? null : +(24 + r() * 14 + (r() < 0.04 ? 40 : 0)).toFixed(1),
+      drop_pct: +drop.toFixed(2),
+      power_w: +(19 + d * 9 + r() * 2).toFixed(1),
+    });
+  }
+  return {
+    start: s, end: e, bucket_s: bucket, series_source: bucket < 60 ? "history_1s" : "minute_aggregates",
+    source: "demonstracao", coverage: 0.97, points,
+    gaps: [{ kind: "agent_offline", start_ts: e - Math.floor(span * 0.35), end_ts: e - Math.floor(span * 0.33), samples_lost: null, detail: "Lacuna fictícia de demonstração" }],
+    note: "Tráfego = uso corrente reportado pela antena, não é teste de velocidade/capacidade.",
+  };
+}
+
+function win(s: number, e: number, perDay: number) {
+  const days = (e - s) / 86400;
+  const total = Math.round(perDay * days);
+  return { start: s, end: e, bytes_download: Math.round(total * 0.9), bytes_upload: Math.round(total * 0.1), bytes_total: total, observed_seconds: Math.round((e - s) * 0.96), coverage: 0.96, source: "demonstracao" as const };
+}
+
+function usageSummary(): UsageSummary {
+  const e = now();
+  const day = e - ((e - 3 * 3600) % 86400);
+  const month = e - 11 * 86400;
+  return {
+    timezone: "America/Fortaleza",
+    today: win(day, e, 6.2e9),
+    yesterday: win(day - 86400, day, 6.8e9),
+    week: win(day - 3 * 86400, e, 6.5e9),
+    month: win(month, e, 6.4e9),
+    previous_month: win(month - 30 * 86400, month, 5.9e9),
+    projection_month: { available: true, bytes_total: 1.95e11, low: 1.78e11, high: 2.12e11, days_used: 11, source: "estimada", method: "Demonstração" },
+    method: "DEMONSTRAÇÃO — valores fictícios.",
+  };
+}
+
+function usagePlan(): UsagePlan {
+  const e = now();
+  const start = e - 11 * 86400;
+  const used = win(start, e, 6.4e9);
+  const cap = 100e9;
+  return {
+    configured: true,
+    cap_bytes: cap,
+    cycle_start_day: 1,
+    cycle_start: start,
+    cycle_end: start + 30 * 86400,
+    days_remaining: 19,
+    used,
+    pct_used: (used.bytes_total / cap) * 100,
+    remaining_bytes: Math.max(0, cap - used.bytes_total),
+    lower_bound: true,
+    projection: { available: true, bytes_total: 1.95e11, low: 1.78e11, high: 2.12e11, days_used: 11, source: "estimada", method: "Demonstração" },
+    projected_pct: 195,
+    source: "demonstracao",
+    method: "DEMONSTRAÇÃO — franquia e valores fictícios.",
+  };
+}
+
+function usageSeries(q: URLSearchParams): UsageSeries {
+  const [s, e] = rangeOf(q, "30d");
+  const bucket = (q.get("bucket") ?? "day") as "hour" | "day" | "month";
+  const size = bucket === "hour" ? 3600 : bucket === "month" ? 2592000 : 86400;
+  const r = rng(s);
+  const points = [];
+  for (let t = s - (s % size); t < e; t += size) {
+    const total = size === 3600 ? diurnal(t) * 6e8 * (0.6 + r()) : 6.4e9 * (0.7 + r() * 0.6) * (size / 86400);
+    points.push({ t, label: new Date(t * 1000).toISOString(), bytes_download: Math.round(total * 0.9), bytes_upload: Math.round(total * 0.1), bytes_total: Math.round(total), coverage: 0.9 + r() * 0.1, source: "demonstracao" as const });
+  }
+  return { bucket, timezone: "America/Fortaleza", points, imported: [], peak_hour: { h: e - 6 * 3600, b: 9.1e8 }, method: "DEMONSTRAÇÃO", gaps: [] };
+}
+
+function quality(q: URLSearchParams): Quality {
+  const [s, e] = rangeOf(q, "24h");
+  const r = rng(7);
+  return {
+    start: s, end: e, timezone: "America/Fortaleza", source: "demonstracao", observed_seconds: Math.round((e - s) * 0.96), coverage: 0.96,
+    availability_pct: 99.42, availability_note: "Demonstração", loss_pct: 0.71, latency_p50_ms: 31.2, latency_p95_ms: 52.8, latency_max_ms: 118.4,
+    latency_note: "Demonstração", jitter_ms: 4.3, jitter_note: "Demonstração", full_drop_seconds: 487,
+    by_hour: Array.from({ length: 24 }, (_, hour) => ({ hour, observed_seconds: 3400, loss_pct: +(0.2 + (hour >= 19 && hour <= 22 ? 1.8 : 0) * r() + r() * 0.5).toFixed(2), latency_avg_ms: +(27 + (hour >= 19 && hour <= 22 ? 9 : 0) + r() * 6).toFixed(1), full_drop_s: Math.round(r() * 40) })),
+    gaps: [],
+  };
+}
+
+function events(q: URLSearchParams): EventsResponse {
+  const [s, e] = rangeOf(q, "7d");
+  const mk = (id: number, kind: string, ago: number, dur: number, confidence: "confirmado" | "derivado" | "indeterminado", cause: string) => ({ id, terminal_id: 1, kind, cause, start_ts: e - ago, end_ts: e - ago + dur, duration_s: dur, confidence, evidence: { fonte: "demonstração" }, open: false });
+  return {
+    start: s, end: e, gaps: [],
+    events: [
+      mk(1, "ping_drop", 3 * 3600, 14, "derivado", "Perda total de ping ao PoP"),
+      mk(2, "outage", 20 * 3600, 42, "confirmado", "OBSTRUCTED"),
+      mk(3, "unreachable", 30 * 3600, 600, "indeterminado", "timeout"),
+      mk(4, "boot", 50 * 3600, 95, "confirmado", "Reinício da antena detectado"),
+      mk(5, "ping_drop", 70 * 3600, 6, "derivado", "Perda total de ping ao PoP"),
+    ].filter((x) => x.start_ts >= s),
+  };
+}
+
+function obstruction(): ObstructionResponse {
+  const rows = 61, cols = 61;
+  const r = rng(3);
+  const snr: number[] = [];
+  for (let y = 0; y < rows; y++)
+    for (let x = 0; x < cols; x++) {
+      const dx = x - 30, dy = y - 30, d = Math.hypot(dx, dy);
+      if (d > 29) snr.push(-1);
+      else if (Math.atan2(dy, dx) > 2.2 && Math.atan2(dy, dx) < 2.7 && d > 18) snr.push(0);
+      else snr.push(r() < 0.55 ? 1 : -1);
+    }
+  return { map: { ts: now() - 120, num_rows: rows, num_cols: cols, snr, min_elevation_deg: 25, max_theta_deg: 65, source: "demonstracao" }, map_capability: { status: "verificada", detail: null }, trend: [] };
+}
+
+const status = (): StatusResponse => ({
+  available: true, dish_reachable: true, age_s: 3, stale: false,
+  status: {
+    observed_at: new Date().toISOString(), origin: "fixture", state: "conectada", state_reason: null,
+    device: { terminal_key: "ut-demonstracao", hardware_version: "mini (demo)", software_version: "demo.0.0", board_rev: null, bootcount: 12 },
+    metrics: {
+      downlink_mbps: { value: +(20 + Math.random() * 30).toFixed(2), unit: "Mbps", source: "demonstracao", note: "tráfego corrente, não capacidade" },
+      uplink_mbps: { value: +(1 + Math.random() * 4).toFixed(2), unit: "Mbps", source: "demonstracao", note: "tráfego corrente, não capacidade" },
+      pop_latency_ms: { value: +(26 + Math.random() * 10).toFixed(1), unit: "ms", source: "demonstracao" },
+      pop_drop_pct: { value: 0, unit: "%", source: "demonstracao" },
+      uptime_s: { value: 3 * 86400 + 4000, unit: "s", source: "demonstracao" },
+      obstruction_pct: { value: 1.8, unit: "%", source: "demonstracao" },
+      currently_obstructed: { value: false, source: "demonstracao" },
+    },
+    alerts: [], outage: null, fields_present: [], fields_missing: ["gps_stats"],
+  },
+});
+
+const agent = (): AgentInfo => ({
+  version: "demo", mode: "fixture", started_at: now() - 7200, now: now(), dish_target: "demonstração", dish_reachable: true,
+  terminal_id: 1, boot_id: "demo", last_status_ts: now() - 3, status_age_s: 3, status_stale: false, firmware: "demo.0.0",
+  hardware: "mini (demo)", capabilities_checked: now() - 600, history_inserted_total: 7200, history_lost_total: 0, loops: {},
+  sse_subscribers: 1, db_bytes: 12_000_000, sync_pending: 0, supabase_configured: false, ai_configured: false,
+  timezone: "America/Fortaleza", terminal_name: "Starlink Mini (demonstração)", router_target: "—", intervals: { status_s: 10, history_s: 30, obstruction_s: 300 },
+});
+
+const capabilities = (): { checked_at: number; capabilities: Capability[] } => {
+  const c = (key: string, label: string, status: Capability["status"], kind: Capability["kind"] = "leitura"): Capability => ({ target: "demo", key, device: "dish", label, origin: "grpc_request", kind, status, available: status === "verificada" || status === "schema_presente", offered: true, detail: "Demonstração", checked_at: now() - 600 });
+  return { checked_at: now() - 600, capabilities: [c("dish.status", "Status da antena", "verificada"), c("dish.history", "Histórico", "verificada"), c("dish.obstruction_map", "Mapa de obstrução", "verificada"), c("dish.diagnostics", "Diagnóstico oficial", "nao_implementada"), c("dish.reboot", "Reiniciar antena", "schema_presente", "controle"), c("history.power", "Potência (W)", "verificada")] };
+};
+
+export async function demoFetch(path: string): Promise<unknown> {
+  const [base, qs] = path.split("?");
+  const q = new URLSearchParams(qs ?? "");
+  await new Promise((r) => setTimeout(r, 120));
+  switch (base) {
+    case "status": return status();
+    case "agent": return agent();
+    case "capabilities": return capabilities();
+    case "telemetry": return telemetry(q);
+    case "usage/summary": return usageSummary();
+    case "usage/plan": return usagePlan();
+    case "usage/series": return usageSeries(q);
+    case "usage/hourly-profile": return Array.from({ length: 24 }, (_, hour) => ({ hour, bytes_total: Math.round(diurnal(hour * 3600 + 3 * 3600) * 4e9), observed_seconds: 3500 * 30 }));
+    case "quality": return quality(q);
+    case "events": return events(q);
+    case "obstruction": return obstruction();
+    case "alerts/events": return { events: [] };
+    case "alerts/rules": return { rules: [] };
+    case "alerts/kinds": return { kinds: {} };
+    case "alerts/notifications": return { channels: { webhook: false, telegram: false }, pending: 0, failed_24h: 0, last_sent_at: null, last_error: null };
+    case "diagnostics/summary":
+      return {
+        generated_at: now(), engine: "regras", source: "demonstracao",
+        headline: "DEMONSTRAÇÃO — disponibilidade observada de 99,42%, com perdas concentradas entre 19h e 22h.",
+        findings: [
+          { severity: "warn", kind: "evento_observado", text: "Perda média acima do padrão entre 19h e 22h (fictício).", evidence: "Dados de demonstração" },
+          { severity: "warn", kind: "causa_confirmada", text: "A antena reportou 1 interrupção com causa OBSTRUCTED (fictício).", evidence: "Dados de demonstração" },
+          { severity: "info", kind: "hipotese", text: "Obstrução pode contribuir para as perdas noturnas (fictício).", evidence: "Correlação não comprova causa" },
+        ],
+      };
+    case "ai/status": return { configured: false, model: "—", daily_limit: 0, usage: [] };
+    case "control/actions":
+      return { policy: "Demonstração.", actions: [{ action: "reboot", label: "Reiniciar a antena", consequences: [], capability: capabilities().capabilities.find((c) => c.key === "dish.reboot"), enabled: true, reason: null }] };
+    case "control/requests": return { requests: [], audit: [] };
+    case "settings":
+      return { terminal_name: "Starlink Mini (demonstração)", show_mac_addresses: false, secrets_configured: { anthropic_api_key: false, api_token: true }, runtime_overrides: {}, dish_target: "demonstração" };
+    case "esp32/nodes": return { nodes: [] };
+    case "devices": return { source: "indisponivel", reason: "Demonstração: nenhuma fonte de dispositivos.", devices: [] };
+    default: return {};
+  }
+}

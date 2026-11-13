@@ -1,0 +1,54 @@
+{
+  "_fixture": {
+    "kind": "sintetica",
+    "descricao": "Dados ARTIFICIAIS para testes automatizados. Não representam uma antena real. Buffer de histórico reduzido para 20 amostras."
+  },
+  "request_fields": ["dish_get_obstruction_map", "get_device_info", "get_diagnostics", "get_history", "get_status", "reboot"],
+  "responses": {
+    "get_status": {
+      "response_field": "dish_get_status",
+      "data": {
+        "device_info": {
+          "id": "ut-TESTE-0000-0000-0000-000000000001",
+          "hardware_version": "mini1_prod2",
+          "software_version": "2026.10.1.mr00000",
+          "country_code": "BR",
+          "bootcount": 42,
+          "board_rev": 0,
+          "generation_number": 0
+        },
+        "device_state": {"uptime_s": 3600},
+        "pop_ping_drop_rate": 0.0,
+        "downlink_throughput_bps": 12500000.0,
+        "uplink_throughput_bps": 850000.0,
+        "pop_ping_latency_ms": 31.5,
+        "alerts": {"motors_stuck": false, "thermal_throttle": false, "thermal_shutdown": false,
+                   "slow_ethernet_speeds": false, "roaming": false, "is_heating": false,
+                   "power_supply_thermal_throttle": false},
+        "obstruction_stats": {"currently_obstructed": false, "fraction_obstructed": 0.0125, "valid_s": 43200.0},
+        "gps_stats": {"gps_valid": true, "gps_sats": 11},
+        "eth_speed_mbps": 0,
+        "is_snr_above_noise_floor": true
+      }
+    },
+    "get_history": {
+      "response_field": "dish_get_history",
+      "data": {
+        "current": 45,
+        "pop_ping_drop_rate": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+        "pop_ping_latency_ms": [30, 31, 32, 30, 29, 33, 35, 31, 30, 30, 28, 29, 30, 31, 32, 0, 0, 40, 33, 31],
+        "downlink_throughput_bps": [8000000, 8000000, 8000000, 8000000, 8000000, 8000000, 8000000, 8000000, 8000000, 8000000, 8000000, 8000000, 8000000, 8000000, 8000000, 0, 0, 8000000, 8000000, 8000000],
+        "uplink_throughput_bps": [800000, 800000, 800000, 800000, 800000, 800000, 800000, 800000, 800000, 800000, 800000, 800000, 800000, 800000, 800000, 0, 0, 800000, 800000, 800000],
+        "power_in": [25, 25, 26, 25, 24, 25, 25, 26, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25],
+        "outages": []
+      }
+    },
+    "get_device_info": {
+      "response_field": "get_device_info",
+      "data": {"device_info": {"id": "ut-TESTE-0000-0000-0000-000000000001", "hardware_version": "mini1_prod2", "software_version": "2026.10.1.mr00000"}}
+    },
+    "dish_get_obstruction_map": {"error": "UNIMPLEMENTED"},
+    "get_diagnostics": {"error": "UNIMPLEMENTED"},
+    "reboot": {"error": "PERMISSION_DENIED"}
+  }
+}

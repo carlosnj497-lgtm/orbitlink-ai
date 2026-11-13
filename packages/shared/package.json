@@ -1,0 +1,20 @@
+{
+  "name": "@orbitlink/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "gen": "node scripts/gen-openapi.mjs"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

@@ -1,0 +1,2 @@
+// Tipos dos matchers do jest-dom (toBeInTheDocument etc.) para o Vitest.
+import "@testing-library/jest-dom/vitest";

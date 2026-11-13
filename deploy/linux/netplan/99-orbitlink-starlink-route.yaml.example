@@ -1,0 +1,20 @@
+# EXEMPLO — rota persistente para a antena Starlink. O instalador NÃO aplica isto: revise, ajuste e aplique você mesmo.
+#
+# Quando é necessário? Só quando 192.168.100.1 é alcançável por um próximo salto DIFERENTE do seu gateway padrão,
+# por exemplo: o servidor tem uma segunda interface ligada à rede da Starlink, ou existe outro roteador na LAN
+# que fala com a antena. Se o seu gateway padrão já é o roteador ligado à Starlink (modo bypass), quem precisa da
+# rota é o ROTEADOR (192.168.100.1/32 -> WAN), não o servidor.
+#
+#   sudo cp 99-orbitlink-starlink-route.yaml.example /etc/netplan/99-orbitlink-starlink-route.yaml
+#   sudo chmod 600 /etc/netplan/99-orbitlink-starlink-route.yaml
+#   sudo netplan try        # reverte sozinho em 120 s se você perder acesso
+#   ip route get 192.168.100.1
+#
+# Substitua "enp2s0" pela interface correta (ip -br link) e 192.168.1.1 pelo próximo salto real.
+network:
+  version: 2
+  ethernets:
+    enp2s0:
+      routes:
+        - to: 192.168.100.1/32
+          via: 192.168.1.1

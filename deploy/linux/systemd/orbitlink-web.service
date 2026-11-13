@@ -1,0 +1,52 @@
+[Unit]
+Description=OrbitLink AI - painel Next.js (127.0.0.1:3000, publicado somente via Nginx)
+Documentation=file:///opt/orbitlink/current/docs/LINUX_SERVER.md
+After=network-online.target orbitlink-agent.service
+Wants=network-online.target orbitlink-agent.service
+PartOf=orbitlink.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=orbitlink
+Group=orbitlink
+WorkingDirectory=/opt/orbitlink/current/apps/web
+EnvironmentFile=/etc/orbitlink/orbitlink.env
+Environment=NODE_ENV=production
+Environment=NEXT_TELEMETRY_DISABLED=1
+Environment=HOME=/var/lib/orbitlink
+ExecStart=/usr/bin/node /opt/orbitlink/current/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0027
+SyslogIdentifier=orbitlink-web
+
+# --- Endurecimento (V8 precisa de memória executável: MemoryDenyWriteExecute não é usado)
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=-/opt/orbitlink/current/apps/web/.next/cache
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=1G
+TasksMax=256
+
+[Install]
+WantedBy=orbitlink.target

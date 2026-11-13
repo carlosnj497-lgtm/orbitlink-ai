@@ -1,0 +1,8 @@
+[Unit]
+Description=OrbitLink AI (agente + painel)
+Documentation=file:///opt/orbitlink/current/docs/LINUX_SERVER.md
+Wants=orbitlink-agent.service orbitlink-web.service
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,31 @@
+{
+  "name": "orbitlink-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OrbitLink AI — monitoramento local da Starlink Mini + ESP32 (projeto independente, sem afiliação com a Starlink/SpaceX).",
+  "workspaces": [
+    "apps/web",
+    "packages/shared",
+    "supabase"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "lint": "npm run lint -w apps/web && npm run lint:agent",
+    "lint:agent": "node scripts/venv.mjs ruff check orbitlink_agent tests",
+    "typecheck": "npm run typecheck -w apps/web && npm run typecheck:agent",
+    "typecheck:agent": "node scripts/venv.mjs mypy orbitlink_agent",
+    "test": "npm run test:agent && npm run test -w apps/web && npm run test -w supabase",
+    "test:agent": "node scripts/venv.mjs python -m pytest -q",
+    "test:e2e": "npm run test:e2e -w apps/web",
+    "gen:types": "npm run gen -w packages/shared",
+    "diagnose": "node scripts/venv.mjs python -m orbitlink_agent diagnose",
+    "test:deploy": "bash deploy/linux/tests/test_lib.sh",
+    "lock:agent": "node scripts/lock-agent.mjs",
+    "audit": "npm audit --omit=dev --audit-level=high && npm run audit:agent",
+    "audit:agent": "node scripts/venv.mjs pip-audit -r requirements.lock --require-hashes --disable-pip --progress-spinner off"
+  }
+}

@@ -147,7 +147,9 @@ cmd_esp32() {
       ok "ESP32 habilitado (porta 8788 liberada só para ${lan:-<LAN não detectada>})" ;;
     disable)
       env_set ORBITLINK_ESP32_ENABLED false
-      [[ -n "${lan}" ]] && ufw delete allow from "${lan}" to any port 8788 proto tcp >/dev/null 2>&1 || true
+      if [[ -n "${lan}" ]]; then
+        ufw delete allow from "${lan}" to any port 8788 proto tcp >/dev/null 2>&1 || true  # regra pode não existir
+      fi
       ok "ESP32 desabilitado e porta 8788 fechada" ;;
     *) die "use: esp32 enable|disable" ;;
   esac

@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 
 
 def _dpapi(data: bytes, protect: bool) -> bytes:
+    if sys.platform != "win32":  # também faz o mypy no Linux não procurar ctypes.windll
+        raise OSError("DPAPI só existe no Windows")
     import ctypes
     from ctypes import wintypes
 

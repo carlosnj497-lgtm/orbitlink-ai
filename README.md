@@ -25,8 +25,8 @@ Plataforma local para **monitorar, diagnosticar e controlar com segurança** uma
 | Firmware ESP32 | Compila (`esp32dev` e `esp32dev_sensors`). **Não gravado em placa.** Emulador incluso. |
 | Claude | Loop de ferramentas somente leitura, testado com cliente simulado. Sem chave, usa diagnóstico por regras. |
 | Painel remoto via Supabase | **Não implementado nesta entrega.** A nuvem recebe dados sincronizados e protegidos por RLS, mas o painel lê apenas o agente local. |
-| Implantação Ubuntu 24.04 (`deploy/linux`) | Scripts verificados com `bash -n` e `shellcheck`, 51 testes da `lib.sh` e dos modelos. O CI tem um job que instala de verdade num Ubuntu 24.04 limpo, **mas ainda não rodou** (o repositório ainda não foi enviado ao GitHub). |
-| CI (GitHub Actions) | `.github/workflows/ci.yml`: agente, painel, Supabase, E2E, scripts, auditoria de vulnerabilidades e instalação real no Ubuntu. Validado com `actionlint`. **Roda a partir do primeiro push.** |
+| Implantação Ubuntu 24.04 (`deploy/linux`) | Scripts verificados com `bash -n` e `shellcheck`, 51 testes da `lib.sh` e dos modelos. O CI tem um job que instala de verdade num Ubuntu 24.04 limpo. **Passou em 13/11/2026** no repositório privado (instalação, saúde, superfície exposta, backup, update, rollback e reinício automático). |
+| CI (GitHub Actions) | `.github/workflows/ci.yml`: agente, painel, Supabase, E2E, scripts, auditoria de vulnerabilidades e instalação real no Ubuntu. Validado com `actionlint`. Roda a cada push e PR; verde desde 13/11/2026. |
 
 ## Início rápido (Windows 10/11, PowerShell)
 

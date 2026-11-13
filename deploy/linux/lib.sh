@@ -137,6 +137,20 @@ env_get() {
   sed -n "s/^$1=//p" "${OL_ENV_FILE}" | tail -n1
 }
 
+public_env() {
+  # public_env ARQUIVO -> linhas NEXT_PUBLIC_*=valor, lidas como o systemd lê o EnvironmentFile.
+  # Nunca faz "source": um valor com espaço (ORBITLINK_TERMINAL_NAME=Starlink Mini) viraria comando no bash.
+  local line k v
+  [[ -r "$1" ]] || return 0
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    [[ "${line}" =~ ^[[:space:]]*(NEXT_PUBLIC_[A-Z0-9_]+)=(.*)$ ]] || continue
+    k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"
+    if [[ "${v}" =~ ^\"(.*)\"$ ]] || [[ "${v}" =~ ^\'(.*)\'$ ]]; then v="${BASH_REMATCH[1]}"; fi
+    printf '%s=%s\n' "${k}" "${v}"
+  done < "$1"
+}
+
 env_set() {
   # env_set CHAVE VALOR -> grava/atualiza a chave no arquivo de ambiente, preservando o resto
   local key="$1" val="$2" tmp
@@ -170,7 +184,11 @@ switch_release() {
 
 build_release() {
   # build_release ORIGEM -> imprime o caminho da nova release (código + venv + node_modules + build)
+  # Chamada como NEW="$(build_release ...)": dentro de $(...) o bash desliga o set -e, então religamos aqui
+  # para que qualquer passo que falhe interrompa a release em vez de seguir adiante.
+  set -e
   local src="$1" stamp dest
+  local -a pub=()
   [[ -f "${src}/apps/agent/pyproject.toml" && -f "${src}/package.json" ]] || die "origem inválida: ${src}"
   stamp="$(date -u +%Y%m%d%H%M%S)"
   dest="${OL_RELEASES}/${stamp}"
@@ -195,9 +213,11 @@ build_release() {
   as_user "${vpy}" -c "import orbitlink_agent, grpc, fastapi, anthropic, cryptography" >&2
 
   info "Dependências Node e build do painel…" >&2
-  # As variáveis NEXT_PUBLIC_* são embutidas no build: carrega o arquivo de ambiente apenas para este processo.
-  as_user bash -c "set -euo pipefail; cd '${dest}'; set -a; . '${OL_ENV_FILE}'; set +a; \
-    npm ci --no-audit --no-fund --loglevel=error; NEXT_TELEMETRY_DISABLED=1 npm run build -w apps/web" >&2
+  # As variáveis NEXT_PUBLIC_* são embutidas no build: passa só elas, sem executar o arquivo de ambiente.
+  mapfile -t pub < <(public_env "${OL_ENV_FILE}")
+  as_user env "${pub[@]}" NEXT_TELEMETRY_DISABLED=1 bash -c "set -euo pipefail; cd '${dest}'; \
+    npm ci --no-audit --no-fund --loglevel=error; npm run build -w apps/web" >&2 \
+    || die "build do painel falhou (mensagens do npm acima)"
   [[ -d "${dest}/apps/web/.next" ]] || die "build do painel não gerou .next"
   install -d -o "${OL_USER}" -g "${OL_USER}" "${dest}/apps/web/.next/cache"
   touch "${dest}/.orbitlink-release-ok"

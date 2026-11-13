@@ -17,7 +17,7 @@ Situação em 13/11/2026. ✅ = verificado por teste automatizado ou execução 
 | 11 | Testes e instruções para Windows sem Docker | ✅ | `install.ps1` executado com sucesso, `start/stop.ps1` testados, docs |
 | 12 | Botões e telas essenciais funcionam, com mensagens úteis em falhas | ✅ | 14 rotas + `/demo` + login. E2E e axe sem violações sérias |
 | 13 | README, `.env.example`, migrations, scripts e documentação | ✅ | Este repositório |
-| 14 | Implantação em Ubuntu Server 24.04 (systemd, Nginx, UFW, journald, Tailscale opcional) | ✅ / 🟡 | `deploy/linux`: `bash -n` + `shellcheck` limpos, `npm run test:deploy` (43 testes da `lib.sh` e dos modelos do Nginx e do systemd), testes Python de rotas `ip -j`, Fernet e código de setup. O job `install-ubuntu` do CI instala num Ubuntu 24.04 limpo e testa saúde, portas, update, rollback e reinício automático. **Roda a partir do primeiro push ao GitHub** |
+| 14 | Implantação em Ubuntu Server 24.04 (systemd, Nginx, UFW, journald, Tailscale opcional) | ✅ / 🟡 | `deploy/linux`: `bash -n` + `shellcheck` limpos, `npm run test:deploy` (51 testes da `lib.sh` e dos modelos do Nginx e do systemd), testes Python de rotas `ip -j`, Fernet e código de setup. O job `install-ubuntu` do CI instala num Ubuntu 24.04 limpo e testa saúde, portas, update, rollback e reinício automático. **Roda a partir do primeiro push ao GitHub** |
 | 15 | Franquia do plano: % do ciclo, projeção e alertas em 80%/100%, sem apresentar estimativa como valor oficial | ✅ | `test_notify.py` (ciclo de cobrança, cobertura parcial como "≥", regras semeadas em banco existente) e `usage.test.tsx` |
 | 16 | Alertas fora do painel (Telegram/webhook), inclusive quando a internet cai | ✅ / 🟡 | `test_notify.py`: fila persistente, reenvio com atraso sinalizado, erro permanente, limite de taxa, expiração e token fora dos logs. **Falta testar com um bot real** |
 | 17 | Dependências reproduzíveis e auditadas | ✅ | `requirements.lock` com hash instalado no Windows e baixado para Linux (`pip download --platform manylinux…`). `npm audit` e `pip-audit` sem vulnerabilidades em 13/11/2026 |
@@ -26,7 +26,7 @@ Situação em 13/11/2026. ✅ = verificado por teste automatizado ou execução 
 
 ```powershell
 npm run test         # 84 pytest + 21 vitest + 11 RLS
-npm run test:deploy  # 43 testes dos scripts do servidor Linux
+npm run test:deploy  # 51 testes dos scripts do servidor Linux
 npm run audit        # npm audit + pip-audit
 npm run test:e2e     # 9 Playwright (requer: npx playwright install chromium)
 npm run lint; npm run typecheck; npm run build

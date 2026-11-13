@@ -34,6 +34,26 @@ check "sem chave duplicada" "$(grep -c '^ORBITLINK_DATA_DIR=' "${OL_ENV_FILE}")"
 env_set ORBITLINK_API_TOKEN "outro"
 check "env_set idempotente" "$(grep -c '^ORBITLINK_API_TOKEN=' "${OL_ENV_FILE}")" "1"
 
+# public_env: lê só NEXT_PUBLIC_*, como o systemd, sem executar o arquivo (bug real do CI: "Mini: command not found")
+PUB="${TMP}/pub.env"
+# shellcheck disable=SC2016  # o $(...) literal é proposital: prova que o arquivo não é executado
+printf '%s\n' '# x' 'ORBITLINK_TERMINAL_NAME=Starlink Mini' 'NEXT_PUBLIC_SUPABASE_URL=https://abc.supabase.co' \
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJ.a b.c"' "NEXT_PUBLIC_X='simples'" 'NEXT_PUBLIC_VAZIO=' \
+  'NEXT_PUBLIC_CMD=$(touch '"${TMP}"'/pwned)' > "${PUB}"
+printf 'NEXT_PUBLIC_CRLF=valor\r\n' >> "${PUB}"
+out="$(public_env "${PUB}")"
+check "public_env ignora variáveis não públicas" "$(grep -c '^ORBITLINK_' <<<"${out}")" "0"
+check "public_env mantém URL" "$(grep '^NEXT_PUBLIC_SUPABASE_URL=' <<<"${out}")" "NEXT_PUBLIC_SUPABASE_URL=https://abc.supabase.co"
+check "public_env tira aspas duplas e preserva espaço" "$(grep '^NEXT_PUBLIC_SUPABASE_ANON_KEY=' <<<"${out}")" "NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ.a b.c"
+check "public_env tira aspas simples" "$(grep '^NEXT_PUBLIC_X=' <<<"${out}")" "NEXT_PUBLIC_X=simples"
+check "public_env aceita valor vazio" "$(grep -c '^NEXT_PUBLIC_VAZIO=$' <<<"${out}")" "1"
+check "public_env remove CR de arquivo editado no Windows" "$(grep '^NEXT_PUBLIC_CRLF=' <<<"${out}" | od -c | grep -c '\\r')" "0"
+check "public_env não executa nada" "$(test -e "${TMP}/pwned" && echo executou || echo nao)" "nao"
+mapfile -t arr <<<"${out}"
+# shellcheck disable=SC2016  # a variável é expandida pelo /bin/sh filho, não aqui
+check "public_env vira argumentos de env sem quebrar em espaços" \
+  "$(env -i "${arr[@]}" /bin/sh -c 'printf %s "$NEXT_PUBLIC_SUPABASE_ANON_KEY"')" "eyJ.a b.c"
+
 if is_private_cidr 192.168.1.0/24; then r=sim; else r=nao; fi; check "192.168.1.0/24 é privada" "${r}" "sim"
 if is_private_cidr 10.0.0.0/8; then r=sim; else r=nao; fi; check "10.0.0.0/8 é privada" "${r}" "sim"
 if is_private_cidr 8.8.8.0/24; then r=sim; else r=nao; fi; check "8.8.8.0/24 NÃO é privada" "${r}" "nao"

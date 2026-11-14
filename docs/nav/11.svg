@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="230" height="64" viewBox="0 0 230 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1a30"/><stop offset="1" stop-color="#050b16"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a78bfa" stop-opacity="0.9"/><stop offset="1" stop-color="#a78bfa" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="228" height="62" rx="10" fill="url(#bg)" stroke="url(#edge)" stroke-width="1.5"/>
+  <rect x="1" y="14" width="3" height="36" rx="1.5" fill="#a78bfa"/>
+  <g transform="translate(30 32)" fill="none" stroke="#a78bfa">
+    <ellipse rx="14" ry="6" transform="rotate(-25)" stroke-opacity="0.55" stroke-width="1.2"/>
+    <circle r="4.5" fill="#a78bfa" fill-opacity="0.25" stroke-width="1.4"/>
+    <circle cx="12" cy="-5.5" r="2" fill="#a78bfa" stroke="none"/>
+  </g>
+  <text x="54" y="25" font-family="'Segoe UI Mono','SFMono-Regular',Consolas,'Liberation Mono',monospace" font-size="9.5" letter-spacing="1.6" fill="#a78bfa">11 · APROFUNDAR</text>
+  <text x="54" y="44" font-family="'Segoe UI',-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="14" font-weight="600" fill="#e8f1ff">Roteiro</text>
+</svg>

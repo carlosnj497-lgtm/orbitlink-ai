@@ -40,33 +40,23 @@ Pronto: o agente passa a ler a sua antena. No Windows, veja [Instalação](#inst
 
 ## Sumário
 
-<table>
-  <tr>
-    <th width="33%">🧭 Conhecer</th>
-    <th width="33%">🚀 Usar</th>
-    <th width="33%">🛠️ Aprofundar</th>
-  </tr>
-  <tr valign="top">
-    <td>
-      <a href="#por-que-o-astryon">Por que o ASTRYON?</a><br>
-      <a href="#o-que-ele-faz">O que ele faz</a><br>
-      <a href="#telas">Telas</a><br>
-      <a href="#princípios">Princípios</a>
-    </td>
-    <td>
-      <a href="#início-rápido">Início rápido</a><br>
-      <a href="#instalação">Instalação</a><br>
-      <a href="#telegram-e-ia">Telegram e IA</a><br>
-      <a href="#perguntas-frequentes">Perguntas frequentes</a>
-    </td>
-    <td>
-      <a href="#arquitetura">Arquitetura</a><br>
-      <a href="#estado-do-projeto">Estado do projeto</a> · <a href="#roteiro">Roteiro</a><br>
-      <a href="#desenvolvimento">Desenvolvimento</a><br>
-      <a href="#documentação">Documentação</a> · <a href="#créditos">Créditos</a>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <a href="#por-que-o-astryon"><img src="docs/nav/01.svg" alt="Por que o ASTRYON?" width="200"></a>
+  <a href="#início-rápido"><img src="docs/nav/05.svg" alt="Início rápido" width="200"></a>
+  <a href="#arquitetura"><img src="docs/nav/09.svg" alt="Arquitetura" width="200"></a>
+  <br>
+  <a href="#o-que-ele-faz"><img src="docs/nav/02.svg" alt="O que ele faz" width="200"></a>
+  <a href="#instalação"><img src="docs/nav/06.svg" alt="Instalação" width="200"></a>
+  <a href="#estado-do-projeto"><img src="docs/nav/10.svg" alt="Estado do projeto" width="200"></a>
+  <br>
+  <a href="#telas"><img src="docs/nav/03.svg" alt="Telas" width="200"></a>
+  <a href="#telegram-e-ia"><img src="docs/nav/07.svg" alt="Telegram e IA" width="200"></a>
+  <a href="#roteiro"><img src="docs/nav/11.svg" alt="Roteiro" width="200"></a>
+  <br>
+  <a href="#princípios"><img src="docs/nav/04.svg" alt="Princípios" width="200"></a>
+  <a href="#perguntas-frequentes"><img src="docs/nav/08.svg" alt="Perguntas frequentes" width="200"></a>
+  <a href="#documentação"><img src="docs/nav/12.svg" alt="Documentação" width="200"></a>
+</p>
 
 ## Por que o ASTRYON?
 

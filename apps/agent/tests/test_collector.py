@@ -144,3 +144,79 @@ async def test_retention_keeps_recent(tmp_path, fixture_data):
     await col.poll_history()
     out = apply_retention(db, 7, 400)
     assert out["history_samples"] == 0 and total(db) == 20
+
+
+def test_bus_publish_from_worker_thread_wakes_subscriber():
+    """O motor de alertas publica de dentro de `asyncio.to_thread`: o assinante precisa acordar na hora."""
+    import asyncio
+
+    async def main() -> str:
+        bus = EventBus()
+        q = bus.subscribe()
+        await asyncio.to_thread(bus.publish, "alert", {"id": 1})
+        msg = await asyncio.wait_for(q.get(), timeout=1.0)
+        return msg.event
+
+    assert asyncio.run(main()) == "alert"
+
+
+def test_quality_ignores_seconds_without_loss_measurement(tmp_path):
+    """Segundo sem `drop_rate` não é "0% de perda" nem "disponível": fica fora da perda e da disponibilidade."""
+    from orbitlink_agent.storage.repo import _recompute_minute
+
+    db = Database(tmp_path / "q.sqlite3")
+    minute = (now_ts() // 60) * 60 - 120
+    db.execute("INSERT INTO terminals (id, terminal_key, target, origin, first_seen, last_seen) VALUES (1,'k','x','grpc',?,?)",
+               (minute, minute))
+    for i in range(60):
+        drop = 1.0 if i < 6 else (0.0 if i < 30 else None)  # 30 s medidos (6 em perda total) + 30 s sem medida
+        db.execute("INSERT INTO history_samples VALUES (1,'b',?,?,?,30,1,1,NULL,'grpc')", (i, minute + i, drop))
+    with db.tx() as c:
+        _recompute_minute(c, 1, minute, "grpc", False)
+    q = queries.quality(db, 1, minute, minute + 60, "America/Fortaleza")
+    assert q["observed_seconds"] == 60
+    assert q["loss_pct"] == pytest.approx(20.0)  # 6/30, não 6/60
+    assert q["availability_pct"] == pytest.approx(80.0)  # 24/30, não 54/60
+    tel = queries.telemetry(db, 1, minute, minute + 60, bucket_s=60)
+    assert tel["points"][0]["drop_pct"] == pytest.approx(20.0)
+
+    # Minuto inteiro sem medida de perda => sem número, não "100% disponível".
+    db.execute("UPDATE history_samples SET drop_rate = NULL")
+    with db.tx() as c:
+        _recompute_minute(c, 1, minute, "grpc", False)
+    q = queries.quality(db, 1, minute, minute + 60, "America/Fortaleza")
+    assert q["loss_pct"] is None and q["availability_pct"] is None
+
+
+def test_retention_prunes_logs_but_keeps_open_items(tmp_path):
+    from orbitlink_agent.storage.repo import apply_retention
+
+    db = Database(tmp_path / "r.sqlite3")
+    now = now_ts()
+    old, very_old = now - 120 * 86400, now - 500 * 86400
+    db.execute("INSERT INTO esp32_nodes (id, device_id, name, secret_enc, created_at) VALUES (1,'d','n','s',?)", (now,))
+    db.execute("INSERT INTO esp32_sensor_readings VALUES (1, 1, ?, ?, 'env.temp_c', 30, 'ok')", (old, old))
+    db.execute("INSERT INTO esp32_sensor_readings VALUES (1, 2, ?, ?, 'env.temp_c', 31, 'ok')", (now, now))
+    for sent, failed in ((old, None), (None, old), (None, None)):
+        db.execute("INSERT INTO notification_outbox (channel, payload_json, created_at, next_attempt_at, sent_at, failed_at) "
+                   "VALUES ('telegram', '{}', ?, ?, ?, ?)", (old, old, sent, failed))
+    db.execute("""INSERT INTO alert_rules (id, name, kind, operator, threshold, min_duration_s, window_s, severity, cooldown_s,
+                  hysteresis, enabled, created_at, updated_at) VALUES (1,'r','loss_high','gt',10,0,300,'warn',0,0.1,1,?,?)""",
+               (now, now))
+    db.execute("INSERT INTO alert_events (rule_id, status, severity, started_at, resolved_at, message) "
+               "VALUES (1,'resolved','warn',?,?,'x')", (old, old))
+    db.execute("INSERT INTO alert_events (rule_id, status, severity, started_at, message) VALUES (1,'active','warn',?,'y')",
+               (very_old,))
+    db.execute("INSERT INTO connection_events (kind, start_ts, end_ts, confidence) VALUES ('outage', ?, ?, 'derivado')",
+               (very_old, very_old + 60))
+    db.execute("INSERT INTO connection_events (kind, start_ts, confidence) VALUES ('unreachable', ?, 'derivado')", (very_old,))
+    db.execute("INSERT INTO control_audit_logs (ts, actor, event) VALUES (?, 'admin', 'x')", (very_old,))
+
+    out = apply_retention(db, 7, 400, sensor_days=30, log_days=90)
+
+    assert out["esp32_readings"] == 1 and db.scalar("SELECT COUNT(*) FROM esp32_sensor_readings") == 1
+    assert out["notifications"] == 2  # pendente fica
+    assert db.scalar("SELECT COUNT(*) FROM notification_outbox WHERE sent_at IS NULL AND failed_at IS NULL") == 1
+    assert db.scalar("SELECT status FROM alert_events") == "active"  # ativo nunca é apagado, por mais antigo que seja
+    assert db.scalar("SELECT kind FROM connection_events") == "unreachable"  # evento em aberto fica
+    assert out["control_audit"] == 1

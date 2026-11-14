@@ -15,10 +15,12 @@ _REDACT = re.compile(r"(?i)(bearer\s+|token[\"'=:\s]+|api[_-]?key[\"'=:\s]+|pass
 
 
 _TELEGRAM = re.compile(r"/bot\d+:[A-Za-z0-9_-]+")
+_GROQ = re.compile(r"\bgsk_[A-Za-z0-9]{8,}")  # chave da Groq em qualquer lugar do texto (ex.: corpo de erro, traceback)
 
 
 def redact(text: str) -> str:
     text = _TELEGRAM.sub("/bot[redigido]", text)
+    text = _GROQ.sub("gsk_[redigido]", text)
     return _REDACT.sub(lambda m: m.group(1) + "[redigido]", text)
 
 

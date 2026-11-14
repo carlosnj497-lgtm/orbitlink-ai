@@ -107,8 +107,10 @@ def test_alert_debounce_hysteresis_cooldown(env):
     set_loss(0.05)
     eng.evaluate()
     assert env.db.scalar("SELECT status FROM alert_events") == "resolved"
-    set_loss(0.5)  # volta dentro do cooldown => agrupa
-    assert eng.evaluate() == []
+    set_loss(0.5)  # volta dentro do cooldown => agrupa no mesmo evento, mas avisa que voltou
+    fired = eng.evaluate()
+    assert len(fired) == 1 and fired[0]["status"] == "active" and "voltou" in fired[0]["message"]
+    assert eng.evaluate() == []  # segue ativo: não repete o aviso
     row = env.db.one("SELECT status, occurrences FROM alert_events")
     assert row["status"] == "active" and row["occurrences"] == 2
     assert env.db.scalar("SELECT COUNT(*) FROM alert_events") == 1
@@ -215,44 +217,61 @@ def test_device_normalization_sanitizes_and_masks():
 
 
 # ----------------------------------------------------------------- IA
-class FakeBlock(SimpleNamespace):
-    pass
+def _tc(cid, name, args):
+    return {"id": cid, "type": "function", "function": {"name": name, "arguments": args}}
 
 
 class FakeClient:
-    """Simula o SDK: 1ª resposta pede ferramentas; 2ª responde texto."""
+    """Simula o Groq (formato OpenAI): 1ª resposta pede ferramentas; 2ª responde texto."""
 
     def __init__(self):
         self.calls = []
-        self.beta = SimpleNamespace(messages=SimpleNamespace(create=self.create))
 
     async def create(self, **kw):
         self.calls.append({**kw, "messages": list(kw["messages"])})
-        usage = SimpleNamespace(input_tokens=1000, output_tokens=200)
+        usage = {"prompt_tokens": 1000, "completion_tokens": 200}
         if len(self.calls) == 1:
-            return SimpleNamespace(stop_reason="tool_use", usage=usage, content=[
-                FakeBlock(type="tool_use", id="t1", name="get_diagnostic_summary", input={"range": "24h"}),
-                FakeBlock(type="tool_use", id="t2", name="prepare_control_action", input={"action": "reboot", "reason": "x"}),
-            ])
-        return SimpleNamespace(stop_reason="end_turn", usage=usage,
-                               content=[FakeBlock(type="text", text="Período 24 h, fonte demonstração. Confirme em Controle.")])
+            return {"usage": usage, "choices": [{"finish_reason": "tool_calls", "message": {
+                "role": "assistant", "content": None, "tool_calls": [
+                    _tc("t1", "get_diagnostic_summary", '{"range": "24h"}'),
+                    _tc("t2", "prepare_control_action", '{"action": "reboot", "reason": "x"}'),
+                    _tc("t3", "get_active_alerts", "{json inválido"),
+                ]}}]}
+        return {"usage": usage, "choices": [{"finish_reason": "stop", "message": {
+            "role": "assistant", "content": "Período 24 h, fonte demonstração. Confirme em Controle."}}]}
 
 
 async def test_ai_tool_loop_never_executes_control(env):
     await env.col.poll_status()
     fake = FakeClient()
-    env.s.anthropic_api_key = "x"  # type: ignore[assignment]
+    env.s.groq_api_key = "x"  # type: ignore[assignment]
     res = await copilot.ask(env.db, env.s, env.col, ADMIN, "Quero reiniciar a antena", None, client=fake)
-    assert res["engine"] == "claude" and res["proposal"]["proposta"]["acao"] == "reboot"
+    assert res["engine"] == "groq" and res["proposal"]["proposta"]["acao"] == "reboot"
     assert "reboot" not in env.t.calls  # nada foi executado
     assert env.db.scalar("SELECT COUNT(*) FROM control_requests") == 0
     first = fake.calls[0]
-    assert all(t["strict"] for t in first["tools"])
-    assert first["messages"][-1]["role"] == "system"
+    assert all(t["type"] == "function" and not t["function"]["parameters"]["additionalProperties"] for t in first["tools"])
+    assert [m["role"] for m in first["messages"]] == ["system", "system", "user"]
+    assert first["model"] == "openai/gpt-oss-120b" and first["reasoning_effort"] == "medium"
     second = fake.calls[1]
-    tool_results = second["messages"][-1]["content"]
-    assert len(tool_results) == 2 and tool_results[0]["content"].startswith("<dados_nao_confiaveis>")
-    assert res["usage"]["estimated_cost_usd"] == pytest.approx((2000 * 4 + 400 * 20) / 1e6)
+    tool_msgs = [m for m in second["messages"] if m["role"] == "tool"]
+    assert [m["tool_call_id"] for m in tool_msgs] == ["t1", "t2", "t3"]
+    assert all(m["content"].startswith("<dados_nao_confiaveis>") for m in tool_msgs)  # args inválidos -> {}
+    assert res["answer"].startswith("Período 24 h")
+    assert res["usage"]["estimated_cost_usd"] == pytest.approx((2000 * 0.15 + 400 * 0.60) / 1e6)
+
+
+def test_ai_status_tool_explains_why_dish_is_unavailable(env):
+    env.col.state.dish_reachable = False
+    env.col.state.loops["status"] = SimpleNamespace(last_error="Antena inacessível em 192.168.100.1:9200",
+                                                    last_error_kind="unreachable", consecutive_failures=7)
+    out = copilot.Toolbox(env.db, env.s, env.col).run("get_starlink_status", {})
+    assert out["disponivel"] is False and out["antena_acessivel"] is False
+    assert out["motivo"] == "Antena inacessível em 192.168.100.1:9200"
+    assert out["tipo_erro"] == "unreachable" and out["falhas_consecutivas"] == 7
+    assert out["endereco_consultado"] == env.s.dish_target
+    # A marcação de segurança não pode ser lida pelo modelo como "dado pouco confiável".
+    assert "NÃO indica baixa qualidade" in copilot.SYSTEM_PROMPT
 
 
 async def test_ai_without_key_uses_rules(env):
@@ -263,10 +282,41 @@ async def test_ai_without_key_uses_rules(env):
 
 
 async def test_ai_daily_limit(env):
-    env.s.anthropic_api_key = "x"  # type: ignore[assignment]
+    env.s.groq_api_key = "x"  # type: ignore[assignment]
     env.s.ai_daily_request_limit = 0
     with pytest.raises(PermissionError):
         await copilot.ask(env.db, env.s, env.col, ADMIN, "oi", None, client=FakeClient())
+    # pergunta recusada pela cota não fica gravada (nem cria conversa vazia)
+    assert env.db.scalar("SELECT COUNT(*) FROM ai_messages") == 0
+    assert env.db.scalar("SELECT COUNT(*) FROM ai_conversations") == 0
+
+
+async def test_ai_failure_does_not_leave_orphan_question(env):
+    class Broken:
+        async def create(self, **_kw):
+            raise RuntimeError("groq fora")
+
+    env.s.groq_api_key = "x"  # type: ignore[assignment]
+    first = await copilot.ask(env.db, env.s, env.col, ADMIN, "Como está?", None, client=FakeClient())
+    cid = first["conversation_id"]
+    before = env.db.scalar("SELECT COUNT(*) FROM ai_messages WHERE conversation_id = ?", (cid,))
+    with pytest.raises(RuntimeError):
+        await copilot.ask(env.db, env.s, env.col, ADMIN, "E agora?", cid, client=Broken())
+    assert env.db.scalar("SELECT COUNT(*) FROM ai_messages WHERE conversation_id = ?", (cid,)) == before
+    with pytest.raises(RuntimeError):
+        await copilot.ask(env.db, env.s, env.col, ADMIN, "Nova?", None, client=Broken())
+    assert env.db.scalar("SELECT COUNT(*) FROM ai_conversations") == 1
+
+
+def test_retry_after_parsing():
+    assert copilot._retry_after("3", 1.0) == 3.0
+    assert copilot._retry_after("120", 1.0) == 10.0
+    assert copilot._retry_after("Wed, 21 Oct 2026 07:28:00 GMT", 2.0) == 2.0
+    assert copilot._retry_after(None, 4.0) == 4.0
+
+
+def test_system_prompt_has_no_fixed_timezone():
+    assert "Fortaleza" not in copilot.SYSTEM_PROMPT
 
 
 async def test_diagnostic_summary_classifies(env):

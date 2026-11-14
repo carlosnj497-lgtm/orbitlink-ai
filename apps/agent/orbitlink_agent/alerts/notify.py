@@ -25,6 +25,7 @@ SEVERITY_LABEL = {"info": "Informação", "warn": "Atenção", "crit": "Crítico
 SEVERITY_ICON = {"info": "ℹ️", "warn": "⚠️", "crit": "🚨"}
 LATE_AFTER_S = 120
 BATCH = 20
+DIGEST_MAX = 4000  # o Telegram aceita 4096 caracteres por mensagem
 
 
 class PermanentError(Exception):
@@ -66,6 +67,29 @@ class Notifier:
                                 "VALUES (?, ?, ?, ?)", (channel, json.dumps(payload, ensure_ascii=False), ts, ts))
                 n += 1
         return n
+
+    def enqueue_digest(self, text: str) -> int:
+        """Resumo periódico: só Telegram (o webhook recebe apenas alertas). Também passa pela fila e pelo reenvio."""
+        if not self.channels()["telegram"]:
+            return 0
+        ts = now_ts()
+        payload = {"status": "digest", "severity": "info", "message": text[:DIGEST_MAX], "rule_id": None, "event_ts": ts}
+        self.db.execute("INSERT INTO notification_outbox (channel, payload_json, created_at, next_attempt_at) "
+                        "VALUES ('telegram', ?, ?, ?)", (json.dumps(payload, ensure_ascii=False), ts, ts))
+        return 1
+
+    async def send_digest_now(self, text: str) -> dict[str, Any]:
+        """Envia um resumo agora, fora da fila (botão do painel). Devolve {"ok": bool, "error"?: str}."""
+        payload = {"status": "digest", "severity": "info", "message": text[:DIGEST_MAX], "rule_id": None,
+                   "event_ts": now_ts()}
+        async with self._client() as client:
+            try:
+                await self._send(client, "telegram", payload)
+                return {"ok": True}
+            except (PermanentError, RetryLater) as exc:
+                return {"ok": False, "error": str(exc)[:300]}
+            except httpx.HTTPError as exc:
+                return {"ok": False, "error": f"sem conexão ({type(exc).__name__})"}
 
     async def deliver_due(self) -> int:
         """Tenta entregar o que está vencido. Devolve quantas mensagens saíram."""
@@ -135,6 +159,8 @@ class Notifier:
         return httpx.AsyncClient(timeout=10, transport=self._transport)
 
     def _text(self, p: dict[str, Any]) -> str:
+        if p["status"] == "digest":
+            return str(p["message"])  # já formatado e com o período; atraso não muda o conteúdo
         tz = ZoneInfo(getattr(self.settings, "timezone", "UTC"))
         when = datetime.fromtimestamp(p["event_ts"], tz).strftime("%d/%m %H:%M")
         name = getattr(self.settings, "terminal_name", "Starlink")

@@ -60,7 +60,7 @@ def telemetry(db: Database, terminal_id: int, start: int, end: int, bucket_s: in
                       SUM(u.bytes_up) * 8.0 / NULLIF(SUM(u.samples), 0) AS up,
                       MAX(q.downlink_max_bps) AS down_max, MAX(q.uplink_max_bps) AS up_max,
                       SUM(q.latency_avg * q.latency_samples) / NULLIF(SUM(q.latency_samples), 0) AS lat,
-                      SUM(q.drop_avg * q.samples) / NULLIF(SUM(q.samples), 0) AS drop_rate,
+                      SUM(q.drop_avg * q.drop_samples) / NULLIF(SUM(q.drop_samples), 0) AS drop_rate,
                       AVG(q.power_avg_w) AS power, MAX(q.source) AS origin
                FROM quality_minutes q LEFT JOIN usage_minutes u ON u.terminal_id = q.terminal_id AND u.minute_ts = q.minute_ts
                WHERE q.terminal_id = :tid AND q.minute_ts >= :s AND q.minute_ts < :e
@@ -321,7 +321,8 @@ def _pct(values: list[float], p: float) -> float | None:
 
 def quality(db: Database, terminal_id: int | None, start: int, end: int, tz: str) -> dict[str, Any]:
     rows = db.query(
-        """SELECT minute_ts, samples, latency_samples, latency_avg, latency_max, jitter_avg, drop_avg, full_drop_s, source
+        """SELECT minute_ts, samples, latency_samples, latency_avg, latency_max, jitter_avg, drop_avg, drop_samples, full_drop_s,
+                  source
            FROM quality_minutes WHERE minute_ts >= ? AND minute_ts < ? AND (? IS NULL OR terminal_id = ?)
            ORDER BY minute_ts""",
         (start, end, terminal_id, terminal_id),
@@ -330,22 +331,27 @@ def quality(db: Database, terminal_id: int | None, start: int, end: int, tz: str
     full_drop = sum(r["full_drop_s"] for r in rows)
     lat_minutes = [r["latency_avg"] for r in rows if r["latency_avg"] is not None]
     jit = [r["jitter_avg"] for r in rows if r["jitter_avg"] is not None]
-    drop_w = sum((r["drop_avg"] or 0) * r["samples"] for r in rows)
+    # Perda e disponibilidade só sobre os segundos em que a perda foi medida: segundo sem medida não é "0% de perda".
+    drop_obs = sum(r["drop_samples"] or 0 for r in rows)
+    drop_w = sum(r["drop_avg"] * r["drop_samples"] for r in rows if r["drop_avg"] is not None and r["drop_samples"])
     z = ZoneInfo(tz)
-    hours: dict[int, dict[str, float]] = {h: {"samples": 0, "drop_w": 0.0, "lat_w": 0.0, "lat_n": 0, "full_drop_s": 0}
+    hours: dict[int, dict[str, float]] = {h: {"samples": 0, "drop_n": 0, "drop_w": 0.0, "lat_w": 0.0, "lat_n": 0,
+                                              "full_drop_s": 0}
                                           for h in range(24)}
     for r in rows:
         h = datetime.fromtimestamp(r["minute_ts"], z).hour
         hh = hours[h]
         hh["samples"] += r["samples"]
-        hh["drop_w"] += (r["drop_avg"] or 0) * r["samples"]
+        if r["drop_avg"] is not None and r["drop_samples"]:
+            hh["drop_w"] += r["drop_avg"] * r["drop_samples"]
+            hh["drop_n"] += r["drop_samples"]
         hh["full_drop_s"] += r["full_drop_s"]
         if r["latency_avg"] is not None:
             hh["lat_w"] += r["latency_avg"] * r["latency_samples"]
             hh["lat_n"] += r["latency_samples"]
     by_hour = [
         {"hour": h, "observed_seconds": int(v["samples"]),
-         "loss_pct": round(v["drop_w"] / v["samples"] * 100, 3) if v["samples"] else None,
+         "loss_pct": round(v["drop_w"] / v["drop_n"] * 100, 3) if v["drop_n"] else None,
          "latency_avg_ms": round(v["lat_w"] / v["lat_n"], 1) if v["lat_n"] else None,
          "full_drop_s": int(v["full_drop_s"])}
         for h, v in hours.items()
@@ -356,10 +362,11 @@ def quality(db: Database, terminal_id: int | None, start: int, end: int, tz: str
         "source": _source({r["source"] for r in rows}),
         "observed_seconds": observed,
         "coverage": round(min(1.0, observed / span), 4),
-        "availability_pct": round((1 - full_drop / observed) * 100, 3) if observed else None,
-        "availability_note": "Disponibilidade = segundos observados sem perda total de ping ao PoP ÷ segundos observados. "
-                             "Lacunas de observação ficam fora do cálculo (não contam como queda).",
-        "loss_pct": round(drop_w / observed * 100, 3) if observed else None,
+        "availability_pct": round((1 - full_drop / drop_obs) * 100, 3) if drop_obs else None,
+        "availability_note": "Disponibilidade = segundos com perda medida e sem perda total de ping ao PoP ÷ segundos com "
+                             "perda medida. Lacunas de observação e segundos sem medida de perda ficam fora do cálculo "
+                             "(não contam como queda nem como conexão boa).",
+        "loss_pct": round(drop_w / drop_obs * 100, 3) if drop_obs else None,
         "latency_p50_ms": _r(_pct(lat_minutes, 0.5), 1),
         "latency_p95_ms": _r(_pct(lat_minutes, 0.95), 1),
         "latency_max_ms": _r(max((r["latency_max"] for r in rows if r["latency_max"] is not None), default=None), 1),

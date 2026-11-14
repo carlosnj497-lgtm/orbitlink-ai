@@ -37,7 +37,7 @@ def anomalies(db: Database, terminal_id: int | None, start: int, end: int, tz: s
     base_start = start - baseline_days * 86400
     rows = db.query(
         """SELECT (minute_ts / 3600) * 3600 AS h, SUM(samples) AS n,
-                  SUM(drop_avg * samples) / NULLIF(SUM(samples), 0) AS loss,
+                  SUM(drop_avg * drop_samples) / NULLIF(SUM(drop_samples), 0) AS loss,
                   SUM(latency_avg * latency_samples) / NULLIF(SUM(latency_samples), 0) AS lat
            FROM quality_minutes WHERE minute_ts >= ? AND minute_ts < ? AND (? IS NULL OR terminal_id = ?)
            GROUP BY h""",

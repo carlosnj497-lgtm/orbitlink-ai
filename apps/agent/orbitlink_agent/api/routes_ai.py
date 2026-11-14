@@ -1,4 +1,4 @@
-"""Assistente (Claude opcional; regras quando não configurado)."""
+"""Assistente (LLM via Groq opcional; regras quando não configurado)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from ..ai import copilot
+from ..ai import copilot, telegram_bot, transcribe
 from .deps import AppContext, Ctx, User
 
 log = logging.getLogger("orbitlink.ai")
@@ -24,9 +24,16 @@ class AskBody(BaseModel):
 @router.get("/status")
 def status(c: Ctx, _u: User) -> dict[str, Any]:
     usage = c.db.query("SELECT * FROM ai_usage_daily ORDER BY day DESC LIMIT 30")
-    return {"configured": bool(c.settings.anthropic_api_key), "model": c.settings.ai_model,
+    audio_usage = c.db.query("SELECT * FROM ai_audio_usage_daily ORDER BY day DESC LIMIT 30")
+    bot = c.extras.get("telegram_bot")
+    return {"configured": bool(c.settings.groq_api_key), "model": c.settings.ai_model,
             "daily_limit": c.settings.ai_daily_request_limit, "retention_days": c.settings.ai_conversation_retention_days,
-            "usage": usage, "pricing_usd_per_mtok": copilot.PRICING.get(c.settings.ai_model)}
+            "usage": usage, "pricing_usd_per_mtok": copilot.PRICING.get(c.settings.ai_model),
+            "audio": {"enabled": bool(c.settings.groq_api_key) and bool(c.settings.ai_transcribe_enabled),
+                      "model": c.settings.ai_transcribe_model, "daily_limit": c.settings.ai_audio_daily_request_limit,
+                      "usage": audio_usage,
+                      "pricing_usd_per_hour": transcribe.AUDIO_PRICING_USD_PER_HOUR.get(c.settings.ai_transcribe_model),
+                      "telegram": bool(bot and bot.transcriber.enabled()) if bot else False}}
 
 
 @router.post("/ask")
@@ -67,15 +74,25 @@ def register(app: FastAPI) -> None:
     async def start(ctx: AppContext) -> None:
         async def purge_loop() -> None:
             while True:
-                await asyncio.to_thread(copilot.purge_old, ctx.db, ctx.settings.ai_conversation_retention_days)
+                try:
+                    await asyncio.to_thread(copilot.purge_old, ctx.db, ctx.settings.ai_conversation_retention_days)
+                except Exception:  # noqa: BLE001 - a limpeza tenta de novo no próximo ciclo
+                    log.exception("falha ao apagar conversas antigas do assistente")
                 await asyncio.sleep(6 * 3600)
 
         ctx.extras["ai_purge_task"] = asyncio.create_task(purge_loop(), name="ai-purge")
+        if telegram_bot.enabled(ctx.settings):
+            bot = telegram_bot.TelegramBot(ctx.db, ctx.settings, lambda: ctx.collector, ai_client=ctx.extras.get("ai_client"),
+                                           transport=ctx.extras.get("telegram_transport"),
+                                           audio_transport=ctx.extras.get("audio_transport"))
+            ctx.extras["telegram_bot"] = bot
+            ctx.extras["telegram_bot_task"] = asyncio.create_task(bot.run(), name="telegram-bot")
 
     async def stop(ctx: AppContext) -> None:
-        t = ctx.extras.get("ai_purge_task")
-        if t:
-            t.cancel()
+        for key in ("ai_purge_task", "telegram_bot_task"):
+            t = ctx.extras.get(key)
+            if t:
+                t.cancel()
 
     app.state.startup_hooks.append(start)
     app.state.shutdown_hooks.append(stop)

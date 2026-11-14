@@ -42,7 +42,9 @@ class Settings(BaseSettings):
     # Persistência
     data_dir: Path = Field(default=REPO_ROOT / "data")
     retention_raw_days: int = 7  # amostras de 1 s
-    retention_minute_days: int = 400  # agregados por minuto
+    retention_minute_days: int = 400  # agregados por minuto, eventos de conexão, lacunas e auditoria de controle
+    retention_sensor_days: int = 30  # leituras brutas dos sensores ESP32 (~43 mil linhas/dia com 5 sensores)
+    retention_log_days: int = 90  # notificações já entregues/abandonadas e alertas resolvidos
 
     # API do agente
     host: str = "127.0.0.1"
@@ -68,7 +70,14 @@ class Settings(BaseSettings):
     # Telegram (opcional): token do @BotFather e chat que recebe os alertas
     telegram_bot_token: SecretStr | None = None
     telegram_chat_id: str | None = None
+    # O bot responde perguntas (copiloto) vindas SÓ de telegram_chat_id. Long polling: nenhuma porta aberta.
+    telegram_chat_enabled: bool = True
+    telegram_chat_per_minute: int = Field(default=6, ge=1, le=60)
     notification_max_age_h: int = 24  # notificação que não sai em N h (ex.: internet fora) é descartada
+    # Resumo semanal pelo Telegram (consumo, disponibilidade, quedas, franquia). Também ajustável em Alertas.
+    weekly_digest_enabled: bool = True
+    weekly_digest_weekday: int = Field(default=0, ge=0, le=6)  # 0 = segunda ... 6 = domingo
+    weekly_digest_hour: int = Field(default=8, ge=0, le=23)  # hora local (ORBITLINK_TIMEZONE)
 
     # Franquia do plano (também ajustável em Configurações). Estimativa local, não a fatura oficial.
     usage_monthly_limit_gb: float | None = None
@@ -83,12 +92,24 @@ class Settings(BaseSettings):
     # Dispositivos
     show_mac_addresses: bool = False
 
-    # Anthropic (opcional)
-    anthropic_api_key: SecretStr | None = None
-    ai_model: str = "claude-opus-5-5"
-    ai_max_tokens: int = 1500
+    # Groq (opcional) — o limite inclui os tokens de raciocínio dos modelos gpt-oss
+    groq_api_key: SecretStr | None = None
+    ai_model: str = "openai/gpt-oss-120b"
+    ai_max_tokens: int = 4096
     ai_daily_request_limit: int = 100
     ai_conversation_retention_days: int = 30
+    # Áudio (nota de voz): Whisper na Groq, com a MESMA chave do copiloto. Cota e custo próprios.
+    ai_transcribe_enabled: bool = True
+    telegram_voice_replies: bool = True
+    ai_tts_voice: str = "pt-BR-FranciscaNeural"
+    ai_tts_timeout_s: float = Field(default=45, ge=5, le=120)
+    ai_tts_max_chars: int = Field(default=3000, ge=100, le=10000)
+    ai_transcribe_model: str = "whisper-large-v3-turbo"
+    ai_transcribe_language: str = "pt"
+    ai_transcribe_timeout_s: float = 60.0
+    ai_audio_daily_request_limit: int = Field(default=50, ge=0, le=500)
+    # Tamanho máximo aceito por nota de voz (o Telegram envia Opus em .ogg).
+    ai_audio_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1024)
 
     # Exibição
     timezone: str = "America/Fortaleza"

@@ -265,7 +265,8 @@ class Collector:
         self.bus.publish("agent", self.agent_snapshot())
 
     async def maintenance(self) -> None:
-        await self.db.run(repo.apply_retention, self.db, self.s.retention_raw_days, self.s.retention_minute_days)
+        await self.db.run(repo.apply_retention, self.db, self.s.retention_raw_days, self.s.retention_minute_days,
+                          self.s.retention_sensor_days, self.s.retention_log_days)
 
     def _detect_agent_downtime(self) -> None:
         last = self.db.scalar("SELECT MAX(ts) FROM agent_heartbeats")

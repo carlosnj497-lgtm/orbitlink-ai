@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from ..alerts.engine import KINDS, AlertEngine, seed_defaults
 from ..alerts.notify import Notifier
+from ..reports import digest
 from ..storage.db import now_ts
 from .deps import Admin, AppContext, Ctx, User
 
@@ -116,7 +117,10 @@ def notifier(c: AppContext) -> Notifier:
 
 @router.get("/notifications")
 def notifications(c: Ctx, _u: User) -> dict[str, Any]:
-    return notifier(c).status()
+    bot = c.extras.get("telegram_bot")
+    chat = {"enabled": bot is not None, **({k: bot.state[k] for k in ("last_poll_ok", "last_error", "answered", "transcribed")}
+                                          if bot is not None else {})}
+    return {**notifier(c).status(), "telegram_chat": chat}
 
 
 @router.post("/notifications/test")
@@ -128,15 +132,35 @@ async def notifications_test(c: Ctx, _a: Admin) -> dict[str, Any]:
     return {"results": await n.send_test()}
 
 
+@router.get("/digest")
+def digest_status(c: Ctx, _u: User) -> dict[str, Any]:
+    return digest.status(c.db, c.settings, notifier(c))
+
+
+@router.post("/digest/send")
+async def digest_send(c: Ctx, _a: Admin) -> dict[str, Any]:
+    """Envia agora, pelo Telegram, o resumo dos últimos 7 dias (não altera o agendamento semanal)."""
+    n = notifier(c)
+    if not n.channels()["telegram"]:
+        raise HTTPException(409, "Telegram não configurado. Defina ORBITLINK_TELEGRAM_BOT_TOKEN e ORBITLINK_TELEGRAM_CHAT_ID "
+                                 "e reinicie o agente.")
+    text = await asyncio.to_thread(digest.build_rolling, c.db, c.settings)
+    if text is None:
+        raise HTTPException(409, "Ainda não há dados observados nos últimos 7 dias.")
+    return await n.send_digest_now(text)
+
+
 def register(app: FastAPI) -> None:
     async def start(ctx: AppContext) -> None:
         engine = AlertEngine(ctx.db, ctx.bus, ctx.collector, ctx.settings.timezone, ctx.settings, notifier(ctx))
         ctx.extras["alerts_task"] = asyncio.create_task(engine.run(), name="alerts")
+        ctx.extras["digest_task"] = asyncio.create_task(digest.run(ctx.db, ctx.settings, notifier(ctx)), name="digest")
 
     async def stop(ctx: AppContext) -> None:
-        t = ctx.extras.get("alerts_task")
-        if t:
-            t.cancel()
+        for key in ("alerts_task", "digest_task"):
+            t = ctx.extras.get(key)
+            if t:
+                t.cancel()
 
     app.state.startup_hooks.append(start)
     app.state.shutdown_hooks.append(stop)

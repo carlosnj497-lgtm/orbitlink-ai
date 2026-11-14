@@ -230,11 +230,22 @@ def test_resolution_is_notified(tmp_path, db):
     eng.evaluate()
     statuses = [json.loads(r["payload_json"])["status"] for r in db.query("SELECT payload_json FROM notification_outbox")]
     assert statuses == ["active", "resolved"]
+    loss(0.5)  # volta dentro do cooldown: precisa avisar de novo
+    eng.evaluate()
+    rows = [json.loads(r["payload_json"]) for r in db.query("SELECT payload_json FROM notification_outbox ORDER BY id")]
+    assert [r["status"] for r in rows] == ["active", "resolved", "active"]
+    assert "voltou" in rows[-1]["message"]
 
 
 def test_redact_telegram_url():
     line = f"HTTP Request: POST https://api.telegram.org/bot{TOKEN}/sendMessage"
     assert TOKEN not in redact(line) and "/bot[redigido]/sendMessage" in redact(line)
+
+
+def test_redact_groq_key():
+    key = "gsk_" + "Ab3" * 15
+    for line in (f"Invalid API Key: {key}", f'{{"error": "chave {key} recusada"}}', f"x={key}"):
+        assert key not in redact(line) and "gsk_[redigido]" in redact(line)
 
 
 # ----------------------------------------------------------------- API

@@ -12,9 +12,10 @@ from .deps import Admin, Ctx, User
 
 router = APIRouter(prefix="/v1/settings", tags=["configuracoes"])
 
-SECRET_FIELDS = {"api_token", "supabase_anon_key", "supabase_agent_token", "anthropic_api_key", "setup_code",
+SECRET_FIELDS = {"api_token", "supabase_anon_key", "supabase_agent_token", "groq_api_key", "setup_code",
                  "telegram_bot_token", "telegram_chat_id"}
-RUNTIME_KEYS = {"terminal_name", "usage_monthly_limit_gb", "usage_cycle_start_day", "show_mac_addresses"}
+RUNTIME_KEYS = {"terminal_name", "usage_monthly_limit_gb", "usage_cycle_start_day", "show_mac_addresses",
+                "weekly_digest_enabled", "weekly_digest_weekday", "weekly_digest_hour"}
 
 
 def public_settings(c: Any) -> dict[str, Any]:
@@ -37,12 +38,19 @@ class RuntimeSettings(BaseModel):
     usage_monthly_limit_gb: float | None = Field(default=None, ge=0, le=100000)  # 0 remove a franquia
     usage_cycle_start_day: int | None = Field(default=None, ge=1, le=28)
     show_mac_addresses: bool | None = None
+    weekly_digest_enabled: bool | None = None
+    weekly_digest_weekday: int | None = Field(default=None, ge=0, le=6)
+    weekly_digest_hour: int | None = Field(default=None, ge=0, le=23)
 
 
 @router.put("")
 def put_settings(c: Ctx, _a: Admin, body: RuntimeSettings) -> dict[str, Any]:
     for k, v in body.model_dump(exclude_none=True).items():
         c.db.set_kv(f"setting:{k}", str(v))
+        if k == "weekly_digest_enabled":
+            c.settings.weekly_digest_enabled = bool(v)
+        if k in ("weekly_digest_weekday", "weekly_digest_hour"):
+            setattr(c.settings, k, int(v))
         if k == "terminal_name":
             c.settings.terminal_name = str(v)
         if k == "show_mac_addresses":
@@ -70,6 +78,13 @@ def apply_overrides(c: Any) -> None:
     day = c.db.get_kv("setting:usage_cycle_start_day")
     if day and day.isdigit() and 1 <= int(day) <= 28:
         c.settings.usage_cycle_start_day = int(day)
+    dig = c.db.get_kv("setting:weekly_digest_enabled")
+    if dig is not None:
+        c.settings.weekly_digest_enabled = dig == "True"
+    for key, hi in (("weekly_digest_weekday", 6), ("weekly_digest_hour", 23)):
+        v = c.db.get_kv(f"setting:{key}")
+        if v and v.isdigit() and 0 <= int(v) <= hi:
+            setattr(c.settings, key, int(v))
 
 
 def register(app: Any) -> None:

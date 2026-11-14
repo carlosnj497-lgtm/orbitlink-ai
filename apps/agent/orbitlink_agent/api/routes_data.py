@@ -56,7 +56,7 @@ def agent(c: Ctx, _u: User) -> dict[str, Any]:
     snap["db_bytes"] = c.db.size_bytes()
     snap["sync_pending"] = c.db.scalar("SELECT COUNT(*) FROM sync_queue WHERE synced_at IS NULL")
     snap["supabase_configured"] = bool(c.settings.supabase_url)
-    snap["ai_configured"] = bool(c.settings.anthropic_api_key)
+    snap["ai_configured"] = bool(c.settings.groq_api_key)
     snap["timezone"] = c.settings.timezone
     snap["terminal_name"] = c.settings.terminal_name
     snap["router_target"] = c.settings.router_target

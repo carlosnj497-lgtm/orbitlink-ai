@@ -170,9 +170,15 @@ class AlertEngine:
                 msg += ". Estimativa local; a fatura oficial pode diferir"
             last = self.db.one("SELECT * FROM alert_events WHERE rule_id = ? ORDER BY started_at DESC LIMIT 1", (r["id"],))
             if last and last["resolved_at"] and now - last["resolved_at"] < r["cooldown_s"]:
-                # dentro do cooldown: agrupa na ocorrência anterior em vez de criar spam
-                self.db.execute("UPDATE alert_events SET status='active', resolved_at=NULL, occurrences=occurrences+1, "
-                                "last_value=?, message=? WHERE id=?", (value, msg, last["id"]))
+                # dentro do cooldown: agrupa na ocorrência anterior em vez de criar outro evento. Ainda assim
+                # avisa: o último aviso enviado foi "resolvido", e calar aqui deixaria o usuário achando que está tudo bem.
+                occ = int(last["occurrences"] or 1) + 1
+                self.db.execute("UPDATE alert_events SET status='active', resolved_at=NULL, occurrences=?, "
+                                "last_value=?, message=? WHERE id=?", (occ, value, msg, last["id"]))
+                ev = {"id": last["id"], "rule_id": r["id"], "severity": r["severity"], "status": "active",
+                      "message": f"{msg} (voltou; ocorrência {occ})", "ts": now, "occurrences": occ}
+                fired.append(ev)
+                self._emit(ev)
                 continue
             cur = self.db.execute("""INSERT INTO alert_events (rule_id, status, severity, started_at, last_value, message)
                                      VALUES (?, 'active', ?, ?, ?, ?)""", (r["id"], r["severity"], now, value, msg))

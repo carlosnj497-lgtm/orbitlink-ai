@@ -144,18 +144,19 @@ def _recompute_minute(c: sqlite3.Connection, terminal_id: int, minute: int, sour
     powers = [r["power_w"] for r in rows if r["power_w"] is not None]
     c.execute(
         """INSERT INTO quality_minutes (terminal_id, minute_ts, samples, latency_samples, latency_avg, latency_min, latency_max,
-             jitter_avg, drop_avg, full_drop_s, downlink_max_bps, uplink_max_bps, power_avg_w, source)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             jitter_avg, drop_avg, drop_samples, full_drop_s, downlink_max_bps, uplink_max_bps, power_avg_w, source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(terminal_id, minute_ts) DO UPDATE SET samples = excluded.samples, latency_samples = excluded.latency_samples,
              latency_avg = excluded.latency_avg, latency_min = excluded.latency_min, latency_max = excluded.latency_max,
-             jitter_avg = excluded.jitter_avg, drop_avg = excluded.drop_avg, full_drop_s = excluded.full_drop_s,
+             jitter_avg = excluded.jitter_avg, drop_avg = excluded.drop_avg, drop_samples = excluded.drop_samples,
+             full_drop_s = excluded.full_drop_s,
              downlink_max_bps = excluded.downlink_max_bps, uplink_max_bps = excluded.uplink_max_bps,
              power_avg_w = excluded.power_avg_w, source = excluded.source""",
         (
             terminal_id, minute, len(rows), len(lats),
             sum(lats) / len(lats) if lats else None, min(lats) if lats else None, max(lats) if lats else None,
             sum(jit) / len(jit) if jit else None,
-            sum(drops) / len(drops) if drops else None,
+            sum(drops) / len(drops) if drops else None, len(drops),
             sum(1 for d in drops if d >= FULL_DROP),
             max(down) if down else None, max(up) if up else None,
             sum(powers) / len(powers) if powers else None, source,
@@ -304,10 +305,15 @@ def enqueue_sync(c: sqlite3.Connection | Database, entity: str, key: str, payloa
     )
 
 
-def apply_retention(db: Database, raw_days: int, minute_days: int) -> dict[str, int]:
+def apply_retention(db: Database, raw_days: int, minute_days: int, sensor_days: int = 30,
+                    log_days: int = 90) -> dict[str, int]:
+    """Apaga o que passou da retenção. Nada que ainda esteja em aberto (evento sem fim, alerta ativo,
+    notificação pendente, controle em andamento) é apagado."""
     now = now_ts()
     raw_cut = now - raw_days * 86400
     min_cut = now - minute_days * 86400
+    sensor_cut = now - sensor_days * 86400
+    log_cut = now - log_days * 86400
     out = {}
     with db.tx() as c:
         out["history_samples"] = c.execute("DELETE FROM history_samples WHERE ts < ?", (raw_cut,)).rowcount
@@ -318,5 +324,23 @@ def apply_retention(db: Database, raw_days: int, minute_days: int) -> dict[str, 
         out["obstruction"] = c.execute("DELETE FROM obstruction_snapshots WHERE ts < ?", (min_cut,)).rowcount
         out["sync_done"] = c.execute("DELETE FROM sync_queue WHERE synced_at IS NOT NULL AND synced_at < ?",
                                      (raw_cut,)).rowcount
+        # Pendentes cujo minuto de origem já saiu da retenção: não há mais o que reenviar.
+        out["sync_stale"] = c.execute("DELETE FROM sync_queue WHERE synced_at IS NULL AND created_at < ?",
+                                      (min_cut,)).rowcount
         out["sessions"] = c.execute("DELETE FROM sessions WHERE expires_at < ?", (now,)).rowcount
+        out["esp32_readings"] = c.execute("DELETE FROM esp32_sensor_readings WHERE received_at < ?",
+                                          (sensor_cut,)).rowcount
+        out["notifications"] = c.execute(
+            "DELETE FROM notification_outbox WHERE (sent_at IS NOT NULL OR failed_at IS NOT NULL) AND created_at < ?",
+            (log_cut,)).rowcount
+        out["alert_events"] = c.execute("DELETE FROM alert_events WHERE status = 'resolved' AND resolved_at < ?",
+                                        (log_cut,)).rowcount
+        out["connection_events"] = c.execute(
+            "DELETE FROM connection_events WHERE end_ts IS NOT NULL AND end_ts < ?", (min_cut,)).rowcount
+        out["observation_gaps"] = c.execute(
+            "DELETE FROM observation_gaps WHERE end_ts IS NOT NULL AND end_ts < ?", (min_cut,)).rowcount
+        out["control_requests"] = c.execute(
+            "DELETE FROM control_requests WHERE status NOT IN ('pending', 'executing') AND created_at < ?",
+            (min_cut,)).rowcount
+        out["control_audit"] = c.execute("DELETE FROM control_audit_logs WHERE ts < ?", (min_cut,)).rowcount
     return out

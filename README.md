@@ -17,8 +17,19 @@ Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/ao-vivo.png" alt="Tela Ao Vivo do ASTRYON" width="900">
+  <img src="docs/screenshots/ao-vivo.webp" alt="Tela Ao Vivo do ASTRYON em funcionamento" width="900"><br>
+  <sub>Tela Ao Vivo na demonstração (dados fictícios, acelerada 4×).</sub>
 </p>
+
+## Início rápido
+
+```bash
+git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/orbitlink && cd ~/orbitlink
+sudo bash deploy/linux/install.sh
+sudo cat /etc/orbitlink/setup-code   # abra https://IP-DO-SERVIDOR/ e crie o administrador
+```
+
+Pronto: o agente passa a ler a sua antena. No Windows, veja [Instalação](#instalação). Sem antena por perto, abra `/demo`.
 
 > **ASTRYON** é o nome do painel. O repositório, os pacotes, as variáveis `ORBITLINK_*` e os serviços
 > `orbitlink-*` mantêm o nome técnico **OrbitLink**.
@@ -29,6 +40,7 @@ Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
 
 ## Sumário
 
+- [Por que o ASTRYON?](#por-que-o-astryon)
 - [O que ele faz](#o-que-ele-faz)
 - [Telas](#telas)
 - [Princípios](#princípios)
@@ -36,8 +48,24 @@ Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
 - [Telegram e IA](#telegram-e-ia)
 - [Arquitetura](#arquitetura)
 - [Estado do projeto](#estado-do-projeto)
+- [Roteiro](#roteiro)
+- [Perguntas frequentes](#perguntas-frequentes)
 - [Desenvolvimento](#desenvolvimento)
 - [Documentação](#documentação)
+
+## Por que o ASTRYON?
+
+O app oficial da Starlink mostra como a antena está agora. O ASTRYON guarda tudo o que a antena reporta,
+segundo a segundo, e transforma isso em histórico, alertas e respostas.
+
+| | O que você ganha |
+|---|---|
+| 🗂️ **Histórico seu** | Amostras de 1 s guardadas no seu computador, com agregados por minuto mantidos por mais de um ano. |
+| 🌙 **Quedas de madrugada** | Cada interrupção fica registrada com horário e duração (e a causa, quando a antena informa), mesmo com ninguém olhando. |
+| 📦 **Franquia sob controle** | Consumo do ciclo, projeção do mês e aviso no Telegram em 80% e 100% do plano. |
+| 📲 **Avisos no celular** | Alertas, resumo semanal e consultas por comando no Telegram, sem abrir o painel. |
+| 🗣️ **Pergunte em português** | "Minha internet ficou ruim ontem à noite?" Resposta com período, fonte e incerteza. |
+| 🔒 **Dados com você** | Tudo roda na sua rede. Nada sai sem você configurar, e a nuvem é opcional. |
 
 ## O que ele faz
 
@@ -177,6 +205,64 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 | Firmware ESP32 | Compila (`esp32dev` e `esp32dev_sensors`). Ainda não gravado em placa. |
 | Implantação Linux | 51 testes dos scripts e instalação real num Ubuntu 24.04 limpo no CI. |
 | Painel remoto via Supabase | Não implementado: a nuvem recebe os dados, mas o painel lê só o agente local. |
+
+## Roteiro
+
+- [x] Coleta gRPC por reflection, histórico de 1 s e agregados por minuto
+- [x] Painel ASTRYON com Ao Vivo, Consumo, Qualidade, Antena, Obstruções, Eventos e Relatórios
+- [x] Alertas com fila de reenvio, bot do Telegram e resumo semanal
+- [x] Central de IA (Groq) e notas de voz transcritas pelo Whisper
+- [x] Instalação no Ubuntu com systemd, Nginx e UFW, testada no CI
+- [ ] Validação numa Starlink Mini real
+- [ ] Nó ESP32 gravado e testado numa placa
+- [ ] Painel remoto lendo os dados sincronizados no Supabase
+- [ ] Instalador `.exe` para Windows com ícone na bandeja
+
+## Perguntas frequentes
+
+<details>
+<summary><b>Funciona com outras antenas além da Mini?</b></summary>
+<br>
+O agente lê a API local gRPC que as antenas Starlink expõem em <code>192.168.100.1:9200</code> e descobre em tempo de
+execução quais chamadas o firmware oferece. O projeto foi feito e testado para a Mini; em outros modelos, o que o
+firmware não informar aparece como indisponível. Detalhes em <a href="docs/STARLINK_COMPATIBILITY.md">STARLINK_COMPATIBILITY.md</a>.
+</details>
+
+<details>
+<summary><b>Preciso de um servidor ligado o tempo todo?</b></summary>
+<br>
+Para monitorar 24 horas, sim: qualquer mini PC ou computador antigo com Ubuntu serve. No Windows, o monitoramento
+acontece enquanto o computador estiver ligado.
+</details>
+
+<details>
+<summary><b>Meus dados vão para algum lugar?</b></summary>
+<br>
+Não por padrão. Tudo fica no SQLite local. Só sai alguma coisa se você ativar o Telegram, a IA da Groq (a pergunta e
+os dados necessários para respondê-la), as respostas em voz do bot (o texto da resposta vai ao serviço de voz da
+Microsoft) ou a sincronização com o seu próprio projeto Supabase.
+</details>
+
+<details>
+<summary><b>Quanto custa?</b></summary>
+<br>
+O projeto não tem custo. Telegram é gratuito. A IA usa a sua própria chave da Groq, que tem plano gratuito; sem chave,
+o assistente responde por regras. Há cotas diárias configuráveis para texto e áudio.
+</details>
+
+<details>
+<summary><b>O consumo mostrado é o mesmo da fatura?</b></summary>
+<br>
+Não necessariamente. O consumo é estimado pelo tráfego que a antena reporta a cada segundo, e o painel deixa isso claro.
+Períodos sem observação ficam fora da conta. Para comparar, importe o CSV da sua conta Starlink.
+</details>
+
+<details>
+<summary><b>A IA pode reiniciar a minha antena?</b></summary>
+<br>
+Não. As ferramentas da IA são somente de leitura. Reiniciar exige um administrador, um código de uso único e fica
+registrado na auditoria.
+</details>
 
 ## Desenvolvimento
 

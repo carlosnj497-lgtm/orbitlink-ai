@@ -50,8 +50,11 @@ jobs:
           .venv/bin/pip install --quiet --no-deps -e .
           .venv/bin/pip check
       - name: Lock em dia com o pyproject.toml
+        # Parte do lock atual (como o `npm run lock:agent`): o uv mantém as versões travadas e só muda o que o
+        # pyproject.toml exige. Sem isso, cada versão nova publicada no PyPI quebrava o CI sem mudança no projeto.
         run: |
           pip install --quiet uv
+          cp requirements.lock /tmp/requirements.lock
           uv pip compile pyproject.toml --universal --python-version 3.12 --generate-hashes \
             --custom-compile-command "npm run lock:agent" --quiet -o /tmp/requirements.lock
           diff -u requirements.lock /tmp/requirements.lock \

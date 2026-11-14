@@ -325,6 +325,51 @@ export interface ObstructionResponse {
   trend: { t: number; obstruction_pct: number | null; obstructed_samples: number; n: number }[];
 }
 
+/** Clima (Open-Meteo): estimativa regional para correlacionar com a conexão, nunca causa. */
+export type RainLevel = "sem_chuva" | "fraca" | "moderada" | "forte" | "muito_forte";
+
+export interface WeatherReading {
+  temperature_c: number | null;
+  precipitation_mm: number | null;
+  rain_mm: number | null;
+  cloud_cover_pct: number | null;
+  wind_kmh: number | null;
+  gust_kmh: number | null;
+  weather_code: number | null;
+  rain_level: RainLevel | null;
+}
+
+export interface WeatherStatus {
+  enabled: boolean;
+  configured: boolean;
+  location: { name: string; latitude: number; longitude: number } | null;
+  current: (WeatherReading & { ts: number; fetched_at: number; is_day: boolean | null; stale: boolean }) | null;
+  last_ok_at: number | null;
+  last_error: string | null;
+  provider: string;
+  source: Source;
+  note: string;
+}
+
+export interface WeatherHour extends WeatherReading {
+  hour_ts: number;
+  is_forecast: boolean;
+}
+
+export interface WeatherHourly {
+  start: number;
+  end: number;
+  source: Source;
+  provider: string;
+  hours: WeatherHour[];
+}
+
+export interface GeocodeResult {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
 /** Payloads SSE validados no cliente. */
 export const sseAgentSchema = z.object({ version: z.string(), mode: z.string() }).passthrough();
 export const sseStatusSchema = z

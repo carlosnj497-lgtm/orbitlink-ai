@@ -1,13 +1,14 @@
 "use client";
 
-import type { Quality, Telemetry } from "@orbitlink/shared";
-import { Gauge, Info } from "lucide-react";
-import { useState } from "react";
+import type { Quality, Telemetry, WeatherHourly } from "@orbitlink/shared";
+import { CloudRain, Gauge, Info } from "lucide-react";
+import { useMemo, useState } from "react";
 import { TelemetryChart } from "@/components/charts";
 import { CoverageBar, MetricCard, PageHeader, QueryError, SourceBadge } from "@/components/domain";
 import { Card, CardBody, CardHeader, EmptyState, Skeleton, Tip } from "@/components/ui/primitives";
 import { useAgent } from "@/lib/api";
 import { fmtDuration, fmtNumber, fmtPct } from "@/lib/format";
+import { rainBands } from "@/lib/weather";
 import { GapNote, RangeTabs } from "./shared";
 
 /** Perda alta a partir deste valor (%): só aí a célula ganha o contorno vermelho de estado. */
@@ -24,7 +25,9 @@ export default function QualityView() {
   const [range, setRange] = useState("24h");
   const q = useAgent<Quality>(`quality?range=${range}`, { refetchInterval: 60_000 });
   const tel = useAgent<Telemetry>(`telemetry?range=${range}`, { refetchInterval: 60_000 });
+  const wx = useAgent<WeatherHourly>(`weather/hourly?range=${range}`, { refetchInterval: 15 * 60_000 });
   const d = q.data;
+  const rain = useMemo(() => (tel.data && wx.data ? rainBands(wx.data.hours, tel.data.start, tel.data.end) : []), [tel.data, wx.data]);
 
   return (
     <>
@@ -58,11 +61,18 @@ export default function QualityView() {
             <CardBody>
               {tel.isLoading && <Skeleton className="h-56 w-full" />}
               {tel.data && !tel.data.points.length && <EmptyState title="Sem amostras no período" />}
-              {tel.data && tel.data.points.length > 0 && <TelemetryChart points={tel.data.points} mode={mode} start={tel.data.start} end={tel.data.end} gaps={tel.data.gaps} height={220} />}
+              {tel.data && tel.data.points.length > 0 && <TelemetryChart points={tel.data.points} mode={mode} start={tel.data.start} end={tel.data.end} gaps={tel.data.gaps} rain={rain} height={220} />}
             </CardBody>
           </Card>
         ))}
       </div>
+
+      {rain.length > 0 && (
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-fg-subtle">
+          <CloudRain className="size-3.5 text-accent" aria-hidden />
+          Faixas azuis: horas com chuva estimada para a sua cidade (quanto mais forte, mais intensa). Mostram coincidência com a conexão, não causa.
+        </p>
+      )}
 
       <Card className="mt-4">
         <CardHeader title="Perda e latência por hora do dia" subtitle="Responde: quais horários têm mais perda? (America/Fortaleza)" icon={<Info />} />

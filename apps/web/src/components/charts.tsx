@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import { memo, useEffect, useRef } from "react";
 import { chartTick, fmtBytesStr, fmtDateTime, fmtNumber } from "@/lib/format";
+import { RAIN_META, type RainBand } from "@/lib/weather";
 
 export type SeriesMode = "traffic" | "latency" | "loss" | "power";
 
@@ -49,6 +50,7 @@ function TelemetryChartImpl({
   start,
   end,
   gaps = [],
+  rain = [],
   height = 260,
   hideDown = false,
   hideUp = false,
@@ -59,6 +61,8 @@ function TelemetryChartImpl({
   start: number;
   end: number;
   gaps?: Gap[];
+  /** Faixas de chuva (clima estimado) atrás das séries: mostram coincidência, não causa. */
+  rain?: RainBand[];
   height?: number;
   /** Legenda interativa do modo tráfego: oculta a série sem recriar o gráfico. */
   hideDown?: boolean;
@@ -77,6 +81,9 @@ function TelemetryChartImpl({
       stroke="none"
       ifOverflow="hidden"
     />
+  ));
+  const rainAreas = rain.map((r, i) => (
+    <ReferenceArea key={`rain-${i}`} x1={r.start} x2={r.end} fill="var(--chart-rain, rgb(56 189 248))" fillOpacity={RAIN_META[r.level].opacity} stroke="none" ifOverflow="hidden" />
   ));
   const common = {
     data: points,
@@ -122,6 +129,7 @@ function TelemetryChartImpl({
             {xAxis}
             <YAxis {...AXIS} width={44} tickFormatter={(v: number) => fmtNumber(v, 0)} />
             <Tooltip content={<TooltipBox unit="Mbps" />} cursor={{ stroke: "var(--accent-2)", strokeOpacity: 0.6, strokeDasharray: "3 3" }} />
+            {rainAreas}
             {gapAreas}
             <Area hide={hideDown} name="Download" type="monotone" dataKey="down_mbps" stroke="var(--chart-down)" strokeWidth={1.4} fill="url(#g-down)" connectNulls={false} isAnimationActive={false} />
             <Area hide={hideUp} name="Upload" type="monotone" dataKey="up_mbps" stroke="var(--chart-up)" strokeOpacity={0.85} strokeWidth={1.1} fill="url(#g-up)" connectNulls={false} isAnimationActive={false} />
@@ -133,6 +141,7 @@ function TelemetryChartImpl({
             {xAxis}
             <YAxis {...AXIS} width={44} tickFormatter={(v: number) => fmtNumber(v, 0)} />
             <Tooltip content={<TooltipBox unit={mode === "latency" ? "ms" : mode === "loss" ? "%" : "W"} />} cursor={{ stroke: "var(--accent-2)", strokeOpacity: 0.6, strokeDasharray: "3 3" }} />
+            {rainAreas}
             {gapAreas}
             <Line
               name={mode === "latency" ? "Latência PoP" : mode === "loss" ? "Perda de ping" : "Potência"}

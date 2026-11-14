@@ -13,6 +13,9 @@ import type {
   UsagePlan,
   UsageSeries,
   UsageSummary,
+  WeatherHour,
+  WeatherHourly,
+  WeatherStatus,
 } from "@orbitlink/shared";
 
 function rng(seed: number) {
@@ -199,6 +202,50 @@ const capabilities = (): { checked_at: number; capabilities: Capability[] } => {
   return { checked_at: now() - 600, capabilities: [c("dish.status", "Status da antena", "verificada"), c("dish.history", "Histórico", "verificada"), c("dish.obstruction_map", "Mapa de obstrução", "verificada"), c("dish.diagnostics", "Diagnóstico oficial", "nao_implementada"), c("dish.reboot", "Reiniciar antena", "schema_presente", "controle"), c("history.power", "Potência (W)", "verificada")] };
 };
 
+/* Clima fictício: pancadas de chuva no fim da tarde em alguns dias, coerentes com as perdas das 19h–22h. */
+function demoWeatherHour(t: number): WeatherHour {
+  const day = Math.floor((t - 3 * 3600) / 86400);
+  const h = ((t / 3600 - 3) % 24 + 24) % 24;
+  const r = rng(day * 7919)();
+  const rainy = r < 0.55 && h >= 18 && h <= 21;
+  const mm = rainy ? Math.round((h === 19 || h === 20 ? 6 + r * 18 : 1 + r * 3) * 10) / 10 : 0;
+  const level: WeatherHour["rain_level"] = mm < 0.1 ? "sem_chuva" : mm < 2.5 ? "fraca" : mm < 7.6 ? "moderada" : mm < 50 ? "forte" : "muito_forte";
+  return {
+    hour_ts: t,
+    temperature_c: Math.round((24 + 6 * Math.sin(((h - 9) / 24) * 2 * Math.PI)) * 10) / 10,
+    precipitation_mm: mm,
+    rain_mm: mm,
+    cloud_cover_pct: rainy ? 95 : h >= 15 ? 60 : 30,
+    wind_kmh: rainy ? 28 : 12,
+    gust_kmh: rainy ? 55 : 22,
+    weather_code: mm >= 7.6 ? 95 : mm > 0 ? 61 : h >= 15 ? 2 : 1,
+    rain_level: level,
+    is_forecast: t > now(),
+  };
+}
+
+function demoWeatherHourly(q: URLSearchParams): WeatherHourly {
+  const [s, e] = rangeOf(q, "24h");
+  const hours: WeatherHour[] = [];
+  for (let t = Math.floor(s / 3600) * 3600; t < Math.max(e, now() + 7 * 3600); t += 3600) hours.push(demoWeatherHour(t));
+  return { start: s, end: e, source: "demonstracao", provider: "Open-Meteo", hours };
+}
+
+function demoWeather(): WeatherStatus {
+  const h = demoWeatherHour(Math.floor(now() / 3600) * 3600);
+  return {
+    enabled: true,
+    configured: true,
+    location: { name: "Cidade de demonstração", latitude: 0, longitude: 0 },
+    current: { ...h, ts: now() - 300, fetched_at: now() - 300, is_day: ((now() / 3600 - 3) % 24 + 24) % 24 < 18, stale: false },
+    last_ok_at: now() - 300,
+    last_error: null,
+    provider: "Open-Meteo",
+    source: "demonstracao",
+    note: "Demonstração: clima fictício.",
+  };
+}
+
 export async function demoFetch(path: string): Promise<unknown> {
   const [base, qs] = path.split("?");
   const q = new URLSearchParams(qs ?? "");
@@ -248,6 +295,8 @@ export async function demoFetch(path: string): Promise<unknown> {
         retention_raw_days: 7, retention_minute_days: 400,
         ai_model: "openai/gpt-oss-120b", ai_conversation_retention_days: 30,
       };
+    case "weather": return demoWeather();
+    case "weather/hourly": return demoWeatherHourly(q);
     case "esp32/nodes": return { nodes: [] };
     case "devices": return { source: "indisponivel", reason: "Demonstração: nenhuma fonte de dispositivos.", devices: [] };
     default: return {};

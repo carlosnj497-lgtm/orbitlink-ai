@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { type SeriesMode, TelemetryChart } from "@/components/charts";
 import { CoverageBar, PageHeader, QueryError, SourceBadge } from "@/components/domain";
+import { WeatherCard } from "@/components/weather";
 import { hrefOf } from "@/components/shell/nav";
 import { Callout, Card, CardBody, CardHeader, EmptyState, Skeleton, Tabs } from "@/components/ui/primitives";
 import { useAgent, useStatusInterval } from "@/lib/api";
@@ -251,7 +252,8 @@ export default function OverviewView() {
           <EventsCard events={events.data} />
         </div>
 
-        <DiagnosticsCard className="md:col-span-6 min-[105rem]:col-span-7" />
+        <DiagnosticsCard className="md:col-span-6 xl:col-span-4 min-[105rem]:col-span-5" />
+        <WeatherCard className="md:col-span-6 xl:col-span-2 min-[105rem]:col-span-2" />
         <ServicesCard agent={agent.data} agentError={agent.error} className="md:col-span-6 min-[105rem]:col-span-7" />
       </div>
     </>

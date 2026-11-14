@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BellRing,
   Cable,
+  CloudSun,
   Database,
   Gauge,
   Info,
@@ -20,6 +21,7 @@ import {
 import Link from "next/link";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { PageHeader, QueryError } from "@/components/domain";
+import { WeatherLocationForm } from "@/components/weather";
 import { hrefOf } from "@/components/shell/nav";
 import { Badge, Button, Callout, Card, Input, Label, Skeleton, Switch } from "@/components/ui/primitives";
 import { api, ApiError, useAgent } from "@/lib/api";
@@ -56,6 +58,7 @@ interface SyncState {
 const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "geral", label: "Geral", icon: SlidersHorizontal },
   { id: "plano", label: "Plano de internet", icon: Gauge },
+  { id: "clima", label: "Clima", icon: CloudSun },
   { id: "notificacoes", label: "Notificações", icon: BellRing },
   { id: "ia", label: "Central de IA", icon: Sparkles },
   { id: "coleta", label: "Coleta e dados", icon: Database },
@@ -387,6 +390,16 @@ function SettingsBody({ d }: { d: SettingsData }) {
             )}
           </div>
         </div>
+
+        {/* ---------------------------------------------------------- Clima */}
+        <Section
+          id="clima"
+          title="Clima"
+          icon={CloudSun}
+          description="Escolha a cidade da antena para ver o clima no Dashboard e marcar nos gráficos e eventos quando a conexão oscilou com chuva. Vale na hora."
+        >
+          <WeatherLocationForm />
+        </Section>
 
         {/* ---------------------------------------------------------- Notificações */}
         <Section id="notificacoes" title="Notificações e resumo semanal" icon={BellRing} description="Para onde os alertas vão e quando sai o resumo da semana. Regras, testes e horários são ajustados em Alertas." actions={<ManageLink slug="alertas">Gerenciar em Alertas</ManageLink>}>

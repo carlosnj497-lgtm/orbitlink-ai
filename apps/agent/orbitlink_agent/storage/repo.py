@@ -342,5 +342,6 @@ def apply_retention(db: Database, raw_days: int, minute_days: int, sensor_days: 
         out["control_requests"] = c.execute(
             "DELETE FROM control_requests WHERE status NOT IN ('pending', 'executing') AND created_at < ?",
             (min_cut,)).rowcount
+        out["weather"] = c.execute("DELETE FROM weather_hourly WHERE hour_ts < ?", (min_cut,)).rowcount
         out["control_audit"] = c.execute("DELETE FROM control_audit_logs WHERE ts < ?", (min_cut,)).rowcount
     return out

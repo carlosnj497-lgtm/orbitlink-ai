@@ -1,12 +1,13 @@
 "use client";
 
-import type { ConnectionEvent, EventsResponse } from "@orbitlink/shared";
-import { Download, Unplug } from "lucide-react";
+import type { ConnectionEvent, EventsResponse, WeatherHourly, WeatherStatus } from "@orbitlink/shared";
+import { CloudRain, Download, Unplug } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PageHeader, QueryError } from "@/components/domain";
 import { Badge, Button, Card, CardBody, CardHeader, EmptyState, Select, Skeleton } from "@/components/ui/primitives";
 import { useAgent } from "@/lib/api";
 import { fmtDateTime, fmtDuration } from "@/lib/format";
+import { weatherAt, weatherNote } from "@/lib/weather";
 import { downloadCsv } from "./live";
 import { CONFIDENCE_META, EVENT_META, RangeTabs } from "./shared";
 
@@ -39,7 +40,11 @@ export default function OutagesView() {
   const [range, setRange] = useState("7d");
   const [kind, setKind] = useState("");
   const q = useAgent<EventsResponse>(`events?range=${range}${kind ? `&kind=${kind}` : ""}&limit=1000`, { refetchInterval: 60_000 });
+  const wxStatus = useAgent<WeatherStatus>("weather");
+  const wxOn = wxStatus.data?.configured ?? false;
+  const wx = useAgent<WeatherHourly>(wxOn ? `weather/hourly?range=${range}` : null, { refetchInterval: 15 * 60_000 });
   const d = q.data;
+  const wxNote = (e: ConnectionEvent) => (wx.data ? weatherNote(weatherAt(wx.data.hours, e.start_ts)) : null);
   const totals = useMemo(() => {
     const t: Record<string, { n: number; s: number }> = {};
     for (const e of d?.events ?? []) {
@@ -71,7 +76,7 @@ export default function OutagesView() {
               size="sm"
               disabled={!d?.events.length}
               onClick={() =>
-                downloadCsv(`orbitlink-eventos-${range}.csv`, ["inicio_utc", "inicio_local", "fim_utc", "duracao_s", "tipo", "causa", "confianca"], d!.events.map((e) => [new Date(e.start_ts * 1000).toISOString(), fmtDateTime(e.start_ts), e.end_ts ? new Date(e.end_ts * 1000).toISOString() : "", e.duration_s, e.kind, e.cause, e.confidence]))
+                downloadCsv(`orbitlink-eventos-${range}.csv`, ["inicio_utc", "inicio_local", "fim_utc", "duracao_s", "tipo", "causa", "confianca", "clima_na_hora_estimado"], d!.events.map((e) => [new Date(e.start_ts * 1000).toISOString(), fmtDateTime(e.start_ts), e.end_ts ? new Date(e.end_ts * 1000).toISOString() : "", e.duration_s, e.kind, e.cause, e.confidence, wxNote(e) ?? ""]))
               }
             >
               <Download /> CSV
@@ -107,6 +112,7 @@ export default function OutagesView() {
                     <th className="py-2 pr-3 font-medium">Tipo</th>
                     <th className="py-2 pr-3 font-medium">Causa informada</th>
                     <th className="py-2 pr-3 font-medium">Confiança</th>
+                    {wxOn && <th className="py-2 pr-3 font-medium">Clima na hora</th>}
                     <th className="py-2 font-medium">Evidência</th>
                   </tr>
                 </thead>
@@ -122,6 +128,18 @@ export default function OutagesView() {
                           {e.confidence}
                         </Badge>
                       </td>
+                      {wxOn && (
+                        <td className="py-2 pr-3 text-xs">
+                          {wxNote(e) ? (
+                            <span className="inline-flex items-start gap-1 text-accent" title="Estimativa regional do clima naquela hora. Coincidência, não causa.">
+                              <CloudRain className="mt-px size-3.5 shrink-0" aria-hidden />
+                              {wxNote(e)}
+                            </span>
+                          ) : (
+                            <span className="text-fg-subtle">{wx.data && weatherAt(wx.data.hours, e.start_ts) ? "sem chuva relevante" : "—"}</span>
+                          )}
+                        </td>
+                      )}
                       <td className="py-2">
                         <details>
                           <summary className="cursor-pointer text-xs text-accent">ver</summary>

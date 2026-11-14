@@ -111,6 +111,14 @@ class Settings(BaseSettings):
     # Tamanho máximo aceito por nota de voz (o Telegram envia Opus em .ogg).
     ai_audio_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1024)
 
+    # Clima (opcional, Open-Meteo, sem chave). Só para correlacionar com a conexão: é estimativa regional.
+    # A localização também pode ser definida em Configurações (tem prioridade). Sem localização, nada é buscado.
+    weather_enabled: bool = True
+    weather_location_name: str | None = None
+    weather_latitude: float | None = Field(default=None, ge=-90, le=90)
+    weather_longitude: float | None = Field(default=None, ge=-180, le=180)
+    weather_interval_s: float = Field(default=1800, ge=600, le=21600)
+
     # Exibição
     timezone: str = "America/Fortaleza"
     terminal_name: str = "Starlink Mini"

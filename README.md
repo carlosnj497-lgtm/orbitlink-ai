@@ -26,7 +26,7 @@ Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
 ```bash
 git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/orbitlink && cd ~/orbitlink
 sudo bash deploy/linux/install.sh
-sudo cat /etc/orbitlink/setup-code   # abra https://IP-DO-SERVIDOR/ e crie o administrador
+sudo cat /etc/orbitlink/setup-code   # abra https://SEU-IP/ e crie o administrador
 ```
 
 Pronto: o agente passa a ler a sua antena. No Windows, veja [Instalação](#instalação). Sem antena por perto, abra `/demo`.
@@ -122,7 +122,7 @@ Todas as capturas vêm da rota `/demo`, com dados fictícios e a faixa de demons
 
 ## Instalação
 
-**Pré-requisitos:** Python 3.11+ e Node.js 20+ (LTS). Antena na mesma rede (`192.168.100.1`).
+**Pré-requisitos:** Python 3.11+ e Node.js 20+ (LTS). Computador na mesma rede da antena (o agente precisa alcançar o IP local dela).
 
 ### Servidor Linux (Ubuntu Server 24.04 LTS), recomendado
 
@@ -132,7 +132,7 @@ sudo bash deploy/linux/install.sh        # systemd + Nginx (TLS) + UFW
 sudo cat /etc/orbitlink/setup-code       # código para criar o 1º administrador
 ```
 
-Depois abra `https://IP-DO-SERVIDOR/` e crie o administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
+Depois abra `https://SEU-IP/` (o IP do servidor na sua rede) e crie o administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
 
 ```bash
 sudo orbitlinkctl status | logs agent -f | diagnose | doctor | restart | update --git-pull | rollback | backup
@@ -148,7 +148,7 @@ powershell -ExecutionPolicy Bypass -File scripts\diagnose.ps1   # rede + antena 
 powershell -ExecutionPolicy Bypass -File scripts\start.ps1      # agente :8787 + painel :3000
 ```
 
-Abra <http://127.0.0.1:3000> e crie o administrador. Para parar: `scripts\stop.ps1`. Guia: [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
+Abra `http://localhost:3000` no próprio PC e crie o administrador. Para parar: `scripts\stop.ps1`. Guia: [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
 
 > Sem antena por perto? Abra `/demo` para ver o painel com dados fictícios.
 
@@ -172,11 +172,11 @@ Consultas por comando não gastam IA. Perguntas em texto ou voz usam a cota diá
 ## Arquitetura
 
 ```
- Navegador ──HTTPS──▶ Nginx ──▶ Painel Next.js (127.0.0.1:3000)
+ Navegador ──HTTPS──▶ Nginx ──▶ Painel Next.js (local, porta 3000)
                                   │  /api/auth/*   login → cookie httpOnly, SameSite=Strict
                                   │  /api/agent/*  proxy autenticado (+ SSE), token nunca vai ao navegador
                                   ▼
-                       Agente FastAPI (127.0.0.1:8787) ──gRPC──▶ Starlink Mini (192.168.100.1:9200)
+                       Agente FastAPI (local, porta 8787) ──gRPC──▶ Starlink Mini (IP da antena, porta 9200)
                          ├─ Coletor (status 10 s · histórico 30 s · obstrução 5 min)
                          ├─ SQLite WAL + migrações + retenção automática
                          ├─ Alertas · Diagnóstico por regras · Relatórios · Controle auditado
@@ -228,7 +228,7 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 <details>
 <summary><b>Funciona com outras antenas além da Mini?</b></summary>
 <br>
-O agente lê a API local gRPC que as antenas Starlink expõem em <code>192.168.100.1:9200</code> e descobre em tempo de
+O agente lê a API local gRPC que as antenas Starlink expõem na rede local (IP da antena, porta 9200) e descobre em tempo de
 execução quais chamadas o firmware oferece. O projeto foi feito e testado para a Mini; em outros modelos, o que o
 firmware não informar aparece como indisponível. Detalhes em <a href="docs/STARLINK_COMPATIBILITY.md">STARLINK_COMPATIBILITY.md</a>.
 </details>

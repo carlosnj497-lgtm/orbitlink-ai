@@ -1,11 +1,12 @@
 "use client";
 
 import { Eye, LogIn, ShieldCheck } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
-import { Logo } from "@/components/shell/AppShell";
 import { Button, Callout, Card, Input, Label } from "@/components/ui/primitives";
+import { safeNext } from "@/lib/safe-next";
 
 type AuthState = { setup_required: boolean; setup_code_required?: boolean; supabase_configured: boolean } | { detail: string };
 
@@ -22,7 +23,7 @@ export function LoginForm() {
   useEffect(() => {
     fetch("/api/auth/state")
       .then(async (r) => setState(await r.json()))
-      .catch(() => setState({ detail: "Agente OrbitLink offline. Inicie com scripts\\start.ps1." }));
+      .catch(() => setState({ detail: "Agente ASTRYON offline. Inicie com scripts\\start.ps1." }));
   }, []);
 
   const setup = state && "setup_required" in state && state.setup_required;
@@ -52,20 +53,20 @@ export function LoginForm() {
       setError(typeof body.detail === "string" ? body.detail : "Falha na autenticação.");
       return;
     }
-    const next = params.get("next");
-    window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    window.location.href = safeNext(params.get("next"), window.location.origin);
   }
 
   return (
     <div className="w-full max-w-sm">
-      <div className="mb-6 flex items-center gap-3">
-        <Logo className="size-10" />
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">OrbitLink AI</h1>
-          <p className="text-xs text-fg-subtle">Painel local da sua Starlink Mini</p>
-        </div>
+      <div className="mb-5 flex flex-col items-center text-center">
+        {/* Antena e logo: imagens enviadas pelo dono (fundo transparente). */}
+        <Image src="/dish-login.webp" alt="" width={338} height={420} unoptimized preload className="h-28 w-auto drop-shadow-[0_10px_24px_rgba(0,0,0,0.7)] sm:h-32" />
+        <h1 className="mt-3">
+          <Image src="/astryon-logo.webp" alt="ASTRYON — Space Systems" width={800} height={298} unoptimized preload className="h-auto w-56 sm:w-64" />
+        </h1>
+        <p className="sr-only">Painel local da sua Starlink Mini</p>
       </div>
-      <Card className="p-5">
+      <Card className="ol-glow ol-hud p-6">
         <h2 className="text-base font-semibold">{setup ? "Criar administrador local" : "Entrar"}</h2>
         <p className="mt-1 text-sm text-fg-muted">
           {setup
@@ -111,11 +112,11 @@ export function LoginForm() {
           </Button>
         </form>
       </Card>
-      <div className="mt-4 flex items-center justify-between text-xs text-fg-subtle">
+      <div className="mt-4 flex items-center justify-center text-xs text-fg-subtle">
         <Link href="/demo" className="inline-flex items-center gap-1 hover:text-fg">
           <Eye className="size-3.5" /> Ver demonstração (dados fictícios)
         </Link>
-        <span>Sem afiliação com a Starlink/SpaceX</span>
+        <span className="sr-only">Sem afiliação com a Starlink/SpaceX</span>
       </div>
     </div>
   );

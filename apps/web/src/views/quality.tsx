@@ -10,10 +10,14 @@ import { useAgent } from "@/lib/api";
 import { fmtDuration, fmtNumber, fmtPct } from "@/lib/format";
 import { GapNote, RangeTabs } from "./shared";
 
-function heat(v: number | null, max: number) {
+/** Perda alta a partir deste valor (%): só aí a célula ganha o contorno vermelho de estado. */
+const HIGH_LOSS = 2;
+
+/** Intensidade em azul por escala absoluta (0–5%): uma hora com 0,1% de perda não pode parecer um problema. */
+function heat(v: number | null) {
   if (v === null) return "var(--surface-2)";
-  const k = Math.min(1, v / Math.max(max, 0.001));
-  return `rgb(248 113 113 / ${0.1 + k * 0.8})`;
+  const k = Math.min(1, v / 5);
+  return `rgb(0 140 255 / ${0.06 + k * 0.74})`;
 }
 
 export default function QualityView() {
@@ -21,7 +25,6 @@ export default function QualityView() {
   const q = useAgent<Quality>(`quality?range=${range}`, { refetchInterval: 60_000 });
   const tel = useAgent<Telemetry>(`telemetry?range=${range}`, { refetchInterval: 60_000 });
   const d = q.data;
-  const maxLoss = Math.max(0.1, ...(d?.by_hour.map((h) => h.loss_pct ?? 0) ?? [0]));
 
   return (
     <>
@@ -48,7 +51,7 @@ export default function QualityView() {
         </div>
       )}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {(["latency", "loss"] as const).map((mode) => (
           <Card key={mode}>
             <CardHeader title={mode === "latency" ? "Latência até o PoP" : "Perda de ping ao PoP"} actions={tel.data && <SourceBadge source={tel.data.source} />} />
@@ -72,13 +75,13 @@ export default function QualityView() {
                 {d.by_hour.map((h) => (
                   <Tip key={h.hour} content={`${String(h.hour).padStart(2, "0")}h — perda ${fmtPct(h.loss_pct, 2)}, latência ${fmtNumber(h.latency_avg_ms, 1)} ms, observado ${fmtDuration(h.observed_seconds)}`}>
                     <div tabIndex={0} className="flex flex-col items-center gap-1">
-                      <div className="h-12 w-full rounded-sm border border-border" style={{ background: h.observed_seconds ? heat(h.loss_pct, maxLoss) : "repeating-linear-gradient(45deg,var(--surface-2) 0 3px,transparent 3px 6px)" }} />
+                      <div className={`h-12 w-full rounded-sm border ${h.loss_pct !== null && h.loss_pct >= HIGH_LOSS ? "border-crit" : "border-border"}`} style={{ background: h.observed_seconds ? heat(h.loss_pct) : "repeating-linear-gradient(45deg,var(--surface-2) 0 3px,transparent 3px 6px)" }} />
                       <span className="text-[10px] tabular text-fg-subtle">{h.hour}</span>
                     </div>
                   </Tip>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] text-fg-subtle">Cor mais intensa = maior perda média. Hachurado = hora sem observação.</p>
+              <p className="mt-2 text-[11px] text-fg-subtle">Azul mais intenso = maior perda média (escala fixa até 5%). Contorno vermelho = perda de 2% ou mais. Hachurado = hora sem observação.</p>
             </div>
           )}
         </CardBody>

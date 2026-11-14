@@ -44,7 +44,7 @@ export default function ReportsView() {
       <PageHeader title="Relatórios" icon={<FileText />} description="Exportações geradas no agente local a partir dos dados registrados. Toda exportação informa fonte, método e lacunas." actions={<RangeTabs value={range} onChange={setRange} options={[{ value: "24h", label: "24h" }, { value: "7d", label: "7d" }, { value: "30d", label: "30d" }, { value: "90d", label: "90d" }]} />} />
       {demo && <Callout tone="demo" className="mb-4">Exportações não estão disponíveis na demonstração.</Callout>}
       {err && <Callout tone="crit" className="mb-4">{err}</Callout>}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {FORMATS.map(({ fmt, icon: Icon, title, desc }) => (
           <Card key={fmt}>
             <CardHeader title={title} icon={<Icon />} />

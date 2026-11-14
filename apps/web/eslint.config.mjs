@@ -9,6 +9,10 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    // Builds paralelos (.next-verify, .next-antenna, backups do deploy): JS compilado, não código-fonte.
+    ".next-*/**",
+    ".impeccable/**",
+    "test-results/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

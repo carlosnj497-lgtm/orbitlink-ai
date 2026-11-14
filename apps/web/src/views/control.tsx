@@ -121,7 +121,7 @@ export default function ControlView() {
       <Callout tone="info" icon={<ShieldCheck />} className="mb-4">
         {actions.data?.policy ?? "Ações exigem administrador, confirmação com código de uso único e são auditadas."} A IA nunca executa ações.
       </Callout>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader title="Ações" />
           <CardBody className="space-y-3">

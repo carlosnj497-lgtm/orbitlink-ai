@@ -23,7 +23,7 @@ test.describe.serial("fluxos essenciais", () => {
 
   test("primeiro acesso, dashboard com origem identificada", async ({ page }) => {
     await login(page);
-    await expect(page.getByRole("heading", { name: "Visão Geral" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
     await expect(page.getByText("Agente em modo FIXTURE")).toBeVisible();
     await expect(page.getByText("Download agora")).toBeVisible();
     // modo fixture: todo número é marcado como demonstração

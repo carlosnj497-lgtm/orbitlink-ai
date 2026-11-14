@@ -1,41 +1,90 @@
 import {
   Activity,
-  BarChart3,
   BellRing,
-  Bot,
-  Cpu,
-  FileText,
-  Gauge,
-  LayoutDashboard,
+  ChartColumn,
+  House,
   MonitorSmartphone,
-  Radar,
+  SatelliteDish,
+  ScrollText,
   Settings,
-  SlidersHorizontal,
-  Unplug,
-  Wrench,
+  Sparkles,
+  TriangleAlert,
+  Wifi,
   type LucideIcon,
 } from "lucide-react";
+import type { Slug } from "@/views/slugs";
 
-export interface NavItem {
-  href: string;
+export interface NavPage {
+  slug: Slug;
+  /** Rótulo da aba dentro da seção. */
   label: string;
-  icon: LucideIcon;
-  group: "Monitorar" | "Analisar" | "Operar" | "Sistema";
 }
 
-export const NAV: NavItem[] = [
-  { href: "/", label: "Visão Geral", icon: LayoutDashboard, group: "Monitorar" },
-  { href: "/ao-vivo", label: "Monitoramento ao Vivo", icon: Activity, group: "Monitorar" },
-  { href: "/consumo", label: "Consumo de Internet", icon: BarChart3, group: "Analisar" },
-  { href: "/qualidade", label: "Qualidade da Conexão", icon: Gauge, group: "Analisar" },
-  { href: "/interrupcoes", label: "Interrupções", icon: Unplug, group: "Analisar" },
-  { href: "/obstrucoes", label: "Obstruções", icon: Radar, group: "Analisar" },
-  { href: "/dispositivos", label: "Dispositivos da Rede", icon: MonitorSmartphone, group: "Operar" },
-  { href: "/controle", label: "Controle da Starlink", icon: SlidersHorizontal, group: "Operar" },
-  { href: "/esp32", label: "Centro ESP32", icon: Cpu, group: "Operar" },
-  { href: "/assistente", label: "Assistente Claude AI", icon: Bot, group: "Operar" },
-  { href: "/alertas", label: "Alertas e Automações", icon: BellRing, group: "Sistema" },
-  { href: "/relatorios", label: "Relatórios", icon: FileText, group: "Sistema" },
-  { href: "/configuracoes", label: "Configurações", icon: Settings, group: "Sistema" },
-  { href: "/instalacao", label: "Assistente de Instalação", icon: Wrench, group: "Sistema" },
+/** Seção da barra lateral. A primeira página é a de entrada; as demais viram abas no topo da tela. */
+export interface NavSection {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  pages: NavPage[];
+  /** Mostra o contador de alertas ativos. */
+  alerts?: boolean;
+}
+
+export const SECTIONS: NavSection[] = [
+  { id: "dashboard", label: "Dashboard", icon: House, pages: [{ slug: "", label: "Dashboard" }] },
+  { id: "ia", label: "Central de IA", icon: Sparkles, pages: [{ slug: "assistente", label: "Central de IA" }] },
+  {
+    id: "conexao",
+    label: "Conexão e Internet",
+    icon: Wifi,
+    pages: [
+      { slug: "ao-vivo", label: "Ao vivo" },
+      { slug: "consumo", label: "Consumo" },
+      { slug: "qualidade", label: "Qualidade" },
+    ],
+  },
+  {
+    id: "antena",
+    label: "Antena e Sinal",
+    icon: SatelliteDish,
+    pages: [
+      { slug: "antena", label: "Estado" },
+      { slug: "controle", label: "Controle" },
+    ],
+  },
+  {
+    id: "dispositivos",
+    label: "Dispositivos",
+    icon: MonitorSmartphone,
+    pages: [
+      { slug: "dispositivos", label: "Rede" },
+      { slug: "esp32", label: "ESP32" },
+    ],
+  },
+  {
+    id: "diagnosticos",
+    label: "Diagnósticos",
+    icon: Activity,
+    pages: [
+      { slug: "diagnosticos", label: "Resumo" },
+      { slug: "instalacao", label: "Teste de conexão" },
+    ],
+  },
+  { id: "obstrucoes", label: "Obstruções", icon: TriangleAlert, pages: [{ slug: "obstrucoes", label: "Obstruções" }] },
+  { id: "logs", label: "Eventos", icon: ScrollText, pages: [{ slug: "interrupcoes", label: "Eventos" }] },
+  { id: "relatorios", label: "Relatórios", icon: ChartColumn, pages: [{ slug: "relatorios", label: "Relatórios" }] },
+  { id: "automacao", label: "Alertas", icon: BellRing, pages: [{ slug: "alertas", label: "Alertas" }], alerts: true },
+  { id: "configuracoes", label: "Configurações", icon: Settings, pages: [{ slug: "configuracoes", label: "Configurações" }] },
 ];
+
+/** Caminho (sem o prefixo /demo) → slug da tela. */
+export function slugOf(pathname: string, base: string): string {
+  const rest = base && pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
+  return rest.replace(/^\/+|\/+$/g, "");
+}
+
+export function sectionOf(slug: string): NavSection | undefined {
+  return SECTIONS.find((s) => s.pages.some((p) => p.slug === slug));
+}
+
+export const hrefOf = (base: string, slug: string) => `${base}/${slug}`.replace(/\/$/, "") || "/";

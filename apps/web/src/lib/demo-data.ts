@@ -218,6 +218,7 @@ export async function demoFetch(path: string): Promise<unknown> {
     case "alerts/events": return { events: [] };
     case "alerts/rules": return { rules: [] };
     case "alerts/kinds": return { kinds: {} };
+    case "alerts/digest": return { enabled: true, telegram: false, weekday: 0, hour: 8, next_at: null, last_period_end: null };
     case "alerts/notifications": return { channels: { webhook: false, telegram: false }, pending: 0, failed_24h: 0, last_sent_at: null, last_error: null };
     case "diagnostics/summary":
       return {
@@ -229,12 +230,24 @@ export async function demoFetch(path: string): Promise<unknown> {
           { severity: "info", kind: "hipotese", text: "Obstrução pode contribuir para as perdas noturnas (fictício).", evidence: "Correlação não comprova causa" },
         ],
       };
-    case "ai/status": return { configured: false, model: "—", daily_limit: 0, usage: [] };
+    case "ai/status":
+      return { configured: false, model: "—", daily_limit: 0, usage: [],
+               audio: { enabled: false, model: "—", daily_limit: 0, usage: [], pricing_usd_per_hour: null, telegram: false } };
     case "control/actions":
       return { policy: "Demonstração.", actions: [{ action: "reboot", label: "Reiniciar a antena", consequences: [], capability: capabilities().capabilities.find((c) => c.key === "dish.reboot"), enabled: true, reason: null }] };
     case "control/requests": return { requests: [], audit: [] };
     case "settings":
-      return { terminal_name: "Starlink Mini (demonstração)", show_mac_addresses: false, secrets_configured: { anthropic_api_key: false, api_token: true }, runtime_overrides: {}, dish_target: "demonstração" };
+      // Valores padrão do agente (config.py), só para a tela de Configurações ter o que mostrar na demonstração.
+      return {
+        terminal_name: "Starlink Mini (demonstração)", show_mac_addresses: false, runtime_overrides: {}, version: "demo",
+        secrets_configured: { api_token: true, groq_api_key: false, setup_code: false, supabase_agent_token: false, supabase_anon_key: false, telegram_bot_token: false, telegram_chat_id: false },
+        usage_monthly_limit_gb: 100, usage_cycle_start_day: 3, timezone: "America/Fortaleza",
+        dish_target: "demonstração", router_target: "192.168.1.1:9000", router_enabled: true, host: "127.0.0.1", port: 8787, allow_lan: false,
+        esp32_enabled: false, supabase_url: null, sync_interval_s: 60,
+        status_interval_s: 10, history_interval_s: 30, obstruction_interval_s: 300, capability_refresh_s: 3600, grpc_timeout_s: 5, degraded_drop_rate: 0.05,
+        retention_raw_days: 7, retention_minute_days: 400,
+        ai_model: "openai/gpt-oss-120b", ai_conversation_retention_days: 30,
+      };
     case "esp32/nodes": return { nodes: [] };
     case "devices": return { source: "indisponivel", reason: "Demonstração: nenhuma fonte de dispositivos.", devices: [] };
     default: return {};

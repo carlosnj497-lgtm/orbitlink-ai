@@ -5,11 +5,11 @@ import { Radar } from "lucide-react";
 import { ObstructionGrid } from "@/components/charts";
 import { CAP_META, MetricCard, PageHeader, QueryError, SourceBadge } from "@/components/domain";
 import { Badge, Card, CardBody, CardHeader, EmptyState, Skeleton } from "@/components/ui/primitives";
-import { useAgent } from "@/lib/api";
+import { useAgent, useStatusInterval } from "@/lib/api";
 import { fmtDateTime, fmtDuration, fmtPct } from "@/lib/format";
 
 export default function ObstructionsView() {
-  const status = useAgent<StatusResponse>("status", { refetchInterval: 30_000 });
+  const status = useAgent<StatusResponse>("status", { refetchInterval: useStatusInterval(30_000) });
   const q = useAgent<ObstructionResponse>("obstruction?range=7d", { refetchInterval: 300_000 });
   const m = status.data?.available ? status.data.status.metrics : undefined;
   const pct = typeof m?.obstruction_pct?.value === "number" ? m.obstruction_pct.value : null;
@@ -31,7 +31,7 @@ export default function ObstructionsView() {
         />
         <MetricCard label="Mapa de obstrução" value={cap ? CAP_META[cap.status].label : "—"} loading={!q.data} footer={cap?.detail ?? (cap ? undefined : "Matriz de capacidades ainda não verificada.")} />
       </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader title="Mapa do céu" actions={q.data?.map && <SourceBadge source={q.data.map.source} />} subtitle={q.data?.map ? `Capturado em ${fmtDateTime(q.data.map.ts)}` : undefined} />
           <CardBody className="flex flex-col items-center">

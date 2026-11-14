@@ -38,8 +38,8 @@ export default function SetupView() {
 
   return (
     <>
-      <PageHeader title="Assistente de Instalação" icon={<Wrench />} description="Verifica o ambiente, a rede e a antena real, e mostra a matriz de suporte detectada. Somente leitura: nada na sua rede é alterado." />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <PageHeader title="Teste de Conexão" icon={<Wrench />} description="Verifica o ambiente, a rede e a antena real, e mostra a matriz de suporte detectada. Somente leitura: nada na sua rede é alterado." />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader title="Checklist" />
           <CardBody>
@@ -50,7 +50,7 @@ export default function SetupView() {
               <Step ok={r ? r.summary.verified.includes("dish.history") : null} title="Histórico (get_history)" />
               <Step ok={r ? (routerProbe?.reachable ?? false) : null} title="Roteador Starlink (opcional)">{routerProbe && !routerProbe.reachable ? "Não encontrado — normal se usar roteador próprio ou bypass." : null}</Step>
               <Step ok={agent.data ? agent.data.supabase_configured : null} title="Supabase (opcional)">{agent.data && !agent.data.supabase_configured ? "Não configurado — o agente funciona só localmente." : null}</Step>
-              <Step ok={agent.data ? agent.data.ai_configured : null} title="Claude AI (opcional)">{agent.data && !agent.data.ai_configured ? "Sem chave — diagnóstico por regras." : null}</Step>
+              <Step ok={agent.data ? agent.data.ai_configured : null} title="Assistente IA via Groq (opcional)">{agent.data && !agent.data.ai_configured ? "Sem chave — diagnóstico por regras." : null}</Step>
             </ol>
             <Button className="mt-5" variant="primary" onClick={() => run.mutate()} loading={run.isPending} disabled={demo}>
               <PlayCircle /> Executar diagnóstico
@@ -79,7 +79,7 @@ export default function SetupView() {
               <Card>
                 <CardHeader title="Matriz de capacidades detectada" />
                 <CardBody>
-                  <ul className="grid gap-2 sm:grid-cols-2">
+                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {[...r.dish.capabilities, ...(r.router.capabilities ?? [])].map((c) => (
                       <li key={c.key} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
                         <span className="truncate">{c.label}</span>

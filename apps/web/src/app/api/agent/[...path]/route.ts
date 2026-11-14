@@ -11,7 +11,9 @@ const PATH_RE = /^[a-z0-9_\-/.]+$/i;
 async function handle(request: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
   const joined = path.join("/");
-  if (!PATH_RE.test(joined) || joined.includes("..") || BLOCKED_PREFIXES.some((p) => joined.startsWith(p))) {
+  // Segmentos "." ou ".." seriam normalizados pelo fetch (ex.: "./auth/x" -> "/v1/auth/x") e escapariam do bloqueio.
+  const dotSegment = path.some((s) => s === "" || /^\.+$/.test(s));
+  if (!PATH_RE.test(joined) || dotSegment || joined.includes("..") || BLOCKED_PREFIXES.some((p) => joined.startsWith(p))) {
     return NextResponse.json({ detail: "Rota não permitida" }, { status: 404 });
   }
   if (request.method !== "GET" && !sameOrigin(request)) {

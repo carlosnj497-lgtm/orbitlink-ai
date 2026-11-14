@@ -1,8 +1,8 @@
 "use client";
 
-import type { NotificationStatus } from "@orbitlink/shared";
+import type { DigestStatus, NotificationStatus } from "@orbitlink/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { BellOff, BellRing, Check, Plus, Send, Trash2 } from "lucide-react";
+import { BellOff, BellRing, CalendarClock, Check, Plus, Send, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { PageHeader, QueryError } from "@/components/domain";
 import { Badge, Button, Callout, Card, CardBody, CardHeader, Dialog, EmptyState, Input, Label, Select, Skeleton, Switch } from "@/components/ui/primitives";
@@ -72,6 +72,13 @@ function NotificationsCard() {
           </div>
         )}
         {d?.last_error && <p className="text-xs text-fg-subtle">Último erro ({d.last_error.channel}): {d.last_error.last_error}</p>}
+        {d?.telegram_chat?.enabled && (
+          <p className="text-sm text-fg-muted">
+            Perguntas pelo Telegram: <Badge tone={d.telegram_chat.last_error ? "warn" : "ok"}>{d.telegram_chat.last_error ? "com erro" : "ativo"}</Badge>
+            {" "}<span className="tabular">{d.telegram_chat.answered ?? 0} respondida(s) desde o início do agente.</span>
+            {d.telegram_chat.last_error && <span className="block text-xs text-fg-subtle">{d.telegram_chat.last_error}</span>}
+          </p>
+        )}
         {d && !any && (
           <Callout tone="info">
             Para receber no celular: crie um bot com o @BotFather no Telegram, envie uma mensagem a ele e defina ORBITLINK_TELEGRAM_BOT_TOKEN e ORBITLINK_TELEGRAM_CHAT_ID (o comando <code>orbitlinkctl telegram-chat-id</code> mostra o número). Depois reinicie o agente.
@@ -86,6 +93,58 @@ function NotificationsCard() {
     </Card>
   );
 }
+const WEEKDAYS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
+
+function DigestCard() {
+  const demo = useDemo();
+  const qc = useQueryClient();
+  const st = useAgent<DigestStatus>("alerts/digest", { refetchInterval: 60_000 });
+  const save = useMutation({
+    mutationFn: (body: Partial<{ weekly_digest_enabled: boolean; weekly_digest_weekday: number; weekly_digest_hour: number }>) =>
+      api("settings", { method: "PUT", body: JSON.stringify(body) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent", "alerts/digest"] }),
+  });
+  const send = useMutation({ mutationFn: () => api<{ ok: boolean; error?: string }>("alerts/digest/send", { method: "POST" }) });
+  const d = st.data;
+  const off = demo || !d?.telegram || save.isPending;
+  return (
+    <Card className="mb-4">
+      <CardHeader
+        title="Resumo semanal"
+        icon={<CalendarClock />}
+        subtitle="Consumo, disponibilidade, quedas, pior horário e franquia da semana, pelo Telegram. No bot, /resumo mostra os últimos 7 dias a qualquer hora."
+        actions={<Button size="sm" variant="secondary" disabled={off} loading={send.isPending} onClick={() => send.mutate()}><Send /> Enviar agora</Button>}
+      />
+      <CardBody className="space-y-3">
+        {st.error && <QueryError error={st.error} />}
+        {!d && !st.error && <Skeleton className="h-10 w-full" />}
+        {d && (
+          <div className="flex flex-wrap items-end gap-x-5 gap-y-3 text-sm">
+            <Switch label="Enviar toda semana" checked={d.enabled} disabled={off} onCheckedChange={(v) => save.mutate({ weekly_digest_enabled: v })} />
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="digest-weekday">Dia</Label>
+              <Select id="digest-weekday" value={d.weekday} disabled={off || !d.enabled} onChange={(e) => save.mutate({ weekly_digest_weekday: Number(e.target.value) })}>
+                {WEEKDAYS.map((w, i) => <option key={w} value={i}>{w}</option>)}
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="digest-hour">Hora</Label>
+              <Select id="digest-hour" value={d.hour} disabled={off || !d.enabled} onChange={(e) => save.mutate({ weekly_digest_hour: Number(e.target.value) })}>
+                {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, "0")}h</option>)}
+              </Select>
+            </div>
+            {d.next_at && <span className="text-xs text-fg-subtle tabular">Próximo envio: {fmtDateTime(d.next_at)}</span>}
+          </div>
+        )}
+        {d && !d.telegram && <Callout tone="info">O resumo sai só pelo Telegram. Configure o bot (veja Notificações acima) para ativar.</Callout>}
+        {save.error && <Callout tone="crit">{(save.error as ApiError).message}</Callout>}
+        {send.data && <Callout tone={send.data.ok ? "ok" : "crit"}>{send.data.ok ? "Resumo dos últimos 7 dias enviado. Confira no Telegram." : `Falha no envio: ${send.data.error}`}</Callout>}
+        {send.error && <Callout tone="crit">{(send.error as ApiError).message}</Callout>}
+      </CardBody>
+    </Card>
+  );
+}
+
 const EMPTY = { name: "", kind: "latency_high", threshold: 100, min_duration_s: 300, window_s: 300, severity: "warn", cooldown_s: 900, hysteresis: 0.1, enabled: true };
 
 function RuleDialog({ open, onClose, kinds, initial }: { open: boolean; onClose: () => void; kinds: Kinds; initial: (Partial<Rule> & { id?: number }) | null }) {
@@ -107,7 +166,7 @@ function RuleDialog({ open, onClose, kinds, initial }: { open: boolean; onClose:
       title={initial?.id ? "Editar regra" : "Nova regra de alerta"}
       footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button variant="primary" loading={save.isPending} onClick={() => save.mutate()} disabled={f.name.length < 3}>Salvar</Button></>}
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1 sm:col-span-2"><Label htmlFor="r-name">Nome</Label><Input id="r-name" value={f.name} onChange={(e) => set("name", e.target.value)} /></div>
         <div className="space-y-1 sm:col-span-2">
           <Label htmlFor="r-kind">Condição</Label>
@@ -150,7 +209,8 @@ export default function AlertsView() {
         actions={<Button size="sm" variant="primary" disabled={demo} onClick={() => setEditing({})}><Plus /> Nova regra</Button>}
       />
       <NotificationsCard />
-      <div className="grid gap-4 xl:grid-cols-5">
+      <DigestCard />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <Card className="xl:col-span-3">
           <CardHeader title="Regras" />
           <CardBody>

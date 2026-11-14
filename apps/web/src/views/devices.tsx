@@ -45,7 +45,7 @@ export default function DevicesView() {
       />
       {q.error && <QueryError error={q.error} />}
       <Callout tone="neutral" icon={<ShieldAlert />} title="Controles de rede" className="mb-4">
-        Bloqueio, priorização, QoS e limites de banda ficam desabilitados: o OrbitLink só os habilitaria com uma API documentada e autenticada do roteador real.
+        Bloqueio, priorização, QoS e limites de banda ficam desabilitados: o ASTRYON só os habilitaria com uma API documentada e autenticada do roteador real.
         Adaptadores para OpenWrt/MikroTik estão previstos como integrações opcionais futuras.
       </Callout>
       <Card>

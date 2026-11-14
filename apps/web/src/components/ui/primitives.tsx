@@ -10,10 +10,7 @@ import { cn } from "@/lib/cn";
 export function Card({ className, ...p }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn(
-        "rounded-card border border-border bg-surface/80 shadow-[0_1px_0_0_rgb(255_255_255/0.03)_inset,0_8px_24px_-12px_rgb(0_0_0/0.6)] backdrop-blur-sm",
-        className,
-      )}
+      className={cn("ol-card", className)}
       {...p}
     />
   );
@@ -35,13 +32,13 @@ export function CardHeader({
   return (
     <div className={cn("flex items-start justify-between gap-3 px-4 pt-4", className)}>
       <div className="min-w-0">
-        <h3 className="flex items-center gap-2 text-[13px] font-medium tracking-wide text-fg-muted">
-          {icon && <span className="text-fg-subtle [&>svg]:size-4">{icon}</span>}
-          {title}
+        <h3 className="flex items-center gap-2 text-[14px] font-semibold text-fg">
+          {icon && <span className="shrink-0 text-accent [&>svg]:size-4 [&>svg]:stroke-[1.75]">{icon}</span>}
+          <span className="min-w-0">{title}</span>
         </h3>
         {subtitle && <p className="mt-0.5 text-xs text-fg-subtle">{subtitle}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">{actions}</div>}
     </div>
   );
 }
@@ -51,7 +48,7 @@ export function CardBody({ className, ...p }: HTMLAttributes<HTMLDivElement>) {
 }
 
 /* ----------------------------------------------------------------- Badge */
-const badge = cva("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4 whitespace-nowrap", {
+const badge = cva("inline-flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase leading-4 tracking-[0.08em] whitespace-nowrap", {
   variants: {
     tone: {
       neutral: "border-border-strong bg-surface-2 text-fg-muted",
@@ -59,8 +56,8 @@ const badge = cva("inline-flex items-center gap-1 rounded-full border px-2 py-0.
       ok: "border-ok/30 bg-ok-soft text-ok",
       warn: "border-warn/30 bg-warn-soft text-warn",
       crit: "border-crit/30 bg-crit-soft text-crit",
-      demo: "border-demo/40 bg-demo-soft text-demo",
-      info: "border-info/30 bg-info/10 text-info",
+      demo: "ol-demo-hatch border-dashed border-demo/60 bg-demo-soft text-demo",
+      info: "border-border-strong bg-surface-2 text-fg-muted",
     },
   },
   defaultVariants: { tone: "neutral" },
@@ -73,14 +70,15 @@ export function Badge({ tone, className, ...p }: HTMLAttributes<HTMLSpanElement>
 
 /* ----------------------------------------------------------------- Button */
 const button = cva(
-  "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-45 [&>svg]:size-4",
+  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 [&>svg]:size-4",
   {
     variants: {
       variant: {
-        primary: "bg-accent text-[#04121a] hover:bg-accent-strong",
-        secondary: "border border-border-strong bg-surface-2 text-fg hover:bg-surface-3",
+        primary:
+          "border border-accent-2/70 bg-accent-deep font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.12)] hover:border-accent hover:bg-[#00609f] hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.12),0_6px_22px_-8px_rgb(0_140_255/0.75)]",
+        secondary: "border border-border-strong bg-surface-2 text-fg hover:border-accent-2/50 hover:bg-surface-3",
         ghost: "text-fg-muted hover:bg-surface-2 hover:text-fg",
-        danger: "bg-crit text-[#1a0505] hover:bg-crit/85",
+        danger: "border border-crit/70 bg-crit/15 font-semibold text-crit hover:bg-crit hover:text-black",
       },
       size: { sm: "h-8 px-3", md: "h-9 px-4", icon: "size-9" },
     },
@@ -114,7 +112,7 @@ export function Input({ className, ...p }: InputHTMLAttributes<HTMLInputElement>
   return (
     <input
       className={cn(
-        "h-9 w-full rounded-lg border border-border-strong bg-bg-elev px-3 text-sm text-fg placeholder:text-fg-subtle focus:border-accent/60 focus:outline-none",
+        "h-9 w-full rounded-md border border-border-strong bg-bg-elev px-3 text-sm text-fg transition-[border-color,box-shadow] placeholder:text-fg-subtle focus:border-accent-2 focus:shadow-[0_0_0_3px_rgb(0_140_255/0.18)] focus:outline-none",
         className,
       )}
       {...p}
@@ -126,7 +124,7 @@ export function Select({ className, ...p }: SelectHTMLAttributes<HTMLSelectEleme
   return (
     <select
       className={cn(
-        "h-9 rounded-lg border border-border-strong bg-bg-elev px-2.5 text-sm text-fg focus:border-accent/60 focus:outline-none",
+        "h-9 rounded-md border border-border-strong bg-bg-elev px-2.5 text-sm text-fg transition-[border-color,box-shadow] focus:border-accent-2 focus:shadow-[0_0_0_3px_rgb(0_140_255/0.18)] focus:outline-none",
         className,
       )}
       {...p}
@@ -155,7 +153,7 @@ export function Switch({
       onCheckedChange={onCheckedChange}
       disabled={disabled}
       aria-label={label}
-      className="relative h-5 w-9 shrink-0 rounded-full border border-border-strong bg-surface-3 transition-colors data-[state=checked]:border-accent/50 data-[state=checked]:bg-accent/40 disabled:opacity-40"
+      className="relative h-5 w-9 shrink-0 rounded-full border border-border-strong bg-surface-3 transition-colors data-[state=checked]:border-accent-2 data-[state=checked]:bg-accent-deep disabled:opacity-40"
     >
       <RSwitch.Thumb className="block size-3.5 translate-x-0.5 rounded-full bg-fg transition-transform data-[state=checked]:translate-x-[18px]" />
     </RSwitch.Root>
@@ -183,13 +181,13 @@ export function Tabs({
       value={value}
       onValueChange={(v) => v && onValueChange(v)}
       aria-label={label}
-      className={cn("inline-flex rounded-lg border border-border bg-bg-elev p-0.5", className)}
+      className={cn("inline-flex rounded-md border border-border bg-bg-elev p-0.5", className)}
     >
       {items.map((it) => (
         <RToggleGroup.Item
           key={it.value}
           value={it.value}
-          className="rounded-md px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg data-[state=on]:bg-surface-3 data-[state=on]:text-fg"
+          className="rounded-[4px] px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg data-[state=on]:bg-accent-soft data-[state=on]:text-accent data-[state=on]:shadow-[inset_0_0_0_1px_rgb(0_140_255/0.45)]"
         >
           {it.label}
         </RToggleGroup.Item>
@@ -199,15 +197,16 @@ export function Tabs({
 }
 
 /* ----------------------------------------------------------------- Tooltip */
-export function Tip({ content, children }: { content: ReactNode; children: ReactNode }) {
+export function Tip({ content, children, side }: { content: ReactNode; children: ReactNode; side?: "top" | "right" | "bottom" | "left" }) {
   return (
     <RTooltip.Provider delayDuration={250}>
       <RTooltip.Root>
         <RTooltip.Trigger asChild>{children}</RTooltip.Trigger>
         <RTooltip.Portal>
           <RTooltip.Content
+            side={side}
             sideOffset={6}
-            className="z-50 max-w-xs rounded-lg border border-border-strong bg-surface-2 px-3 py-2 text-xs leading-relaxed text-fg shadow-xl"
+            className="animate-pop-in z-50 max-w-xs rounded-md border border-border-strong bg-surface-2 px-3 py-2 text-xs leading-relaxed text-fg shadow-[0_12px_32px_-12px_rgb(0_0_0/0.9)]"
           >
             {content}
           </RTooltip.Content>
@@ -236,9 +235,9 @@ export function Dialog({
   return (
     <RDialog.Root open={open} onOpenChange={onOpenChange}>
       <RDialog.Portal>
-        <RDialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]" />
-        <RDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(560px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border-strong bg-surface p-5 shadow-2xl focus:outline-none">
-          <RDialog.Title className="text-base font-semibold">{title}</RDialog.Title>
+        <RDialog.Overlay className="animate-fade-in fixed inset-0 z-40 bg-black/75" />
+        <RDialog.Content className="ol-hud animate-pop-in fixed left-1/2 top-1/2 z-50 w-[min(560px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border-strong bg-surface-2 p-5 shadow-2xl focus:outline-none">
+          <RDialog.Title className="font-display text-base font-semibold">{title}</RDialog.Title>
           {description && <RDialog.Description className="mt-1 text-sm text-fg-muted">{description}</RDialog.Description>}
           <div className="mt-4">{children}</div>
           {footer && <div className="mt-5 flex flex-wrap justify-end gap-2">{footer}</div>}
@@ -268,12 +267,13 @@ export function Callout({
     ok: "border-ok/30 bg-ok-soft",
     warn: "border-warn/30 bg-warn-soft",
     crit: "border-crit/30 bg-crit-soft",
-    demo: "border-demo/40 bg-demo-soft",
-    info: "border-info/30 bg-info/10",
+    demo: "ol-demo-hatch border-dashed border-demo/50 bg-demo-soft",
+    info: "border-border-strong bg-surface-2/60",
   };
+  const iconTone: Record<string, string> = { ok: "text-ok", warn: "text-warn", crit: "text-crit", accent: "text-accent", info: "text-accent", neutral: "text-fg-subtle", demo: "text-demo" };
   return (
-    <div role="status" className={cn("flex gap-3 rounded-lg border px-3.5 py-3 text-sm", tones[tone], className)}>
-      {icon && <span className="mt-0.5 shrink-0 [&>svg]:size-4">{icon}</span>}
+    <div role="status" className={cn("flex gap-3 rounded-md border px-3.5 py-3 text-sm", tones[tone], className)}>
+      {icon && <span className={cn("mt-0.5 shrink-0 [&>svg]:size-4", iconTone[tone])}>{icon}</span>}
       <div className="min-w-0">
         {title && <p className="font-medium text-fg">{title}</p>}
         {children && <div className="mt-0.5 text-fg-muted">{children}</div>}
@@ -297,7 +297,7 @@ export function EmptyState({
 }) {
   return (
     <div className={cn("flex flex-col items-center justify-center gap-2 px-6 py-10 text-center", className)}>
-      {icon && <div className="mb-1 rounded-full border border-border bg-surface-2 p-3 text-fg-subtle [&>svg]:size-5">{icon}</div>}
+      {icon && <div className="ol-hud mb-1 rounded-md border border-border bg-bg-elev p-3 text-accent [&>svg]:size-5 [&>svg]:stroke-[1.5]">{icon}</div>}
       <p className="text-sm font-medium text-fg">{title}</p>
       {children && <div className="max-w-md text-sm text-fg-muted">{children}</div>}
       {action && <div className="mt-2">{action}</div>}

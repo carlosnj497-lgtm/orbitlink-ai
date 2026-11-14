@@ -15,7 +15,7 @@ function Timeline({ events, start, end }: { events: ConnectionEvent[]; start: nu
   const lanes = ["outage", "status_outage", "ping_drop", "unreachable", "boot"];
   const color: Record<string, string> = { outage: "bg-crit", status_outage: "bg-crit", ping_drop: "bg-warn", unreachable: "bg-fg-subtle", boot: "bg-info" };
   return (
-    <div className="space-y-2" aria-label="Linha do tempo de eventos">
+    <div className="space-y-2" role="group" aria-label="Linha do tempo de eventos">
       {lanes.map((lane) => {
         const evs = events.filter((e) => e.kind === lane);
         return (
@@ -53,7 +53,7 @@ export default function OutagesView() {
   return (
     <>
       <PageHeader
-        title="Interrupções"
+        title="Eventos"
         icon={<Unplug />}
         description="Eventos observados, com tipo e grau de confirmação. 'Antena inacessível' indica falha de comunicação local, não necessariamente queda do satélite."
         actions={

@@ -14,6 +14,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Opcional: build de verificação em outra pasta, sem sobrescrever o ".next" que o serviço em execução usa.
+  distDir: process.env.ORBITLINK_WEB_DIST_DIR || ".next",
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
@@ -21,7 +23,8 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname, "../.."),
     rules: {
-      "*.css": {
+      // O Tailwind processa a entrada global; CSS Modules preservam o escopo nativo.
+      "globals.css": {
         loaders: ["@tailwindcss/turbopack"],
         as: "*.css",
       },

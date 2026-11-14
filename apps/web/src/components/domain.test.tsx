@@ -50,7 +50,7 @@ describe("StatePill", () => {
 describe("QueryError", () => {
   it("explica agente offline", () => {
     render(<QueryError error={new ApiError(502, "x", "agent_offline")} />);
-    expect(screen.getByText("Agente OrbitLink offline")).toBeInTheDocument();
+    expect(screen.getByText("Agente ASTRYON offline")).toBeInTheDocument();
   });
   it("mostra mensagem genérica de falha", () => {
     render(<QueryError error={new ApiError(500, "falhou geral")} />);

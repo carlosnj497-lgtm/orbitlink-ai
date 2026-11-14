@@ -1,0 +1,587 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-14T14:37:05+00:00",
+  "title": "Design System: OrbitLink AI",
+  "extensions": {
+    "colorMeta": {
+      "void": {
+        "role": "neutral",
+        "displayName": "Vácuo",
+        "canonical": "#000000",
+        "tonalRamp": [
+          "#262626",
+          "#434343",
+          "#616161",
+          "#7E7E7E",
+          "#9B9B9B",
+          "#B8B8B8",
+          "#D5D5D5",
+          "#F2F2F2"
+        ]
+      },
+      "bg-elev": {
+        "role": "neutral",
+        "displayName": "Grafite Profundo",
+        "canonical": "#080B10",
+        "tonalRamp": [
+          "#1F242E",
+          "#333F54",
+          "#455A7C",
+          "#5473A7",
+          "#7E94B8",
+          "#A7B4C9",
+          "#CDD3DD",
+          "#F0F2F4"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Grafite",
+        "canonical": "#10151D",
+        "tonalRamp": [
+          "#20252D",
+          "#354051",
+          "#495B78",
+          "#5A75A2",
+          "#8295B4",
+          "#A9B4C7",
+          "#CED3DC",
+          "#F1F2F4"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Grafite Claro",
+        "canonical": "#161D27",
+        "tonalRamp": [
+          "#20252C",
+          "#364151",
+          "#4A5C78",
+          "#5B78A0",
+          "#8297B3",
+          "#A9B5C7",
+          "#CED4DC",
+          "#F1F2F4"
+        ]
+      },
+      "surface-3": {
+        "role": "neutral",
+        "displayName": "Grafite Realce",
+        "canonical": "#1E2733",
+        "tonalRamp": [
+          "#20252C",
+          "#374250",
+          "#4B5D76",
+          "#5D799E",
+          "#8498B1",
+          "#AAB6C5",
+          "#CFD4DC",
+          "#F1F2F4"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Fio",
+        "canonical": "#27313F",
+        "tonalRamp": [
+          "#21252B",
+          "#38414F",
+          "#4D5D74",
+          "#60799B",
+          "#8697AF",
+          "#ACB6C4",
+          "#CFD4DB",
+          "#F1F2F4"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Fio Forte",
+        "canonical": "#364354",
+        "tonalRamp": [
+          "#21262B",
+          "#39424E",
+          "#4F5E72",
+          "#637A99",
+          "#8898AE",
+          "#ADB6C3",
+          "#D0D4DB",
+          "#F1F2F4"
+        ]
+      },
+      "fg": {
+        "role": "neutral",
+        "displayName": "Branco",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#262626",
+          "#434343",
+          "#616161",
+          "#7E7E7E",
+          "#9B9B9B",
+          "#B8B8B8",
+          "#D5D5D5",
+          "#F2F2F2"
+        ]
+      },
+      "fg-muted": {
+        "role": "neutral",
+        "displayName": "Prata",
+        "canonical": "#A7A9AC",
+        "tonalRamp": [
+          "#262627",
+          "#424345",
+          "#5E6063",
+          "#7A7D81",
+          "#989A9D",
+          "#B6B8B9",
+          "#D4D5D6",
+          "#F2F2F2"
+        ]
+      },
+      "fg-subtle": {
+        "role": "neutral",
+        "displayName": "Prata Fosca",
+        "canonical": "#8B9096",
+        "tonalRamp": [
+          "#252627",
+          "#414346",
+          "#5C6065",
+          "#777D84",
+          "#969A9F",
+          "#B5B8BB",
+          "#D4D5D6",
+          "#F2F2F3"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Azul Luminoso",
+        "canonical": "#38BDF8",
+        "tonalRamp": [
+          "#122E3B",
+          "#165570",
+          "#147EAD",
+          "#0AAAF2",
+          "#49BAEC",
+          "#87CBE9",
+          "#BEDEEC",
+          "#EDF4F8"
+        ]
+      },
+      "accent-strong": {
+        "role": "primary",
+        "displayName": "Azul Luminoso Claro",
+        "canonical": "#7DD3FC",
+        "tonalRamp": [
+          "#112E3B",
+          "#155472",
+          "#127CAF",
+          "#07A8F5",
+          "#47B8EE",
+          "#86CAEA",
+          "#BDDEED",
+          "#EDF4F8"
+        ]
+      },
+      "accent-2": {
+        "role": "primary",
+        "displayName": "Azul Tecnológico",
+        "canonical": "#008CFF",
+        "tonalRamp": [
+          "#10283C",
+          "#134874",
+          "#0E69B3",
+          "#018AFA",
+          "#44A3F2",
+          "#84BDEC",
+          "#BCD8EE",
+          "#ECF3F8"
+        ]
+      },
+      "accent-deep": {
+        "role": "primary",
+        "displayName": "Azul de Missão",
+        "canonical": "#005288",
+        "tonalRamp": [
+          "#102B3C",
+          "#134D74",
+          "#0E72B3",
+          "#0197FA",
+          "#44ADF2",
+          "#84C3EC",
+          "#BCDAEE",
+          "#ECF3F8"
+        ]
+      },
+      "ok": {
+        "role": "tertiary",
+        "displayName": "Verde Enlace",
+        "canonical": "#00D68F",
+        "tonalRamp": [
+          "#103C2E",
+          "#137454",
+          "#0EB37C",
+          "#01FAA8",
+          "#44F2B8",
+          "#84ECCA",
+          "#BCEEDE",
+          "#ECF8F4"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "Amarelo Sinalização",
+        "canonical": "#E8B931",
+        "tonalRamp": [
+          "#382F15",
+          "#6A561D",
+          "#A2811F",
+          "#E1AE1A",
+          "#E1BD55",
+          "#E2CC8E",
+          "#E9DFC1",
+          "#F7F5EE"
+        ]
+      },
+      "crit": {
+        "role": "tertiary",
+        "displayName": "Vermelho Falha",
+        "canonical": "#FF4655",
+        "tonalRamp": [
+          "#3C1014",
+          "#74131B",
+          "#B30E1B",
+          "#FA0115",
+          "#F24452",
+          "#EC848C",
+          "#EEBCC0",
+          "#F8ECED"
+        ]
+      },
+      "demo": {
+        "role": "neutral",
+        "displayName": "Prata Demonstração",
+        "canonical": "#D4D6D9",
+        "tonalRamp": [
+          "#252628",
+          "#404346",
+          "#5B6066",
+          "#767C85",
+          "#959AA0",
+          "#B5B7BB",
+          "#D4D5D7",
+          "#F2F2F3"
+        ]
+      },
+      "chart-up": {
+        "role": "neutral",
+        "displayName": "Branco Gelo (série upload)",
+        "canonical": "#E6E8EB",
+        "tonalRamp": [
+          "#242629",
+          "#3E4249",
+          "#575F6A",
+          "#707B8C",
+          "#9199A5",
+          "#B2B7BE",
+          "#D2D5D8",
+          "#F2F2F3"
+        ]
+      },
+      "chart-grid": {
+        "role": "neutral",
+        "displayName": "Grade de Gráfico",
+        "canonical": "#1B232E",
+        "tonalRamp": [
+          "#20252C",
+          "#374150",
+          "#4B5D76",
+          "#5D799E",
+          "#8497B2",
+          "#AAB6C6",
+          "#CFD4DC",
+          "#F1F2F4"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Título de estado do hero."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Título da tela no cabeçalho."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Título de card, com ícone azul de 16px."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texto corrido e descrições."
+      },
+      "body-sm": {
+        "displayName": "Body small",
+        "purpose": "Notas, legendas, callouts compactos."
+      },
+      "label": {
+        "displayName": "Rótulo técnico",
+        "purpose": "Unidades, cabeçalhos de tabela, rótulos de KPI, selos. Nunca palavras de estado."
+      },
+      "telemetry": {
+        "displayName": "Telemetria",
+        "purpose": "Valor de KPI em algarismos tabulares."
+      },
+      "clock": {
+        "displayName": "Relógio de missão",
+        "purpose": "Hora local no cabeçalho."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel",
+        "value": "inset 0 1px 0 0 rgb(255 255 255 / 0.03), 0 12px 28px -18px rgb(0 0 0 / 0.9)",
+        "purpose": "Todo card."
+      },
+      {
+        "name": "panel-focus",
+        "value": "inset 0 1px 0 0 rgb(56 189 248 / 0.08), 0 0 0 1px rgb(0 140 255 / 0.05), 0 16px 40px -26px rgb(0 140 255 / 0.55)",
+        "purpose": "Painel principal da tela, com borda rgb(0 140 255 / 0.35)."
+      },
+      {
+        "name": "primary-glow",
+        "value": "0 6px 22px -8px rgb(0 140 255 / 0.75)",
+        "purpose": "Hover do botão primário."
+      },
+      {
+        "name": "active-rail",
+        "value": "0 0 10px 1px rgb(56 189 248 / 0.7)",
+        "purpose": "Trilho do item ativo na barra lateral, abas e barra inferior."
+      },
+      {
+        "name": "floating",
+        "value": "0 12px 32px -12px rgb(0 0 0 / 0.9)",
+        "purpose": "Tooltip, popover e menus."
+      },
+      {
+        "name": "focus-halo",
+        "value": "0 0 0 3px rgb(0 140 255 / 0.18)",
+        "purpose": "Foco de campos de entrada."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Curva padrão de entradas e transições de borda."
+      },
+      {
+        "name": "rise",
+        "value": "320ms cubic-bezier(0.22, 1, 0.36, 1); translateY(6px) + opacity",
+        "purpose": "Entrada de conteúdo, uma por navegação."
+      },
+      {
+        "name": "drawer-in",
+        "value": "220ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Gaveta de navegação móvel."
+      },
+      {
+        "name": "fade-in",
+        "value": "200ms ease-out",
+        "purpose": "Sobreposições."
+      },
+      {
+        "name": "pop-in",
+        "value": "140ms ease-out; translateY(-4px) scale(0.98)",
+        "purpose": "Tooltips, popovers, menus, diálogo."
+      },
+      {
+        "name": "ping-ring",
+        "value": "2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite",
+        "purpose": "Eco de radar no ponto de enlace conectado."
+      },
+      {
+        "name": "pulse-dot",
+        "value": "2s ease-in-out infinite",
+        "purpose": "Reconexão e IA processando."
+      },
+      {
+        "name": "scan",
+        "value": "1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite",
+        "purpose": "Varredura do chip IA processando."
+      },
+      {
+        "name": "shimmer",
+        "value": "1.6s linear infinite",
+        "purpose": "Skeleton."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce): animation/transition 0.01ms, 1 iteração; indicadores vivos estáticos",
+        "purpose": "Todo movimento é anulado."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      },
+      {
+        "name": "2xl",
+        "value": "1536px"
+      },
+      {
+        "name": "wide-rail",
+        "value": "105rem"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal; único bloco azul saturado da tela.",
+      "html": "<button class=\"ds-btn-primary\">Salvar alterações</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:6px;border:1px solid rgb(0 140 255 / 0.7);background:var(--accent-deep,#005288);color:#fff;font:600 14px/1 Inter,system-ui,sans-serif;box-shadow:inset 0 1px 0 rgb(255 255 255 / 0.12);transition:background-color 150ms,border-color 150ms,box-shadow 150ms,transform 150ms;cursor:pointer}.ds-btn-primary:hover{background:#00609f;border-color:var(--accent,#38bdf8);box-shadow:inset 0 1px 0 rgb(255 255 255 / 0.12),0 6px 22px -8px rgb(0 140 255 / 0.75)}.ds-btn-primary:active{transform:scale(0.98)}.ds-btn-primary:focus-visible{outline:2px solid var(--ring,#008cff);outline-offset:2px}"
+    },
+    {
+      "name": "Botão secundário",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Variante padrão para ações comuns.",
+      "html": "<button class=\"ds-btn-secondary\">Exportar CSV</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 16px;border-radius:6px;border:1px solid var(--border-strong,#364354);background:var(--surface-2,#161d27);color:var(--fg,#fff);font:500 14px/1 Inter,system-ui,sans-serif;transition:background-color 150ms,border-color 150ms,transform 150ms;cursor:pointer}.ds-btn-secondary:hover{background:var(--surface-3,#1e2733);border-color:rgb(0 140 255 / 0.5)}.ds-btn-secondary:active{transform:scale(0.98)}.ds-btn-secondary:focus-visible{outline:2px solid var(--ring,#008cff);outline-offset:2px}"
+    },
+    {
+      "name": "Botão de perigo",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Ações destrutivas ou de controle da antena (reiniciar, apagar).",
+      "html": "<button class=\"ds-btn-danger\">Reiniciar antena</button>",
+      "css": ".ds-btn-danger{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 16px;border-radius:6px;border:1px solid rgb(255 70 85 / 0.7);background:rgb(255 70 85 / 0.15);color:#ff4655;font:600 14px/1 Inter,system-ui,sans-serif;transition:background-color 150ms,color 150ms;cursor:pointer}.ds-btn-danger:hover{background:#ff4655;color:#000}.ds-btn-danger:focus-visible{outline:2px solid var(--ring,#008cff);outline-offset:2px}"
+    },
+    {
+      "name": "Campo de texto",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Entrada padrão de formulários e da Central de IA.",
+      "html": "<input class=\"ds-input\" placeholder=\"Pergunte sobre a conexão\" />",
+      "css": ".ds-input{height:36px;width:280px;padding:0 12px;border-radius:6px;border:1px solid var(--border-strong,#364354);background:var(--bg-elev,#080b10);color:var(--fg,#fff);font:400 14px Inter,system-ui,sans-serif;caret-color:var(--accent,#38bdf8);transition:border-color 150ms,box-shadow 150ms}.ds-input::placeholder{color:var(--fg-subtle,#8b9096)}.ds-input:focus{outline:none;border-color:var(--accent-2,#008cff);box-shadow:0 0 0 3px rgb(0 140 255 / 0.18)}"
+    },
+    {
+      "name": "Selos de estado e origem",
+      "kind": "chip",
+      "refersTo": "badge-ok",
+      "description": "Selos mono de 3px; estado só em verde/amarelo/vermelho, demonstração hachurada.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-badge ds-ok\"><i></i>conectada</span><span class=\"ds-badge ds-warn\">degradada</span><span class=\"ds-badge ds-crit\">offline</span><span class=\"ds-badge ds-accent\">real</span><span class=\"ds-badge ds-demo\">demonstração</span></div>",
+      "css": ".ds-badges{display:flex;gap:8px;flex-wrap:wrap}.ds-badge{display:inline-flex;align-items:center;gap:6px;padding:2px 6px;border-radius:3px;border:1px solid;font:500 10px/16px 'JetBrains Mono',Consolas,monospace;letter-spacing:0.08em;text-transform:uppercase}.ds-badge i{width:6px;height:6px;border-radius:9999px;background:currentColor}.ds-ok{color:#00d68f;border-color:rgb(0 214 143 / 0.3);background:rgb(0 214 143 / 0.1)}.ds-warn{color:#e8b931;border-color:rgb(232 185 49 / 0.3);background:rgb(232 185 49 / 0.1)}.ds-crit{color:#ff4655;border-color:rgb(255 70 85 / 0.3);background:rgb(255 70 85 / 0.11)}.ds-accent{color:#38bdf8;border-color:rgb(56 189 248 / 0.3);background:rgb(0 140 255 / 0.12)}.ds-demo{color:#d4d6d9;border-style:dashed;border-color:rgb(212 214 217 / 0.6);background-color:rgb(212 214 217 / 0.08);background-image:repeating-linear-gradient(135deg,rgb(212 214 217 / 0.1) 0 6px,transparent 6px 12px)}"
+    },
+    {
+      "name": "Painel em foco com HUD e régua",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Card padrão promovido a painel em foco: fio azul, retículas de canto e régua de escala.",
+      "html": "<section class=\"ds-card ds-glow ds-hud\"><div class=\"ds-ruler\"></div><h3 class=\"ds-card-title\">Desempenho da Conexão</h3><p class=\"ds-card-sub\">Histórico de 1 s da antena</p></section>",
+      "css": ".ds-card{position:relative;width:340px;padding:16px;border:1px solid var(--border,#27313f);border-radius:6px;background:var(--surface,#10151d);box-shadow:inset 0 1px 0 0 rgb(255 255 255 / 0.03),0 12px 28px -18px rgb(0 0 0 / 0.9);transition:border-color 180ms cubic-bezier(0.22, 1, 0.36, 1)}.ds-glow{border-color:rgb(0 140 255 / 0.35);box-shadow:inset 0 1px 0 0 rgb(56 189 248 / 0.08),0 0 0 1px rgb(0 140 255 / 0.05),0 16px 40px -26px rgb(0 140 255 / 0.55)}.ds-hud::after{content:'';position:absolute;inset:5px;pointer-events:none;--t:linear-gradient(rgb(56 189 248 / 0.7),rgb(56 189 248 / 0.7));background:var(--t) top left/10px 1px no-repeat,var(--t) top left/1px 10px no-repeat,var(--t) top right/10px 1px no-repeat,var(--t) top right/1px 10px no-repeat,var(--t) bottom left/10px 1px no-repeat,var(--t) bottom left/1px 10px no-repeat,var(--t) bottom right/10px 1px no-repeat,var(--t) bottom right/1px 10px no-repeat}.ds-ruler{height:7px;opacity:0.7;margin-bottom:12px;background:linear-gradient(#364354,#364354) bottom/100% 1px no-repeat,repeating-linear-gradient(90deg,rgb(56 189 248 / 0.55) 0 1px,transparent 1px 64px) bottom/100% 7px no-repeat,repeating-linear-gradient(90deg,#364354 0 1px,transparent 1px 8px) bottom/100% 4px no-repeat}.ds-card-title{margin:0;font:600 14px 'Space Grotesk',Inter,sans-serif;letter-spacing:-0.012em;color:#fff}.ds-card-sub{margin:2px 0 0;font:400 12px Inter,sans-serif;color:#8b9096}"
+    },
+    {
+      "name": "Tile de KPI",
+      "kind": "custom",
+      "refersTo": "stat-tile",
+      "description": "Leitura de instrumento: rótulo técnico, valor mono tabular, unidade e selo de origem.",
+      "html": "<div class=\"ds-tile\"><div class=\"ds-tile-head\"><span class=\"ds-tile-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v14\"/><path d=\"m19 12-7 7-7-7\"/></svg></span><div><p class=\"ds-label\">Download agora</p><p class=\"ds-value\">21,5<span>Mbps</span></p></div></div><p class=\"ds-note\">Tráfego corrente, não capacidade</p></div>",
+      "css": ".ds-tile{width:200px;padding:10px;border:1px solid var(--border,#27313f);border-radius:6px;background:var(--surface,#10151d)}.ds-tile-head{display:flex;gap:8px;align-items:flex-start}.ds-tile-icon{display:grid;place-items:center;width:32px;height:32px;flex-shrink:0;border-radius:6px;border:1px solid var(--border,#27313f);background:var(--bg-elev,#080b10);color:var(--accent,#38bdf8)}.ds-label{margin:0;font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-subtle,#8b9096)}.ds-value{margin:2px 0 0;font:500 19px/1 'JetBrains Mono',monospace;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;color:#fff}.ds-value span{margin-left:4px;font-size:11px;color:var(--fg-muted,#a7a9ac)}.ds-note{margin:6px 0 0;font:400 11px Inter,sans-serif;color:var(--fg-subtle,#8b9096)}"
+    },
+    {
+      "name": "Item de navegação com trilho luminoso",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Barra lateral: item ativo com degradê azul, ícone azul e trilho de 2px com brilho.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-active\" href=\"#\">Dashboard</a><a class=\"ds-nav-item\" href=\"#\">Central de IA</a><a class=\"ds-nav-item\" href=\"#\">Conexão e Internet</a></nav>",
+      "css": ".ds-nav{width:232px;padding:8px 12px;background:var(--bg-elev,#080b10)}.ds-nav-item{position:relative;display:flex;align-items:center;height:40px;padding:0 12px;border-radius:6px;font:500 13.5px Inter,sans-serif;color:var(--fg-muted,#a7a9ac);text-decoration:none;transition:background-color 150ms,color 150ms}.ds-nav-item:hover{background:rgb(16 21 29 / 0.8);color:#fff}.ds-nav-item:focus-visible{outline:2px solid var(--ring,#008cff);outline-offset:2px}.ds-active{color:#fff;background:linear-gradient(90deg,rgb(0 140 255 / 0.16),rgb(0 140 255 / 0.02) 70%)}.ds-active::before{content:'';position:absolute;left:-12px;top:50%;width:2px;height:24px;transform:translateY(-50%);border-radius:9999px;background:var(--accent,#38bdf8);box-shadow:0 0 10px 1px rgb(56 189 248 / 0.7)}"
+    },
+    {
+      "name": "Relógio de missão",
+      "kind": "custom",
+      "description": "Hora local com segundos, data e UTC, em mono tabular.",
+      "html": "<div class=\"ds-clock\"><p class=\"ds-clock-time\">14:32:50</p><p class=\"ds-clock-sub\">SÁB 14 NOV · UTC 17:32</p></div>",
+      "css": ".ds-clock{text-align:right;padding-right:12px;border-right:1px solid var(--border,#27313f)}.ds-clock-time{margin:0;font:500 17px/1 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;color:#fff}.ds-clock-sub{margin:4px 0 0;font:400 10px/1 'JetBrains Mono',monospace;letter-spacing:0.12em;text-transform:uppercase;color:var(--fg-subtle,#8b9096)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "O Console de Missão",
+    "overview": "**Creative North Star: \"O Console de Missão\"**\n\nUm console de operações de missão sóbrio: preto absoluto, informação em branco, azul só onde há ação, seleção ou dado vivo. O dono abre o painel, lê o estado no cabeçalho (relógio de missão, enlace com o agente, IA) e nos números monoespaçados, e desce aos gráficos de linha fina quando algo mudou. A densidade é de instrumento: muitos valores por tela, cada um com rótulo técnico curto, unidade e origem do dado.\n\nO mundo recusa o \"dashboard SaaS\" de degradês azul/roxo e cards brilhantes. A profundidade vem de camadas tonais de grafite sobre preto, fios de 1px e um único horizonte azul no topo do fundo. Os gestos de assinatura são de instrumentação: retículas de canto de HUD, a régua de escala, o relógio de missão e o trilho luminoso do item ativo. A paleta, as fontes e os elementos do cabeçalho e da barra lateral foram fixados pelo dono.\n\nA marca SPACEX aparece como letreiro tipográfico (caixa alta larga, itálica, com um arco de órbita sobre o X), sempre acompanhado da declaração de projeto independente, sem afiliação com a Starlink/SpaceX.",
+    "keyCharacteristics": [
+      "Preto #000000 domina; painéis em grafite sólido com fio de 1px e cantos de 6px.",
+      "Branco para valores, prata para rótulos, azul para ação, seleção e séries ao vivo.",
+      "Verde, amarelo e vermelho só para estado operacional.",
+      "Toda telemetria em JetBrains Mono com algarismos tabulares.",
+      "Dado fictício sempre marcado por hachura prata, nunca confundível com dado real.",
+      "Movimento curto, só opacity/transform, desligado com prefers-reduced-motion."
+    ],
+    "rules": [
+      {
+        "name": "The State Is Sacred Rule",
+        "body": "Verde, amarelo e vermelho comunicam estado operacional e nada mais. Nunca servem de cor de categoria, decoração, ícone de tile ou destaque de marca.",
+        "section": "colors"
+      },
+      {
+        "name": "The Blue Means Live Rule",
+        "body": "O azul marca ação, seleção ou dado vivo. Um elemento azul é clicável, está selecionado ou mostra uma leitura atual da antena.",
+        "section": "colors"
+      },
+      {
+        "name": "The Hatched Fiction Rule",
+        "body": "Todo dado fictício leva a hachura prata e a palavra \"demonstração\". Nunca usar azul, verde ou superfície lisa para dado de demonstração.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Is Measurement Rule",
+        "body": "JetBrains Mono é para números, IDs, horários, IPs e rótulos técnicos curtos. Palavras de estado (\"Conectada\", \"Degradada\", \"Online\") e frases são Inter.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Dead Gap Rule",
+        "body": "Em grades ímpares no celular, o último tile vira tile largo em vez de deixar meia linha vazia.",
+        "section": "layout"
+      },
+      {
+        "name": "The One Focused Panel Rule",
+        "body": "O brilho azul (painel em foco) marca o painel principal de cada tela, não todos. Uma tela tem um ou dois painéis em foco; o resto é grafite plano.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** manter o fundo #000000 e os painéis em surface sólido com fio de 1px e cantos de 6px.",
+      "**Do** usar azul só em ação, seleção e dado vivo; o preenchimento do primário é sempre azul de missão.",
+      "**Do** escrever números, horários, IDs e IPs em JetBrains Mono tabular, e palavras de estado em Inter.",
+      "**Do** marcar todo valor com seu selo de origem e todo dado fictício com hachura prata e \"demonstração\".",
+      "**Do** reservar retículas de HUD e régua para o painel em foco e para superfícies de instrumento.",
+      "**Do** anular todo movimento com prefers-reduced-motion e animar só opacity e transform.",
+      "**Do** manter o letreiro SPACEX acompanhado da declaração de projeto independente."
+    ],
+    "donts": [
+      "**Don't** usar verde, amarelo ou vermelho para categoria, decoração ou ícone de tile.",
+      "**Don't** usar degradês azul/roxo, cards brilhantes ou glassmorphism de \"dashboard SaaS\".",
+      "**Don't** aplicar o brilho de painel em foco em todos os cards da tela.",
+      "**Don't** interpolar lacunas de dados nos gráficos nem exibir dado fictício fora de /demo.",
+      "**Don't** usar o arquivo oficial do logo SpaceX; o letreiro é tipográfico.",
+      "**Don't** criar rótulos mono de abertura acima de títulos (kickers); o rótulo técnico é para unidade, coordenada e cabeçalho de dado."
+    ]
+  }
+}

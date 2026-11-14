@@ -27,8 +27,8 @@ export const EVENT_META: Record<string, { label: string; icon: typeof Unplug; to
 };
 
 export const CONFIDENCE_META: Record<string, { label: string; tone: Tone; help: string }> = {
-  confirmado: { label: "confirmado", tone: "ok", help: "Reportado explicitamente pela antena." },
-  derivado: { label: "derivado", tone: "info", help: "Inferido pelo OrbitLink a partir das amostras; a causa não é determinada." },
+  confirmado: { label: "confirmado", tone: "accent", help: "Reportado explicitamente pela antena." },
+  derivado: { label: "derivado", tone: "info", help: "Inferido pelo ASTRYON a partir das amostras; a causa não é determinada." },
   indeterminado: { label: "indeterminado", tone: "neutral", help: "Observado, mas a origem pode ser antena, rede local, roteador ou este computador." },
 };
 

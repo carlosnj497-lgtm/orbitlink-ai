@@ -80,14 +80,14 @@ export default function Esp32View() {
       {q.error && <QueryError error={q.error} />}
       {d && !d.enabled && !demo && (
         <Callout tone="neutral" title="Módulo IoT não configurado" className="mb-4">
-          O OrbitLink funciona normalmente sem ESP32. Para usar, defina <code className="font-mono">ORBITLINK_ESP32_ENABLED=true</code> no .env e reinicie o agente.
+          O ASTRYON funciona normalmente sem ESP32. Para usar, defina <code className="font-mono">ORBITLINK_ESP32_ENABLED=true</code> no .env e reinicie o agente.
           O listener aceitará apenas mensagens assinadas na porta 8788.
         </Callout>
       )}
       <Callout tone="warn" title="Segurança elétrica" className="mb-4">
         Nunca ligue sensores de baixa tensão diretamente à rede AC. Medições DC exigem sensor com faixa adequada, fusível e proteção. Sem sensor instalado, nenhum dado elétrico é exibido.
       </Callout>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {q.isLoading && <Skeleton className="h-40 w-full" />}
           {d && !d.nodes.length && (

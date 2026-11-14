@@ -4,7 +4,7 @@ import type { UsagePlan, UsageSeries, UsageSummary, UsageWindow } from "@orbitli
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, FileUp, Gauge, Info } from "lucide-react";
 import Link from "next/link";
-import { type ChangeEvent, useState } from "react";
+import { type ChangeEvent, useCallback, useState } from "react";
 import { UsageBarChart } from "@/components/charts";
 import { CoverageBar, PageHeader, QueryError, SourceBadge } from "@/components/domain";
 import { Badge, Button, Callout, Card, CardBody, CardHeader, EmptyState, Label, Select, Skeleton, Tabs } from "@/components/ui/primitives";
@@ -31,9 +31,11 @@ export function PlanCard({ p }: { p: UsagePlan | undefined }) {
     );
   }
   const pct = p.pct_used;
-  const tone = pct === null ? "neutral" : pct >= 100 ? "crit" : pct >= 80 ? "warn" : "ok";
-  const bar = { neutral: "bg-fg-subtle", ok: "bg-ok", warn: "bg-warn", crit: "bg-crit" }[tone];
   const projOver = p.projected_pct !== null && p.projected_pct >= 100;
+  // A cor diz o estado do ciclo, não o quanto encheu: estourou = vermelho; vai estourar ou passou de 80% = amarelo;
+  // dentro do previsto = azul (preenchimento neutro). Verde fica reservado a "está tudo bem" de verdade.
+  const tone = pct === null ? "neutral" : pct >= 100 ? "crit" : pct >= 80 || projOver ? "warn" : "fill";
+  const bar = { neutral: "bg-fg-subtle", fill: "bg-accent-2", warn: "bg-warn", crit: "bg-crit" }[tone];
   return (
     <Card className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -164,7 +166,7 @@ function CsvImport() {
           <div className="space-y-3">
             {preview.duplicate_file && <Callout tone="warn">Este arquivo já foi importado antes. Linhas repetidas serão ignoradas.</Callout>}
             <p className="text-xs text-fg-subtle">{preview.rows} linhas detectadas. Confirme o mapeamento de colunas:</p>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {fields.map((f) => (
                 <div key={f.key} className="space-y-1">
                   <Label htmlFor={`map-${f.key}`}>
@@ -215,7 +217,7 @@ export default function UsageView() {
   const s = summary.data;
   const proj = s?.projection_month;
   const maxProfile = Math.max(1, ...(profile.data?.map((p) => p.bytes_total) ?? [1]));
-  const tick = (t: number) => (bucket === "hour" ? fmtHM(t) : fmtDay(t));
+  const tick = useCallback((t: number) => (bucket === "hour" ? fmtHM(t) : fmtDay(t)), [bucket]);
   const delta = s && s.previous_month.bytes_total ? ((s.month.bytes_total - s.previous_month.bytes_total) / s.previous_month.bytes_total) * 100 : null;
 
   return (
@@ -260,7 +262,7 @@ export default function UsageView() {
         </p>
       )}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader
             title="Consumo por período"
@@ -270,7 +272,7 @@ export default function UsageView() {
             {series.isLoading && <Skeleton className="h-64 w-full" />}
             {series.error && <QueryError error={series.error} />}
             {series.data && !series.data.points.length && <EmptyState icon={<BarChart3 />} title="Nenhum consumo registrado neste período" />}
-            {series.data && series.data.points.length > 0 && <UsageBarChart data={series.data.points} tickFormatter={tick} />}
+            {series.data && series.data.points.length > 0 && <UsageBarChart data={series.data.points} tickFormatter={tick} height={450} />}
             {series.data?.peak_hour && (
               <p className="mt-2 text-xs text-fg-subtle">
                 Hora de maior consumo no período: {fmtDateTime(series.data.peak_hour.h)} ({fmtBytesStr(series.data.peak_hour.b)})
@@ -295,7 +297,7 @@ export default function UsageView() {
           <CardBody>
             {profile.isLoading && <Skeleton className="h-64 w-full" />}
             {profile.data && (
-              <ul className="space-y-1" aria-label="Consumo por hora do dia">
+              <ul className="space-y-[3px]" aria-label="Consumo por hora do dia">
                 {profile.data.map((p) => (
                   <li key={p.hour} className="flex items-center gap-2 text-[11px]">
                     <span className="w-6 tabular text-fg-subtle">{String(p.hour).padStart(2, "0")}h</span>

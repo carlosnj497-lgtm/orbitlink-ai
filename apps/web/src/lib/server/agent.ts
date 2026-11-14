@@ -34,7 +34,7 @@ export async function agentFetch(
     return await fetch(`${agentBaseUrl()}${path}`, { ...init, headers, cache: "no-store" });
   } catch {
     return Response.json(
-      { detail: "Agente OrbitLink offline ou inacessível em " + agentBaseUrl(), code: "agent_offline" },
+      { detail: "Agente ASTRYON offline ou inacessível em " + agentBaseUrl(), code: "agent_offline" },
       { status: 502 },
     );
   }

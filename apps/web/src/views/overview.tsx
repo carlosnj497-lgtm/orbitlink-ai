@@ -1,292 +1,44 @@
 "use client";
 
-import type { AgentInfo, EventsResponse, StatusResponse, Telemetry, UsageSummary } from "@orbitlink/shared";
-import {
-  Activity,
-  ArrowDown,
-  ArrowUp,
-  Bot,
-  Clock,
-  Database,
-  Gauge,
-  HeartPulse,
-  Radar,
-  RadioTower,
-  Sparkles,
-  TriangleAlert,
-  Zap,
-} from "lucide-react";
+import type { AgentInfo, EventsResponse, Quality, StatusResponse, Telemetry, UsagePlan, UsageSeries, UsageSummary } from "@orbitlink/shared";
+import { Activity, ArrowDown, ArrowUp, ChartArea, Clock, House, Radar, Zap } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { Sparkline, TelemetryChart, type SeriesMode } from "@/components/charts";
-import { CoverageBar, MetricCard, PageHeader, QueryError, SourceBadge, StatePill } from "@/components/domain";
-import { Badge, Callout, Card, CardBody, CardHeader, EmptyState, Skeleton, Tabs } from "@/components/ui/primitives";
-import { useAgent } from "@/lib/api";
+import { type SeriesMode, TelemetryChart } from "@/components/charts";
+import { CoverageBar, PageHeader, QueryError, SourceBadge } from "@/components/domain";
+import { hrefOf } from "@/components/shell/nav";
+import { Callout, Card, CardBody, CardHeader, EmptyState, Skeleton, Tabs } from "@/components/ui/primitives";
+import { useAgent, useStatusInterval } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import { useBasePath } from "@/lib/demo-context";
-import { fmtAgo, fmtBytes, fmtDuration, fmtFull, fmtMbps, fmtNumber, fmtPct } from "@/lib/format";
-import { EventRow, GapNote, RangeTabs } from "./shared";
+import { fmtDuration, fmtMbps, fmtNumber, fmtPct } from "@/lib/format";
+import { qualityScore } from "@/lib/quality-score";
+import { AntennaCard, CoverageCard, DiagnosticsCard, EventsCard, OutagesCard, QualityCard, ServicesCard, UsageCard } from "./dashboard/cards";
+import { Hero } from "./dashboard/Hero";
+import { MiniSpark, num, StatTile } from "./dashboard/parts";
+import { GapNote, RangeTabs } from "./shared";
 
-function num(v: unknown): number | null {
-  return typeof v === "number" ? v : null;
-}
+const SERIES_LABEL: Record<Telemetry["series_source"], string> = {
+  history_1s: "Histórico de 1 s da antena",
+  minute_aggregates: "Agregados por minuto",
+  status_10s: "Amostras de status (10 s)",
+  none: "Sem dados",
+};
 
-function StatusHero({ status, agent }: { status: StatusResponse | undefined; agent: AgentInfo | undefined }) {
-  const base = useBasePath();
-  if (!status) {
-    return (
-      <Card className="p-5 lg:col-span-2">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="mt-4 h-4 w-64" />
-        <Skeleton className="mt-2 h-4 w-48" />
-      </Card>
-    );
-  }
-  if (!status.available) {
-    return (
-      <Card className="flex flex-col gap-3 p-5 lg:col-span-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[12px] font-medium text-fg-muted">Estado da Starlink</span>
-          <SourceBadge source="indisponivel" />
-        </div>
-        <StatePill state={status.dish_reachable === false ? "inalcancavel" : "desconhecida"} className="self-start text-sm" />
-        <p className="text-sm text-fg-muted">{status.reason}</p>
-        <p className="text-xs text-fg-subtle">
-          Nenhum número é exibido sem dados reais.{" "}
-          <Link href={`${base}/instalacao`} className="text-accent underline-offset-4 hover:underline">
-            Abrir o assistente de conexão
-          </Link>
-        </p>
-      </Card>
-    );
-  }
-  const st = status.status;
-  const uptime = num(st.metrics.uptime_s?.value);
+const RANGES = [
+  { value: "1h", label: "1h" },
+  { value: "6h", label: "6h" },
+  { value: "24h", label: "24h" },
+  { value: "7d", label: "7d" },
+];
+
+/** Legenda interativa do gráfico de tráfego: cada botão liga/desliga a série. */
+function LegendToggle({ label, color, hidden, onToggle }: { label: string; color: string; hidden: boolean; onToggle: () => void }) {
   return (
-    <Card className="relative overflow-hidden p-5 lg:col-span-2">
-      <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-accent/10 blur-3xl" />
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-[12px] font-medium text-fg-muted">
-          <RadioTower className="size-3.5 text-fg-subtle" /> Estado da Starlink
-        </span>
-        <SourceBadge source={st.origin === "grpc" ? "real" : "demonstracao"} />
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <StatePill state={status.stale ? "desconhecida" : st.state} className="text-sm" />
-        {status.stale && <Badge tone="warn">dados atrasados ({fmtDuration(status.age_s)})</Badge>}
-        {st.state_reason && <span className="text-sm text-fg-muted">{st.state_reason}</span>}
-      </div>
-      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-        <div>
-          <dt className="text-xs text-fg-subtle">Uptime da antena</dt>
-          <dd className="tabular">{uptime !== null ? fmtDuration(uptime) : "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-fg-subtle">Última amostra</dt>
-          <dd className="tabular" title={fmtFull(Date.parse(st.observed_at) / 1000)}>
-            {fmtAgo(Date.parse(st.observed_at) / 1000)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-fg-subtle">Hardware</dt>
-          <dd className="truncate">{st.device.hardware_version ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-fg-subtle">Firmware</dt>
-          <dd className="truncate font-mono text-xs leading-5">{st.device.software_version ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-fg-subtle">Agente</dt>
-          <dd>{agent ? (agent.mode === "fixture" ? "fixture" : `v${agent.version}`) : "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-fg-subtle">Alertas da antena</dt>
-          <dd>{st.alerts.length ? st.alerts.join(", ") : "nenhum"}</dd>
-        </div>
-      </dl>
-    </Card>
-  );
-}
-
-function TrafficCard({ dir, status, tel }: { dir: "down" | "up"; status: StatusResponse | undefined; tel: Telemetry | undefined }) {
-  const m = status?.available ? status.status.metrics[dir === "down" ? "downlink_mbps" : "uplink_mbps"] : undefined;
-  const v = num(m?.value);
-  return (
-    <MetricCard
-      label={dir === "down" ? "Download agora" : "Upload agora"}
-      icon={dir === "down" ? <ArrowDown /> : <ArrowUp />}
-      value={v === null ? "—" : fmtMbps(v)}
-      unit={v === null ? undefined : "Mbps"}
-      source={m?.source ?? (status ? "indisponivel" : null)}
-      loading={!status}
-      hint="Tráfego corrente reportado pela antena — NÃO é a velocidade máxima da conexão nem um teste de velocidade. 0 Mbps normalmente significa conexão ociosa."
-      footer={v === 0 ? "Ocioso (sem tráfego no momento)" : "Tráfego corrente, não capacidade"}
-    >
-      {tel?.points?.length ? (
-        <Sparkline data={tel.points} dataKey={dir === "down" ? "down_mbps" : "up_mbps"} color={dir === "down" ? "var(--chart-down)" : "var(--chart-up)"} />
-      ) : null}
-    </MetricCard>
-  );
-}
-
-function UsageCard({ usage }: { usage: UsageSummary | undefined }) {
-  const base = useBasePath();
-  if (!usage) return <MetricCard label="Consumo monitorado" value="" loading />;
-  const today = fmtBytes(usage.today.bytes_total);
-  const month = fmtBytes(usage.month.bytes_total);
-  return (
-    <Card className="flex flex-col p-4">
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-[12px] font-medium text-fg-muted">
-          <Database className="size-3.5 text-fg-subtle" /> Consumo monitorado
-        </span>
-        <SourceBadge source={usage.today.source} />
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-3">
-        <div>
-          <p className="text-xs text-fg-subtle">Hoje</p>
-          <p className="tabular text-2xl font-semibold">
-            {today.value} <span className="text-sm font-medium text-fg-muted">{today.unit}</span>
-          </p>
-          <CoverageBar coverage={usage.today.coverage} className="mt-1" />
-        </div>
-        <div>
-          <p className="text-xs text-fg-subtle">Este mês</p>
-          <p className="tabular text-2xl font-semibold">
-            {month.value} <span className="text-sm font-medium text-fg-muted">{month.unit}</span>
-          </p>
-          <CoverageBar coverage={usage.month.coverage} className="mt-1" />
-        </div>
-      </div>
-      <p className="mt-auto pt-3 text-[11px] leading-snug text-fg-subtle">
-        Estimativa local (integração do tráfego da antena). Não é o consumo oficial do plano.{" "}
-        <Link href={`${base}/consumo`} className="text-accent underline-offset-4 hover:underline">
-          Detalhes
-        </Link>
-      </p>
-    </Card>
-  );
-}
-
-function ObstructionCard({ status }: { status: StatusResponse | undefined }) {
-  const base = useBasePath();
-  const m = status?.available ? status.status.metrics.obstruction_pct : undefined;
-  const cur = status?.available ? status.status.metrics.currently_obstructed?.value : undefined;
-  const v = num(m?.value);
-  return (
-    <MetricCard
-      label="Obstrução"
-      icon={<Radar />}
-      value={v === null ? "—" : fmtPct(v, 2)}
-      source={m?.source ?? (status ? "indisponivel" : null)}
-      loading={!status}
-      tone={v !== null && v > 5 ? "warn" : undefined}
-      hint="Fração do tempo com visão do céu obstruída, segundo a estatística da própria antena (janela informada pelo firmware)."
-      footer={
-        v === null ? "Este firmware não informou estatística de obstrução." : (
-          <span>
-            {cur === true ? "Obstruída neste momento" : cur === false ? "Sem obstrução agora" : ""} ·{" "}
-            <Link href={`${base}/obstrucoes`} className="text-accent hover:underline">mapa</Link>
-          </span>
-        )
-      }
-    />
-  );
-}
-
-function HealthCard({ agent }: { agent: AgentInfo | undefined }) {
-  if (!agent) return <MetricCard label="Saúde da coleta" value="" loading />;
-  const loops = agent.loops ?? {};
-  const failing = Object.entries(loops).filter(([, l]) => l.consecutive_failures > 0);
-  return (
-    <Card className="flex flex-col p-4">
-      <span className="flex items-center gap-1.5 text-[12px] font-medium text-fg-muted">
-        <HeartPulse className="size-3.5 text-fg-subtle" /> Saúde da coleta
-      </span>
-      <ul className="mt-3 space-y-1.5 text-sm">
-        <li className="flex justify-between gap-2">
-          <span className="text-fg-muted">Agente</span>
-          <Badge tone="ok">online</Badge>
-        </li>
-        <li className="flex justify-between gap-2">
-          <span className="text-fg-muted">Antena</span>
-          <Badge tone={agent.dish_reachable ? "ok" : agent.dish_reachable === false ? "crit" : "neutral"}>
-            {agent.dish_reachable ? "acessível" : agent.dish_reachable === false ? "inacessível" : "verificando"}
-          </Badge>
-        </li>
-        <li className="flex justify-between gap-2">
-          <span className="text-fg-muted">Última amostra</span>
-          <span className="tabular">{fmtAgo(agent.last_status_ts)}</span>
-        </li>
-        <li className="flex justify-between gap-2">
-          <span className="text-fg-muted">Amostras perdidas</span>
-          <span className="tabular">{fmtNumber(agent.history_lost_total, 0)}</span>
-        </li>
-        {agent.supabase_configured && (
-          <li className="flex justify-between gap-2">
-            <span className="text-fg-muted">Sync pendente</span>
-            <span className="tabular">{fmtNumber(agent.sync_pending, 0)}</span>
-          </li>
-        )}
-      </ul>
-      {failing.length > 0 && (
-        <p className="mt-3 text-xs text-warn">
-          {failing.map(([k, l]) => `${k}: ${l.last_error_kind ?? "erro"}`).join(" · ")}
-        </p>
-      )}
-    </Card>
-  );
-}
-
-interface DiagnosticSummary {
-  generated_at: number;
-  source: string;
-  engine: "regras" | "claude";
-  headline: string;
-  findings: { severity: "info" | "warn" | "crit"; kind: "evento_observado" | "hipotese" | "causa_confirmada"; text: string; evidence: string }[];
-}
-
-function DiagnosticsCard() {
-  const base = useBasePath();
-  const { data, error, isLoading } = useAgent<DiagnosticSummary>("diagnostics/summary?range=24h", { refetchInterval: 60_000 });
-  return (
-    <Card className="lg:col-span-2">
-      <CardHeader
-        title="Diagnóstico das últimas 24 h"
-        icon={<Sparkles />}
-        subtitle={data ? `Motor: ${data.engine === "regras" ? "regras determinísticas (sem IA)" : "Claude"} · baseado somente em dados registrados` : undefined}
-        actions={
-          <Link href={`${base}/assistente`} className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
-            <Bot className="size-3.5" /> Perguntar ao assistente
-          </Link>
-        }
-      />
-      <CardBody>
-        {isLoading && <Skeleton className="h-16 w-full" />}
-        {error && <QueryError error={error} />}
-        {data && (
-          <>
-            <p className="text-sm text-fg">{data.headline}</p>
-            <ul className="mt-3 space-y-2">
-              {data.findings.slice(0, 5).map((f, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
-                  <TriangleAlert className={`mt-0.5 size-3.5 shrink-0 ${f.severity === "crit" ? "text-crit" : f.severity === "warn" ? "text-warn" : "text-fg-subtle"}`} />
-                  <div>
-                    <p className="text-fg">
-                      {f.text}{" "}
-                      <Badge tone={f.kind === "causa_confirmada" ? "ok" : f.kind === "hipotese" ? "warn" : "neutral"} className="ml-1 align-middle">
-                        {f.kind === "causa_confirmada" ? "causa confirmada" : f.kind === "hipotese" ? "hipótese" : "evento observado"}
-                      </Badge>
-                    </p>
-                    <p className="text-xs text-fg-subtle">{f.evidence}</p>
-                  </div>
-                </li>
-              ))}
-              {!data.findings.length && <li className="text-sm text-fg-muted">Nenhuma anomalia detectada no período observado.</li>}
-            </ul>
-          </>
-        )}
-      </CardBody>
-    </Card>
+    <button type="button" onClick={onToggle} aria-pressed={!hidden} className={cn("flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-medium transition-colors hover:bg-surface-2", hidden ? "text-fg-subtle line-through" : "text-fg")}>
+      <span className="size-2.5 rounded-full" style={{ background: hidden ? "var(--surface-3)" : color }} aria-hidden />
+      {label}
+    </button>
   );
 }
 
@@ -294,70 +46,156 @@ export default function OverviewView() {
   const base = useBasePath();
   const [mode, setMode] = useState<SeriesMode>("traffic");
   const [range, setRange] = useState("1h");
-  const status = useAgent<StatusResponse>("status", { refetchInterval: 10_000 });
+  const [hideDown, setHideDown] = useState(false);
+  const [hideUp, setHideUp] = useState(false);
+
+  const status = useAgent<StatusResponse>("status", { refetchInterval: useStatusInterval(10_000) });
   const agent = useAgent<AgentInfo>("agent", { refetchInterval: 30_000 });
   const spark = useAgent<Telemetry>("telemetry?range=15m", { refetchInterval: 30_000 });
   const tel = useAgent<Telemetry>(`telemetry?range=${range}`, { refetchInterval: range === "1h" ? 30_000 : 120_000 });
   const usage = useAgent<UsageSummary>("usage/summary", { refetchInterval: 60_000 });
-  const events = useAgent<EventsResponse>("events?range=24h&limit=8", { refetchInterval: 60_000 });
+  const plan = useAgent<UsagePlan>("usage/plan", { refetchInterval: 60_000 });
+  const series = useAgent<UsageSeries>("usage/series?range=30d&bucket=day", { refetchInterval: 120_000 });
+  const quality = useAgent<Quality>("quality?range=24h", { refetchInterval: 60_000 });
+  // Mesma consulta da tela Eventos (7 d): alimenta as interrupções de 24 h, a comparação e a lista de eventos.
+  const events = useAgent<EventsResponse>("events?range=7d&limit=1000", { refetchInterval: 60_000 });
 
   const st = status.data?.available ? status.data.status : null;
-  const lat = num(st?.metrics.pop_latency_ms?.value);
-  const drop = num(st?.metrics.pop_drop_pct?.value);
-  const hasPower = tel.data?.points.some((p) => p.power_w !== null);
+  const m = st?.metrics;
+  const down = num(m?.downlink_mbps?.value);
+  const up = num(m?.uplink_mbps?.value);
+  const lat = num(m?.pop_latency_ms?.value);
+  const drop = num(m?.pop_drop_pct?.value);
+  const obst = num(m?.obstruction_pct?.value);
+  const hasPower = tel.data?.points.some((p) => p.power_w !== null) ?? false;
   const lastPower = [...(spark.data?.points ?? [])].reverse().find((p) => p.power_w !== null)?.power_w ?? null;
+  const unavailable = status.data ? ("indisponivel" as const) : null;
+  const score = quality.data
+    ? qualityScore({ availabilityPct: quality.data.availability_pct, lossPct: quality.data.loss_pct, latencyP50Ms: quality.data.latency_p50_ms, obstructionPct: obst })
+    : null;
 
   return (
     <>
-      <PageHeader title="Visão Geral" icon={<Activity />} description="Estado atual, tráfego corrente e qualidade da Starlink Mini, com a origem de cada número." />
-      {status.error && <QueryError error={status.error} onRetry={() => status.refetch()} />}
+      <div className="lg:hidden">
+        <PageHeader title="Dashboard" icon={<House />} description="Visão geral da sua Starlink em tempo real" />
+      </div>
+      {status.error && (
+        <div className="mb-4">
+          <QueryError error={status.error} onRetry={() => status.refetch()} />
+        </div>
+      )}
+      {agent.data?.mode === "fixture" && !base && (
+        <Callout tone="demo" title="Agente em modo FIXTURE" className="mb-4">
+          O agente está lendo um arquivo de fixture (ORBITLINK_FIXTURE_FILE). Os dados não são da sua antena.
+        </Callout>
+      )}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Indicadores atuais">
-        <StatusHero status={status.data} agent={agent.data} />
-        <TrafficCard dir="down" status={status.data} tel={spark.data} />
-        <TrafficCard dir="up" status={status.data} tel={spark.data} />
-        <MetricCard
-          label="Latência até o PoP"
-          icon={<Clock />}
-          value={lat === null ? "—" : fmtNumber(lat, 1)}
-          unit={lat === null ? undefined : "ms"}
-          source={st?.metrics.pop_latency_ms?.source ?? (status.data ? "indisponivel" : null)}
-          loading={!status.data}
-          tone={lat !== null && lat > 100 ? "warn" : undefined}
-          hint="Latência medida pela própria antena até o ponto de presença (PoP) da Starlink. Não é o ping até sites da internet."
-        />
-        <MetricCard
-          label="Perda de ping ao PoP"
-          icon={<Gauge />}
-          value={drop === null ? "—" : fmtPct(drop, 2)}
-          source={st?.metrics.pop_drop_pct?.source ?? (status.data ? "indisponivel" : null)}
-          loading={!status.data}
-          tone={drop !== null && drop >= 5 ? "crit" : drop !== null && drop > 1 ? "warn" : undefined}
-          hint="Fração de pings da antena ao PoP sem resposta na amostra mais recente."
-        />
-        <UsageCard usage={usage.data} />
-        {hasPower || lastPower !== null ? (
-          <MetricCard
-            label="Potência reportada"
-            icon={<Zap />}
-            value={fmtNumber(lastPower, 1)}
-            unit="W"
-            source={tel.data?.source === "demonstracao" ? "demonstracao" : "real"}
-            hint="Potência de entrada reportada pelo histórico da antena (power_in). Exibida apenas quando o firmware fornece."
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-6 min-[105rem]:grid-cols-[repeat(6,minmax(0,1fr))_21.5rem]">
+        <div className="md:col-span-6">
+          <Hero status={status.data} agent={agent.data} score={score} />
+        </div>
+
+        <section aria-label="Indicadores atuais" className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:col-span-6 xl:grid-cols-5">
+          <StatTile
+            label="Download agora"
+            icon={<ArrowDown />}
+            color="green"
+            value={down === null ? "—" : fmtMbps(down)}
+            unit={down === null ? undefined : "Mbps"}
+            source={m?.downlink_mbps?.source ?? unavailable}
+            loading={!status.data}
+            hint="Tráfego corrente reportado pela antena — NÃO é a velocidade máxima da conexão nem um teste de velocidade. 0 Mbps normalmente significa conexão ociosa."
+            footer={down === null ? "Sem leitura da antena" : down === 0 ? "Ocioso (sem tráfego no momento)" : "Tráfego corrente, não capacidade"}
+          >
+            {spark.data?.points.some((p) => p.down_mbps !== null) ? <MiniSpark data={spark.data.points} k="down_mbps" color="var(--chart-down)" /> : null}
+          </StatTile>
+          <StatTile
+            label="Upload agora"
+            icon={<ArrowUp />}
+            color="violet"
+            value={up === null ? "—" : fmtMbps(up)}
+            unit={up === null ? undefined : "Mbps"}
+            source={m?.uplink_mbps?.source ?? unavailable}
+            loading={!status.data}
+            hint="Tráfego corrente de envio reportado pela antena. Não é a capacidade máxima da conexão."
+            footer={up === null ? "Sem leitura da antena" : up === 0 ? "Ocioso (sem tráfego no momento)" : "Tráfego corrente, não capacidade"}
+          >
+            {spark.data?.points.some((p) => p.up_mbps !== null) ? <MiniSpark data={spark.data.points} k="up_mbps" color="var(--chart-up)" /> : null}
+          </StatTile>
+          <StatTile
+            label="Latência"
+            icon={<Clock />}
+            color="blue"
+            value={lat === null ? "—" : fmtNumber(lat, 0)}
+            unit={lat === null ? undefined : "ms"}
+            source={m?.pop_latency_ms?.source ?? unavailable}
+            loading={!status.data}
+            tone={lat !== null && lat > 100 ? "warn" : undefined}
+            hint="Latência medida pela própria antena até o ponto de presença (PoP) da Starlink. Não é o ping até sites da internet."
+            footer={lat === null ? "Sem leitura da antena" : lat <= 60 ? "Baixa · até o PoP" : lat <= 100 ? "Moderada · até o PoP" : "Alta · até o PoP"}
           />
-        ) : (
-          <ObstructionCard status={status.data} />
-        )}
-      </section>
-
-      <section className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader
-            title="Telemetria"
+          <StatTile
+            label="Perda de pacotes"
             icon={<Activity />}
-            subtitle={tel.data ? `${tel.data.series_source === "history_1s" ? "Histórico de 1 s da antena" : tel.data.series_source === "minute_aggregates" ? "Agregados por minuto" : tel.data.series_source === "status_10s" ? "Amostras de status (10 s)" : "Sem dados"} · resolução ${fmtDuration(tel.data.bucket_s)}` : undefined}
-            actions={
+            color="red"
+            value={drop === null ? "—" : fmtPct(drop, 2)}
+            source={m?.pop_drop_pct?.source ?? unavailable}
+            loading={!status.data}
+            tone={drop !== null && drop >= 5 ? "crit" : drop !== null && drop > 1 ? "warn" : undefined}
+            hint="Fração de pings da antena ao PoP sem resposta na amostra mais recente."
+            footer={drop === null ? "Sem leitura da antena" : drop >= 5 ? "Anomalia: perda elevada" : drop > 1 ? "Acima do normal" : "Dentro do normal"}
+          />
+          {hasPower || lastPower !== null ? (
+            <StatTile
+              wide
+              className="col-span-2 sm:col-span-1"
+              label="Potência"
+              icon={<Zap />}
+              color="amber"
+              value={lastPower === null ? "—" : `≈ ${fmtNumber(lastPower, 0)}`}
+              unit={lastPower === null ? undefined : "W"}
+              source={tel.data?.source === "demonstracao" ? "demonstracao" : "real"}
+              hint="Potência de entrada reportada pelo histórico da antena (power_in). Exibida apenas quando o firmware fornece."
+              footer="Consumo elétrico da antena"
+            />
+          ) : (
+            <StatTile
+              wide
+              className="col-span-2 sm:col-span-1"
+              label="Obstrução"
+              icon={<Radar />}
+              color="amber"
+              value={obst === null ? "—" : fmtPct(obst, 2)}
+              source={m?.obstruction_pct?.source ?? unavailable}
+              loading={!status.data}
+              tone={obst !== null && obst > 5 ? "warn" : undefined}
+              hint="Fração do tempo com visão do céu obstruída, segundo a própria antena. A potência (W) aparece aqui quando o firmware a informa."
+              footer={
+                obst === null ? (
+                  "Não informado pelo firmware"
+                ) : (
+                  <Link href={hrefOf(base, "obstrucoes")} className="text-accent hover:underline">
+                    Ver mapa do céu
+                  </Link>
+                )
+              }
+            />
+          )}
+        </section>
+
+        <Card className="ol-glow ol-hud flex flex-col md:col-span-6 xl:col-span-4">
+          <div aria-hidden className="ol-ruler mx-4 mt-3 opacity-70" />
+          <CardHeader
+            title={
               <>
+                Desempenho da Conexão <span className="font-normal text-fg-muted">(tempo real)</span>
+              </>
+            }
+            icon={<ChartArea />}
+            subtitle={tel.data ? `${SERIES_LABEL[tel.data.series_source]} · resolução ${fmtDuration(tel.data.bucket_s)}` : undefined}
+            className="flex-wrap"
+            actions={
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <Tabs
                   label="Métrica"
                   value={mode}
@@ -369,24 +207,30 @@ export default function OverviewView() {
                     ...(hasPower ? [{ value: "power", label: "Potência" }] : []),
                   ]}
                 />
-                <RangeTabs value={range} onChange={setRange} options={[{ value: "1h", label: "1h" }, { value: "6h", label: "6h" }, { value: "24h", label: "24h" }, { value: "7d", label: "7d" }]} />
-              </>
+                <RangeTabs value={range} onChange={setRange} options={RANGES} />
+              </div>
             }
           />
-          <CardBody>
-            {tel.isLoading && <Skeleton className="h-[260px] w-full" />}
+          <CardBody className="flex flex-1 flex-col">
+            {tel.isLoading && <Skeleton className="h-[220px] w-full" />}
             {tel.error && <QueryError error={tel.error} onRetry={() => tel.refetch()} />}
             {tel.data && tel.data.points.length === 0 && (
-              <EmptyState icon={<Activity />} title="Sem amostras neste período">
-                O gráfico permanece vazio até o agente coletar dados reais da antena. Nada é preenchido com zeros.
+              <EmptyState icon={<Activity />} title="Sem amostras neste período" className="min-h-[200px] flex-1 py-6">
+                O gráfico aparece assim que o agente coletar dados reais da antena.
               </EmptyState>
             )}
             {tel.data && tel.data.points.length > 0 && (
               <>
-                <TelemetryChart points={tel.data.points} mode={mode} start={tel.data.start} end={tel.data.end} gaps={tel.data.gaps} />
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                {mode === "traffic" && (
+                  <div className="mb-1 flex justify-end gap-1">
+                    <LegendToggle label="Download" color="var(--chart-down)" hidden={hideDown} onToggle={() => setHideDown((v) => !v)} />
+                    <LegendToggle label="Upload" color="var(--chart-up)" hidden={hideUp} onToggle={() => setHideUp((v) => !v)} />
+                  </div>
+                )}
+                <TelemetryChart points={tel.data.points} mode={mode} start={tel.data.start} end={tel.data.end} gaps={tel.data.gaps} height={mode === "traffic" ? 216 : 240} hideDown={hideDown} hideUp={hideUp} />
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">
                   <GapNote gaps={tel.data.gaps} />
-                  <div className="flex items-center gap-3">
+                  <div className="ml-auto flex items-center gap-3">
                     <CoverageBar coverage={tel.data.coverage} />
                     <SourceBadge source={tel.data.source} />
                   </div>
@@ -396,42 +240,20 @@ export default function OverviewView() {
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader
-            title="Linha do tempo (24 h)"
-            icon={<Clock />}
-            actions={<Link href={`${base}/interrupcoes`} className="text-xs text-accent hover:underline">ver tudo</Link>}
-          />
-          <CardBody>
-            {events.isLoading && <Skeleton className="h-40 w-full" />}
-            {events.error && <QueryError error={events.error} />}
-            {events.data && events.data.events.length === 0 && (
-              <EmptyState title="Nenhum evento nas últimas 24 h">
-                {events.data.gaps.length ? "Atenção: houve lacunas de observação — eventos nesses períodos não seriam vistos." : "Período observado sem interrupções registradas."}
-              </EmptyState>
-            )}
-            {events.data && events.data.events.length > 0 && (
-              <ul className="divide-y divide-border">
-                {events.data.events.map((ev) => (
-                  <EventRow key={ev.id} ev={ev} />
-                ))}
-              </ul>
-            )}
-          </CardBody>
-        </Card>
-      </section>
+        <UsageCard usage={usage.data} plan={plan.data} series={series.data} className="md:col-span-3 xl:col-span-2" />
+        <AntennaCard status={status.data} agent={agent.data} className="md:col-span-3 xl:col-span-2" />
+        <OutagesCard events={events.data} error={events.error} className="md:col-span-3 xl:col-span-2" />
+        <QualityCard quality={quality.data} score={score} className="md:col-span-3 xl:col-span-2" />
 
-      <section className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {hasPower || lastPower !== null ? <ObstructionCard status={status.data} /> : null}
-        <HealthCard agent={agent.data} />
-        <DiagnosticsCard />
-      </section>
+        {/* Coluna lateral em telas muito largas (linhas 1–4); Diagnóstico e Serviços ocupam a largura toda abaixo dela. Em telas menores, vira uma linha de dois cards. */}
+        <div className="grid min-w-0 grid-cols-1 content-start gap-4 md:col-span-6 md:grid-cols-2 min-[105rem]:col-span-1 min-[105rem]:col-start-7 min-[105rem]:row-span-4 min-[105rem]:row-start-1 min-[105rem]:grid-cols-1">
+          <CoverageCard status={status.data} />
+          <EventsCard events={events.data} />
+        </div>
 
-      {agent.data?.mode === "fixture" && !base && (
-        <Callout tone="demo" title="Agente em modo FIXTURE" className="mt-4">
-          O agente está lendo um arquivo de fixture (ORBITLINK_FIXTURE_FILE). Os dados não são da sua antena.
-        </Callout>
-      )}
+        <DiagnosticsCard className="md:col-span-6 min-[105rem]:col-span-7" />
+        <ServicesCard agent={agent.data} agentError={agent.error} className="md:col-span-6 min-[105rem]:col-span-7" />
+      </div>
     </>
   );
 }

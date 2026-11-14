@@ -15,20 +15,22 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { memo, useEffect, useRef } from "react";
 import { chartTick, fmtBytesStr, fmtDateTime, fmtNumber } from "@/lib/format";
 
 export type SeriesMode = "traffic" | "latency" | "loss" | "power";
 
-const AXIS = { stroke: "var(--fg-subtle)", fontSize: 11, tickLine: false, axisLine: false } as const;
+const AXIS = { stroke: "var(--fg-subtle)", fontSize: 10.5, fontFamily: "var(--font-mono)", tickLine: false, axisLine: false } as const;
+const TIP_BOX = "ol-hud rounded-md border border-border-strong bg-bg-elev/95 px-3 py-2 text-xs shadow-[0_14px_30px_-12px_rgb(0_0_0/0.95)] backdrop-blur-sm";
 
 function TooltipBox({ active, payload, label, unit }: { active?: boolean; payload?: { name: string; value: number | null; color: string }[]; label?: number; unit: string }) {
   if (!active || !payload?.length || label === undefined) return null;
   return (
-    <div className="rounded-lg border border-border-strong bg-surface-2/95 px-3 py-2 text-xs shadow-xl backdrop-blur">
-      <p className="mb-1 font-medium text-fg-muted">{fmtDateTime(label)}</p>
+    <div className={TIP_BOX}>
+      <p className="tabular mb-1.5 text-[11px] text-fg-subtle">{fmtDateTime(label)}</p>
       {payload.map((p) => (
         <p key={p.name} className="flex items-center gap-2 tabular">
-          <span className="size-2 rounded-full" style={{ background: p.color }} />
+          <span className="h-0.5 w-3 rounded-full" style={{ background: p.color }} />
           <span className="text-fg-muted">{p.name}</span>
           <span className="ml-auto font-medium text-fg">{p.value === null || p.value === undefined ? "sem dado" : `${fmtNumber(p.value, 2)} ${unit}`}</span>
         </p>
@@ -41,13 +43,16 @@ function TooltipBox({ active, payload, label, unit }: { active?: boolean; payloa
  * Série temporal. Pontos ausentes NÃO são ligados (connectNulls=false) e lacunas de observação
  * aparecem como faixas hachuradas — nunca como zero.
  */
-export function TelemetryChart({
+function TelemetryChartImpl({
   points,
   mode,
   start,
   end,
   gaps = [],
   height = 260,
+  hideDown = false,
+  hideUp = false,
+  syncId,
 }: {
   points: TelemetryPoint[];
   mode: SeriesMode;
@@ -55,6 +60,11 @@ export function TelemetryChart({
   end: number;
   gaps?: Gap[];
   height?: number;
+  /** Legenda interativa do modo tráfego: oculta a série sem recriar o gráfico. */
+  hideDown?: boolean;
+  hideUp?: boolean;
+  /** Gráficos com o mesmo syncId mostram o cursor e a dica no mesmo instante. */
+  syncId?: string;
 }) {
   const span = end - start;
   const gapAreas = gaps.map((g, i) => (
@@ -70,6 +80,7 @@ export function TelemetryChart({
   ));
   const common = {
     data: points,
+    syncId,
     margin: { top: 8, right: 8, bottom: 0, left: -8 },
   };
   const xAxis = (
@@ -83,19 +94,19 @@ export function TelemetryChart({
       {...AXIS}
     />
   );
-  const grid = <CartesianGrid stroke="var(--chart-grid)" vertical={false} />;
+  const grid = <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="2 4" vertical={false} />;
   const defs = (
     <defs>
       <pattern id="gap-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-        <rect width="6" height="6" fill="rgb(148 163 184 / 0.04)" />
-        <line x1="0" y1="0" x2="0" y2="6" stroke="rgb(148 163 184 / 0.22)" strokeWidth="2" />
+        <rect width="6" height="6" fill="rgb(167 169 172 / 0.03)" />
+        <line x1="0" y1="0" x2="0" y2="6" stroke="rgb(167 169 172 / 0.2)" strokeWidth="1.5" />
       </pattern>
       <linearGradient id="g-down" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="var(--chart-down)" stopOpacity={0.35} />
+        <stop offset="0" stopColor="var(--chart-down)" stopOpacity={0.22} />
         <stop offset="1" stopColor="var(--chart-down)" stopOpacity={0} />
       </linearGradient>
       <linearGradient id="g-up" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="var(--chart-up)" stopOpacity={0.3} />
+        <stop offset="0" stopColor="var(--chart-up)" stopOpacity={0.1} />
         <stop offset="1" stopColor="var(--chart-up)" stopOpacity={0} />
       </linearGradient>
     </defs>
@@ -110,10 +121,10 @@ export function TelemetryChart({
             {grid}
             {xAxis}
             <YAxis {...AXIS} width={44} tickFormatter={(v: number) => fmtNumber(v, 0)} />
-            <Tooltip content={<TooltipBox unit="Mbps" />} cursor={{ stroke: "var(--border-strong)" }} />
+            <Tooltip content={<TooltipBox unit="Mbps" />} cursor={{ stroke: "var(--accent-2)", strokeOpacity: 0.6, strokeDasharray: "3 3" }} />
             {gapAreas}
-            <Area name="Download" type="monotone" dataKey="down_mbps" stroke="var(--chart-down)" strokeWidth={1.6} fill="url(#g-down)" connectNulls={false} isAnimationActive={false} />
-            <Area name="Upload" type="monotone" dataKey="up_mbps" stroke="var(--chart-up)" strokeWidth={1.4} fill="url(#g-up)" connectNulls={false} isAnimationActive={false} />
+            <Area hide={hideDown} name="Download" type="monotone" dataKey="down_mbps" stroke="var(--chart-down)" strokeWidth={1.4} fill="url(#g-down)" connectNulls={false} isAnimationActive={false} />
+            <Area hide={hideUp} name="Upload" type="monotone" dataKey="up_mbps" stroke="var(--chart-up)" strokeOpacity={0.85} strokeWidth={1.1} fill="url(#g-up)" connectNulls={false} isAnimationActive={false} />
           </AreaChart>
         ) : (
           <LineChart {...common}>
@@ -121,14 +132,14 @@ export function TelemetryChart({
             {grid}
             {xAxis}
             <YAxis {...AXIS} width={44} tickFormatter={(v: number) => fmtNumber(v, 0)} />
-            <Tooltip content={<TooltipBox unit={mode === "latency" ? "ms" : mode === "loss" ? "%" : "W"} />} cursor={{ stroke: "var(--border-strong)" }} />
+            <Tooltip content={<TooltipBox unit={mode === "latency" ? "ms" : mode === "loss" ? "%" : "W"} />} cursor={{ stroke: "var(--accent-2)", strokeOpacity: 0.6, strokeDasharray: "3 3" }} />
             {gapAreas}
             <Line
               name={mode === "latency" ? "Latência PoP" : mode === "loss" ? "Perda de ping" : "Potência"}
               type="monotone"
               dataKey={mode === "latency" ? "latency_ms" : mode === "loss" ? "drop_pct" : "power_w"}
-              stroke={mode === "latency" ? "var(--chart-lat)" : mode === "loss" ? "var(--chart-loss)" : "var(--ok)"}
-              strokeWidth={1.6}
+              stroke={mode === "latency" ? "var(--chart-lat)" : mode === "loss" ? "var(--chart-loss)" : "var(--chart-up)"}
+              strokeWidth={1.4}
               dot={false}
               connectNulls={false}
               isAnimationActive={false}
@@ -140,7 +151,7 @@ export function TelemetryChart({
   );
 }
 
-export function Sparkline({ data, dataKey, color, height = 36 }: { data: TelemetryPoint[]; dataKey: keyof TelemetryPoint; color: string; height?: number }) {
+function SparklineImpl({ data, dataKey, color, height = 36 }: { data: TelemetryPoint[]; dataKey: keyof TelemetryPoint; color: string; height?: number }) {
   return (
     <div style={{ height }} className="mt-2 w-full" aria-hidden>
       <ResponsiveContainer width="100%" height="100%">
@@ -158,7 +169,7 @@ export function Sparkline({ data, dataKey, color, height = 36 }: { data: Telemet
   );
 }
 
-export function UsageBarChart({
+function UsageBarChartImpl({
   data,
   height = 260,
   tickFormatter,
@@ -171,15 +182,15 @@ export function UsageBarChart({
     <div style={{ height }} className="w-full" role="img" aria-label="Gráfico de consumo por período">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
-          <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
+          <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="2 4" vertical={false} />
           <XAxis dataKey="t" tickFormatter={tickFormatter} minTickGap={24} {...AXIS} />
           <YAxis {...AXIS} width={64} tickFormatter={(v: number) => fmtBytesStr(v)} />
           <Tooltip
-            cursor={{ fill: "rgb(148 163 184 / 0.06)" }}
+            cursor={{ fill: "rgb(0 140 255 / 0.07)" }}
             content={({ active, payload, label }) =>
               active && payload?.length ? (
-                <div className="rounded-lg border border-border-strong bg-surface-2/95 px-3 py-2 text-xs shadow-xl">
-                  <p className="mb-1 font-medium text-fg-muted">{tickFormatter(label as number)}</p>
+                <div className={TIP_BOX}>
+                  <p className="tabular mb-1.5 text-[11px] text-fg-subtle">{tickFormatter(label as number)}</p>
                   <p className="tabular">Download: {fmtBytesStr(payload[0]?.payload.bytes_download)}</p>
                   <p className="tabular">Upload: {fmtBytesStr(payload[0]?.payload.bytes_upload)}</p>
                   <p className="tabular text-fg-subtle">Cobertura: {Math.round((payload[0]?.payload.coverage ?? 0) * 100)}%</p>
@@ -188,30 +199,58 @@ export function UsageBarChart({
             }
           />
           <Bar dataKey="bytes_download" stackId="a" fill="var(--chart-down)" radius={[0, 0, 0, 0]} isAnimationActive={false} />
-          <Bar dataKey="bytes_upload" stackId="a" fill="var(--chart-up)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="bytes_upload" stackId="a" fill="var(--chart-up)" radius={[2, 2, 0, 0]} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-/** Mapa de obstrução: grade SNR (−1 = sem dado). Só é renderizado com dados reais da API. */
-export function ObstructionGrid({ rows, cols, snr }: { rows: number; cols: number; snr: number[] }) {
-  const cell = 4;
-  const rects = [];
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const v = snr[y * cols + x];
-      if (v === undefined || v < 0) continue;
-      const fill = v >= 0.9 ? "rgb(34 211 238 / 0.55)" : v > 0 ? "rgb(251 191 36 / 0.7)" : "rgb(248 113 113 / 0.9)";
-      rects.push(<rect key={`${x}-${y}`} x={x * cell} y={y * cell} width={cell} height={cell} fill={fill} />);
+/**
+ * Mapa de obstrução: grade SNR (−1 = sem dado). Só é renderizado com dados reais da API.
+ * Desenhado em <canvas>: o mapa real tem 123×123 células e 15 mil <rect> em SVG pesavam em PCs modestos.
+ */
+function ObstructionGridImpl({ rows, cols, snr, className }: { rows: number; cols: number; snr: number[]; className?: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const cell = 4;
+    const w = cols * cell;
+    const h = rows * cell;
+    canvas.width = w;
+    canvas.height = h;
+    ctx.clearRect(0, 0, w, h);
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, w / 2 - 1, 0, Math.PI * 2);
+    ctx.fillStyle = "#080b10";
+    ctx.fill();
+    ctx.strokeStyle = "#364354";
+    ctx.stroke();
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const v = snr[y * cols + x];
+        if (v === undefined || v < 0) continue;
+        ctx.fillStyle = v >= 0.9 ? "rgba(56,189,248,0.55)" : v > 0 ? "rgba(232,185,49,0.75)" : "rgba(255,70,85,0.9)";
+        ctx.fillRect(x * cell, y * cell, cell, cell);
+      }
     }
-  }
-  return (
-    <svg viewBox={`0 0 ${cols * cell} ${rows * cell}`} className="aspect-square w-full max-w-[420px]" role="img" aria-label="Mapa de obstrução do céu visto pela antena">
-      <circle cx={(cols * cell) / 2} cy={(rows * cell) / 2} r={(cols * cell) / 2 - 1} fill="var(--bg-elev)" stroke="var(--border-strong)" />
-      {rects}
-      <circle cx={(cols * cell) / 2} cy={(rows * cell) / 2} r={(cols * cell) / 4} fill="none" stroke="var(--border)" strokeDasharray="3 3" />
-    </svg>
-  );
+    ctx.beginPath();
+    ctx.setLineDash([3, 3]);
+    ctx.arc(w / 2, h / 2, w / 4, 0, Math.PI * 2);
+    ctx.strokeStyle = "#27313f";
+    ctx.stroke();
+  }, [rows, cols, snr]);
+  return <canvas ref={ref} className={className ?? "aspect-square w-full max-w-[420px]"} role="img" aria-label="Mapa de obstrução do céu visto pela antena" />;
 }
+
+/*
+ * Gráficos memorizados: com o status chegando a cada ~10 s (SSE) a tela inteira re-renderiza, mas os
+ * pontos vêm do React Query com structural sharing — sem memo, o Recharts redesenhava centenas de
+ * pontos SVG a cada atualização mesmo sem mudança nos dados.
+ */
+export const TelemetryChart = memo(TelemetryChartImpl);
+export const Sparkline = memo(SparklineImpl);
+export const UsageBarChart = memo(UsageBarChartImpl);
+export const ObstructionGrid = memo(ObstructionGridImpl);

@@ -2,7 +2,7 @@
 
 ## Superfície exposta
 
-- **Painel** em `127.0.0.1:3000` e **agente** em `127.0.0.1:8787` por padrão. Escutar fora do loopback exige `ORBITLINK_ALLOW_LAN=true`, que é recusado caso contrário.
+- **Painel** (porta 3000) e **agente** (porta 8787) escutam só em localhost (loopback) por padrão. Escutar fora do loopback exige `ORBITLINK_ALLOW_LAN=true`, que é recusado caso contrário.
 - **Listener ESP32** (opcional) em `:8788`, com apenas `pair`, `ingest`, `heartbeat` e `time`. Todas, menos `time`, exigem HMAC ou código de pareamento.
 - A porta gRPC da antena (9200) **nunca** deve ser exposta à internet.
 
@@ -46,7 +46,7 @@
 - O primeiro administrador exige `ORBITLINK_SETUP_CODE`. É gerado pelo instalador e só root lê, em `/etc/orbitlink/setup-code`. Isso impede que alguém da LAN crie o administrador antes de você.
 - Unidades systemd endurecidas: `ProtectSystem=strict`, sem capabilities, `NoNewPrivileges`, escrita só em `/var/lib/orbitlink`.
 - O Nginx é a única porta publicada (TLS, ACL só para LAN e Tailnet, limite de taxa). `/v1/` e `/esp32/` devolvem 404.
-- A faixa `100.64.0.0/10` só é liberada na ACL quando o Tailscale existe no servidor, porque também é a CGNAT da Starlink.
+- A faixa CGNAT usada pelo Tailscale só é liberada na ACL quando o Tailscale existe no servidor, porque também é a CGNAT da Starlink.
 - `Host` desconhecido recebe 444 (proteção contra DNS rebinding). São aceitos os nomes do servidor, IPs literais e `*.ts.net`.
 - UFW nega entrada por padrão. `orbitlinkctl health` falha se 8787 ou 3000 escutarem fora do loopback.
 - Detalhes em [LINUX_SERVER.md](LINUX_SERVER.md).

@@ -2,7 +2,7 @@
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
-| "Antena inacessível" / `TCP 192.168.100.1:9200: timeout` | PC fora da rede da Starlink, roteador próprio sem rota ou antena desligada/inicializando | Conecte ao Wi-Fi da Mini, ou adicione no seu roteador a rota estática `192.168.100.1/32 → WAN`. Aguarde 2 a 5 min após ligar. Rode `scripts\diagnose.ps1` |
+| "Antena inacessível" / `TCP IP-DA-ANTENA:9200: timeout` | PC fora da rede da Starlink, roteador próprio sem rota ou antena desligada/inicializando | Conecte ao Wi-Fi da Mini, ou adicione no seu roteador a rota estática `IP-DA-ANTENA/32 → WAN` (`IP-DA-ANTENA` é o endereço local da antena, em `ORBITLINK_DISH_TARGET` no `.env`). Aguarde 2 a 5 min após ligar. Rode `scripts\diagnose.ps1` |
 | `conexão recusada` em 9200 | Host responde mas a porta está fechada | Firmware muito antigo ou outro dispositivo nesse IP. Confira o IP da antena |
 | `O dispositivo não oferece gRPC reflection` | Firmware sem reflection | Abra uma issue com o relatório `diagnose --share` |
 | Capacidade `negada` no reboot | O firmware bloqueia controle local | Use o app oficial para reiniciar. O OrbitLink não contorna isso |

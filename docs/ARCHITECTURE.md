@@ -1,16 +1,16 @@
 # Arquitetura
 
 ```
- Navegador ──HTTP──▶ Next.js (127.0.0.1:3000)
+ Navegador ──HTTP──▶ Next.js (localhost, porta 3000)
                       │  /api/auth/*   login/setup → cookie httpOnly (SameSite=Strict)
                       │  /api/agent/*  proxy autenticado (+ SSE) — injeta token de serviço + sessão
                       ▼
-               Agente FastAPI (127.0.0.1:8787) ──gRPC──▶ Starlink Mini 192.168.100.1:9200
+               Agente FastAPI (localhost, porta 8787) ──gRPC──▶ Starlink Mini (IP-DA-ANTENA, porta 9200)
                 │   ├─ Coletor asyncio (status 10 s, histórico 30 s, obstrução 5 min, capacidades 1 h)
                 │   ├─ SQLite WAL (data/orbitlink.sqlite3) + migrations
                 │   ├─ Alertas · Diagnóstico por regras · Relatórios · Controle auditado · IA (opcional)
                 │   └─ Sync worker ──HTTPS──▶ Supabase RPC ingest_batch (opcional)
-                └─ Listener ESP32 (0.0.0.0:8788, opcional) ◀── HMAC ── ESP32 na LAN
+                └─ Listener ESP32 (todas as interfaces, porta 8788, opcional) ◀── HMAC ── ESP32 na LAN
 ```
 
 ## Decisões
@@ -48,4 +48,4 @@
 
 `health`, `agent`, `status`, `capabilities`, `capabilities/refresh`, `telemetry`, `usage/summary|series|hourly-profile|compare|import/*`, `quality`, `events`, `obstruction`, `diagnose`, `diagnostics/summary|anomalies`, `control/actions|prepare|confirm|cancel|requests`, `alerts/*`, `reports/export`, `devices`, `esp32/*`, `ai/*`, `settings`, `sync`, `stream` (SSE).
 
-OpenAPI: `http://127.0.0.1:8787/docs` (exige token para chamar). Tipos TS: `packages/shared/src/generated`.
+OpenAPI: `http://localhost:8787/docs` (exige token para chamar). Tipos TS: `packages/shared/src/generated`.

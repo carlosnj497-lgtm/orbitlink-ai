@@ -36,7 +36,7 @@ O diagnóstico é somente leitura: não altera rota, firewall nem adaptador.
 ## 4. Iniciar e parar
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\start.ps1     # agente 127.0.0.1:8787 + painel 127.0.0.1:3000
+powershell -ExecutionPolicy Bypass -File scripts\start.ps1     # agente (porta 8787) + painel (porta 3000), só em localhost
 powershell -ExecutionPolicy Bypass -File scripts\start.ps1 -Dev
 powershell -ExecutionPolicy Bypass -File scripts\stop.ps1
 ```
@@ -45,7 +45,7 @@ Logs ficam em `data\run\agent.log` (JSON estruturado, segredos redigidos) e `dat
 
 ## 5. Primeiro acesso
 
-Abra <http://127.0.0.1:3000>, crie o administrador local (senha com no mínimo 10 caracteres) e vá ao **Assistente de Instalação**, em "Executar diagnóstico".
+Abra `http://localhost:3000`, crie o administrador local (senha com no mínimo 10 caracteres) e vá ao **Assistente de Instalação**, em "Executar diagnóstico".
 
 ## 6. Inicialização automática (opcional)
 
@@ -60,9 +60,9 @@ Cria uma Tarefa Agendada **no logon do seu usuário**, com nível Limitado (sem 
 
 | Porta | Escuta em | Uso |
 |---|---|---|
-| 3000 | 127.0.0.1 | Painel |
-| 8787 | 127.0.0.1 | API do agente (token + sessão) |
-| 8788 | 0.0.0.0 (só se `ORBITLINK_ESP32_ENABLED=true`) | Ingestão HMAC do ESP32 |
+| 3000 | só localhost | Painel |
+| 8787 | só localhost | API do agente (token + sessão) |
+| 8788 | todas as interfaces (só se `ORBITLINK_ESP32_ENABLED=true`) | Ingestão HMAC do ESP32 |
 
 Se usar o ESP32, libere **apenas** a porta 8788 e **apenas** para a rede privada:
 

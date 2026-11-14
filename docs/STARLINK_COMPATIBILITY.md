@@ -2,7 +2,7 @@
 
 ## Fontes consultadas (nov/2026)
 
-- API local oficial: `SpaceExplorationTechnologies/enterprise-api/device-api`. Define o serviço `SpaceX.API.Device.Device/Handle` e publica somente `get_diagnostics` (dish ≥ 2023.51.0, roteador ≥ 2023.55). Antena em `192.168.100.1:9200`, roteador em `192.168.1.1:9000`.
+- API local oficial: `SpaceExplorationTechnologies/enterprise-api/device-api`. Define o serviço `SpaceX.API.Device.Device/Handle` e publica somente `get_diagnostics` (dish ≥ 2023.51.0, roteador ≥ 2023.55). Antena em `IP-DA-ANTENA`, porta 9200; roteador em `IP-DO-ROTEADOR`, porta 9000. Os dois endereços ficam em `ORBITLINK_DISH_TARGET` e `ORBITLINK_ROUTER_TARGET` no `.env`.
 - `sparky8512/starlink-grpc-tools` (Unlicense): usa gRPC reflection para `get_status`, `get_history`, `dish_get_obstruction_map`, `reboot` etc. Histórico com amostras de 1 s em anel de ~15 min. Desde 2026-05, a **localização não está disponível via gRPC na maioria dos planos**.
 
 ## O que o OrbitLink usa
@@ -34,7 +34,7 @@ Ela é renovada a cada hora e sempre que a antena volta a responder. Um indicado
 
 ## Validação na sua rede (quando a Mini chegar)
 
-1. Conecte o PC ao Wi-Fi da Mini **ou** ligue a Mini ao seu roteador e garanta a rota para `192.168.100.1`. Em modo bypass, isso costuma exigir uma rota estática `192.168.100.1/32 → WAN` no roteador.
+1. Conecte o PC ao Wi-Fi da Mini **ou** ligue a Mini ao seu roteador e garanta a rota até o `IP-DA-ANTENA`. Em modo bypass, isso costuma exigir uma rota estática `IP-DA-ANTENA/32 → WAN` no roteador.
 2. Execute `scripts\diagnose.ps1`. O esperado é `[OK] Status da antena (get_status)` e `Histórico`.
 3. Opcional: `scripts\diagnose.ps1 -SaveFixture apps\agent\tests\fixtures\mini_real.json`. Isso grava respostas reais **anonimizadas** (ID, localização e MACs removidos) para regressão.
 4. Inicie o agente e confira na Visão Geral o selo **real** e o horário da primeira amostra.

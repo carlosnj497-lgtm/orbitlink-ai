@@ -45,7 +45,7 @@ Ambos os ambientes compilam neste repositório (verificado em 12/11/2026: `esp32
 1. No `.env`, defina `ORBITLINK_ESP32_ENABLED=true` e reinicie (`stop.ps1` + `start.ps1`). Libere a porta 8788 **só para a rede privada** (veja [WINDOWS_SETUP.md](WINDOWS_SETUP.md)).
 2. No painel, abra **Centro ESP32 → Gerar código de pareamento**. O código vale 10 minutos e uma única vez.
 3. Ligue o ESP32. Ele cria o Wi-Fi `OrbitLink-Setup-XXXX`. Conecte-se, escolha sua rede e informe:
-   - **IP do agente**: o IP deste PC na LAN (ex.: `192.168.3.133`)
+   - **IP do agente**: o IP deste PC na sua rede local (`SEU-IP`)
    - **Porta**: 8788
    - **Código** de 6 dígitos
 4. O nó aparece como **online** no painel em até 30 s.

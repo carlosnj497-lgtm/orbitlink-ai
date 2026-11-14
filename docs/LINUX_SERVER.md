@@ -14,7 +14,7 @@ Instalação do OrbitLink AI num PC servidor **sem interface gráfica e sem Dock
 ## 1. Como fica no servidor
 
 ```
-Navegador (LAN ou Tailnet) ──HTTPS:443──▶ Nginx ──▶ Next.js 127.0.0.1:3000 ──▶ Agente 127.0.0.1:8787 ──gRPC──▶ Starlink 192.168.100.1:9200
+Navegador (LAN ou Tailnet) ──HTTPS:443──▶ Nginx ──▶ Next.js (localhost:3000) ──▶ Agente (localhost:8787) ──gRPC──▶ Starlink (IP-DA-ANTENA:9200)
 ESP32 (LAN) ─────────────────HTTP:8788 (HMAC)──────────────────────────────────▶ Agente (opcional)
 Agente ──HTTPS saída──▶ Supabase (opcional)   ·   SQLite em /var/lib/orbitlink = buffer offline
 ```
@@ -33,10 +33,10 @@ Agente ──HTTPS saída──▶ Supabase (opcional)   ·   SQLite em /var/lib
 | Porta | Escuta | Quem acessa |
 |---|---|---|
 | 22 (SSH) | todas | UFW: só LAN, Tailnet e sessões SSH ativas no momento da instalação, com `ufw limit` |
-| 80 / 443 (Nginx) | todas | UFW + ACL do Nginx: só LAN e, se o Tailscale estiver instalado, a Tailnet (`100.64.0.0/10`). `Host` desconhecido recebe 444. A 80 apenas redireciona para HTTPS quem passa pela ACL |
-| 3000 (painel) | **127.0.0.1** | só o Nginx |
-| 8787 (agente) | **127.0.0.1** | só o painel. **Nunca** publicado (o Nginx devolve 404 em `/v1/`) |
-| 8788 (ESP32) | 0.0.0.0, **só se habilitado** | UFW: só LAN. Toda mensagem exige HMAC |
+| 80 / 443 (Nginx) | todas | UFW + ACL do Nginx: só LAN e, se o Tailscale estiver instalado, a Tailnet (faixa CGNAT do Tailscale). `Host` desconhecido recebe 444. A 80 apenas redireciona para HTTPS quem passa pela ACL |
+| 3000 (painel) | **só localhost** | só o Nginx |
+| 8787 (agente) | **só localhost** | só o painel. **Nunca** publicado (o Nginx devolve 404 em `/v1/`) |
+| 8788 (ESP32) | todas as interfaces, **só se habilitado** | UFW: só LAN. Toda mensagem exige HMAC |
 
 Nenhuma porta precisa ser aberta no roteador. **Não** faça encaminhamento de portas para este servidor.
 
@@ -60,7 +60,7 @@ cd ~/orbitlink
 # 3) Instale (confira a rede local detectada na saída)
 sudo bash deploy/linux/install.sh
 #    Opções úteis:
-#      --lan-cidr 192.168.1.0/24   informa a LAN, se a detecção errar
+#      --lan-cidr SUA-REDE/24      informa a LAN, se a detecção errar
 #      --with-tailscale            instala o Tailscale e libera o painel na interface tailscale0
 #      --esp32                     habilita o listener do ESP32 (porta 8788 só para a LAN)
 #      --harden-ssh                desativa senha e root no SSH (só se você já usa chave)
@@ -82,7 +82,7 @@ O instalador faz, nesta ordem:
    - token de serviço aleatório;
    - `ORBITLINK_COOKIE_SECURE=true`;
    - código de setup;
-   - `ORBITLINK_HOST=127.0.0.1`.
+   - `ORBITLINK_HOST` apontando para localhost (loopback).
 5. Gera a chave Fernet e o certificado TLS (SAN com hostname, `.local` e IP da LAN).
 6. Constrói a release: venv Python, `npm ci` e `next build`.
 7. Ativa o link `current`.
@@ -162,18 +162,18 @@ sudo orbitlinkctl restart
 
 ## 6. Conectar à Starlink Mini
 
-O servidor precisa alcançar `192.168.100.1:9200`.
+O servidor precisa alcançar a antena em `IP-DA-ANTENA`, porta 9200. `IP-DA-ANTENA` é o endereço local da antena, definido em `ORBITLINK_DISH_TARGET` no `.env`.
 
 ```bash
-ip route get 192.168.100.1
+ip route get IP-DA-ANTENA
 sudo orbitlinkctl diagnose
 ```
 
 | Topologia | O que fazer |
 |---|---|
 | Servidor ligado por cabo ao roteador da própria Starlink | Normalmente funciona direto |
-| Starlink em **bypass** com **roteador próprio** como gateway do servidor | Crie no **roteador** a rota estática `192.168.100.1/32 → WAN` |
-| Servidor com uma 2ª interface na rede da Starlink, ou próximo salto diferente do gateway | Rota no servidor: teste com `sudo ip route add 192.168.100.1/32 via <próximo-salto>` (temporária) e torne persistente com `deploy/linux/netplan/99-orbitlink-starlink-route.yaml.example` + `sudo netplan try` |
+| Starlink em **bypass** com **roteador próprio** como gateway do servidor | Crie no **roteador** a rota estática `IP-DA-ANTENA/32 → WAN` |
+| Servidor com uma 2ª interface na rede da Starlink, ou próximo salto diferente do gateway | Rota no servidor: teste com `sudo ip route add IP-DA-ANTENA/32 via <próximo-salto>` (temporária) e torne persistente com `deploy/linux/netplan/99-orbitlink-starlink-route.yaml.example` + `sudo netplan try` |
 
 O OrbitLink **não altera rotas** sozinho. Enquanto a antena estiver inacessível, o painel mostra "Antena inacessível" e **nenhum número**. Os períodos sem observação aparecem como lacunas, nunca como zero.
 
@@ -182,10 +182,10 @@ O OrbitLink **não altera rotas** sozinho. Enquanto a antena estiver inacessíve
 ```bash
 sudo bash deploy/linux/install.sh --with-tailscale   # ou: rode de novo o instalador com a opção
 sudo tailscale up                                     # autentique pelo link exibido
-tailscale ip -4                                       # ex.: 100.101.102.103
+tailscale ip -4                                       # mostra o IP do servidor na Tailnet
 ```
 
-- No celular ou notebook com Tailscale, acesse `https://100.x.y.z/` ou o nome MagicDNS (`servidor.sua-tailnet.ts.net`). Com `--with-tailscale`, a ACL do Nginx libera a faixa `100.64.0.0/10` e o UFW libera a interface `tailscale0`.
+- No celular ou notebook com Tailscale, acesse `https://IP-TAILSCALE/` (o IP mostrado acima) ou o nome MagicDNS (`servidor.sua-tailnet.ts.net`). Com `--with-tailscale`, a ACL do Nginx libera a faixa CGNAT do Tailscale e o UFW libera a interface `tailscale0`.
 - Sem o Tailscale, essa faixa **não** é liberada no Nginx: ela é a mesma da CGNAT da Starlink.
 - O SSH também fica acessível pela Tailnet.
 - **Não** use `tailscale funnel`, que publicaria o painel na internet.
@@ -212,7 +212,7 @@ No Linux, o segredo de cada ESP32 fica cifrado com Fernet no SQLite. A chave fic
 - Agente e painel só em loopback. `orbitlinkctl health` **falha** se 8787 ou 3000 aparecerem fora do loopback.
 - O Nginx publica apenas o painel, com TLS. Há limite de taxa no login (10/min por IP) e na API, e `X-Forwarded-For` é sobrescrito (não concatenado) para impedir falsificação.
 - O Nginx só responde a requisições cujo `Host` seja um nome deste servidor, um IP literal ou `*.ts.net`. Qualquer outro nome recebe 444 (conexão encerrada), o que bloqueia DNS rebinding contra a tela de login.
-- A faixa `100.64.0.0/10` só entra na ACL quando o Tailscale existe, porque também é a CGNAT da Starlink.
+- A faixa CGNAT do Tailscale só entra na ACL quando o Tailscale existe, porque também é a CGNAT da Starlink.
 - O primeiro administrador só pode ser criado com o **código de setup**, que só root lê. Isso impede que alguém da LAN "tome" o painel antes de você.
 - Cookies `Secure`, `HttpOnly` e `SameSite=Strict`, com verificação de `Origin` nas requisições que alteram dados.
 - Serviços endurecidos no systemd:

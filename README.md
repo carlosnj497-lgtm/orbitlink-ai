@@ -40,18 +40,33 @@ Pronto: o agente passa a ler a sua antena. No Windows, veja [Instalação](#inst
 
 ## Sumário
 
-- [Por que o ASTRYON?](#por-que-o-astryon)
-- [O que ele faz](#o-que-ele-faz)
-- [Telas](#telas)
-- [Princípios](#princípios)
-- [Instalação](#instalação)
-- [Telegram e IA](#telegram-e-ia)
-- [Arquitetura](#arquitetura)
-- [Estado do projeto](#estado-do-projeto)
-- [Roteiro](#roteiro)
-- [Perguntas frequentes](#perguntas-frequentes)
-- [Desenvolvimento](#desenvolvimento)
-- [Documentação](#documentação)
+<table>
+  <tr>
+    <th width="33%">🧭 Conhecer</th>
+    <th width="33%">🚀 Usar</th>
+    <th width="33%">🛠️ Aprofundar</th>
+  </tr>
+  <tr valign="top">
+    <td>
+      <a href="#por-que-o-astryon">Por que o ASTRYON?</a><br>
+      <a href="#o-que-ele-faz">O que ele faz</a><br>
+      <a href="#telas">Telas</a><br>
+      <a href="#princípios">Princípios</a>
+    </td>
+    <td>
+      <a href="#início-rápido">Início rápido</a><br>
+      <a href="#instalação">Instalação</a><br>
+      <a href="#telegram-e-ia">Telegram e IA</a><br>
+      <a href="#perguntas-frequentes">Perguntas frequentes</a>
+    </td>
+    <td>
+      <a href="#arquitetura">Arquitetura</a><br>
+      <a href="#estado-do-projeto">Estado do projeto</a> · <a href="#roteiro">Roteiro</a><br>
+      <a href="#desenvolvimento">Desenvolvimento</a><br>
+      <a href="#documentação">Documentação</a> · <a href="#créditos">Créditos</a>
+    </td>
+  </tr>
+</table>
 
 ## Por que o ASTRYON?
 

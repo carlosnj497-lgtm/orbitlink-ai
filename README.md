@@ -214,5 +214,7 @@ O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, paine
 
 ## Créditos
 
+Desenvolvido por [@carlosnj497-lgtm](https://github.com/carlosnj497-lgtm).
+
 A leitura do histórico circular da antena segue o modelo documentado pela
 [starlink-grpc-tools](https://github.com/sparky8512/starlink-grpc-tools) (Unlicense). O código foi reescrito, não copiado.

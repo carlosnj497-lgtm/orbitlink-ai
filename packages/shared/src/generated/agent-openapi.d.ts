@@ -654,6 +654,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/alerts/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Digest Status */
+        get: operations["digest_status_v1_alerts_digest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/alerts/digest/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Digest Send
+         * @description Envia agora, pelo Telegram, o resumo dos últimos 7 dias (não altera o agendamento semanal).
+         */
+        post: operations["digest_send_v1_alerts_digest_send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/reports/export": {
         parameters: {
             query?: never;
@@ -1038,6 +1075,12 @@ export interface components {
             usage_cycle_start_day?: number | null;
             /** Show Mac Addresses */
             show_mac_addresses?: boolean | null;
+            /** Weekly Digest Enabled */
+            weekly_digest_enabled?: boolean | null;
+            /** Weekly Digest Weekday */
+            weekly_digest_weekday?: number | null;
+            /** Weekly Digest Hour */
+            weekly_digest_hour?: number | null;
         };
         /** SetupBody */
         SetupBody: {
@@ -2487,6 +2530,74 @@ export interface operations {
         };
     };
     notifications_test_v1_alerts_notifications_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-orbitlink-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    digest_status_v1_alerts_digest_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-orbitlink-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    digest_send_v1_alerts_digest_send_post: {
         parameters: {
             query?: never;
             header?: {

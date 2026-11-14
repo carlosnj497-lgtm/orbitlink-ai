@@ -39,7 +39,7 @@ $venv = Join-Path $Root "apps\agent\.venv"
 if (-not (Test-Path $venv)) { & python -m venv $venv }
 $vpy = Join-Path $venv "Scripts\python.exe"
 & $vpy -m pip install --upgrade pip --quiet
-# Versões travadas e verificadas por hash (inclui o SDK da Anthropic, usado só se houver chave configurada)
+# Versões travadas e verificadas por hash (a IA via Groq usa só o httpx; nenhum SDK extra)
 & $vpy -m pip install --quiet --require-hashes -r "apps\agent\requirements-dev.lock"
 if ($LASTEXITCODE -ne 0) { Fail "Falha ao instalar dependências Python." }
 & $vpy -m pip install --quiet --no-deps -e "apps\agent"

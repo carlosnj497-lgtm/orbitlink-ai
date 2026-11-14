@@ -140,7 +140,7 @@ sudo orbitlinkctl restart
 - **Supabase:** preencha `ORBITLINK_SUPABASE_URL`, `ORBITLINK_SUPABASE_ANON_KEY` e `ORBITLINK_SUPABASE_AGENT_TOKEN` (gerado com `orbitlinkctl supabase-token`; veja [SUPABASE.md](SUPABASE.md)).
   - O agente continua coletando no SQLite mesmo sem internet e envia a fila quando a conexão volta.
   - Só tráfego **de saída** HTTPS é usado, e o UFW permite saída por padrão.
-- **Claude:** preencha `ORBITLINK_ANTHROPIC_API_KEY`.
+- **IA (Groq):** preencha `ORBITLINK_GROQ_API_KEY` (chave em console.groq.com). O agente precisa de saída HTTPS para api.groq.com.
 - **Alertas no Telegram:**
   1. No Telegram, fale com o **@BotFather**, envie `/newbot` e guarde o token.
   2. Abra o bot criado e mande qualquer mensagem (ex.: `/start`).
@@ -148,6 +148,15 @@ sudo orbitlinkctl restart
   4. `sudo orbitlinkctl restart` e, no painel, **Alertas → Enviar teste**.
   - Sem internet (caso típico da "antena inacessível"), a mensagem fica na fila do SQLite e sai quando a conexão volta, com o horário original. Depois de 24 h sem conseguir, é descartada (`ORBITLINK_NOTIFICATION_MAX_AGE_H`).
   - Se o servidor tiver outra saída para a internet além da Starlink (4G, outra operadora), o aviso de queda chega na hora.
+- **Perguntas pelo Telegram:** com o bot configurado, mande perguntas para ele ("Como está a conexão?", "Vou passar da franquia?"). Ele responde com o mesmo assistente do painel (Groq, ou diagnóstico por regras sem chave). Comandos: `/status` (regras, sem IA), `/resumo` (últimos 7 dias, sem IA), `/nova` (conversa nova), `/ajuda`.
+  - Só o chat de `ORBITLINK_TELEGRAM_CHAT_ID` é atendido; outros são ignorados em silêncio. Use um chat privado: num grupo, qualquer membro poderia perguntar.
+  - Ações como reiniciar a antena só são **propostas**; a confirmação continua no painel.
+  - Para só receber alertas, defina `ORBITLINK_TELEGRAM_CHAT_ENABLED=false`.
+  - Um bot só pode ser lido por um agente: se o mesmo token estiver no Windows e no servidor, o Telegram recusa um deles (`HTTP 409`, visível em Alertas).
+- **Resumo semanal no Telegram:** com o bot configurado, toda segunda às 8h (hora local) chega o resumo da semana anterior: consumo (e comparação com a semana anterior), dia de maior uso, franquia, disponibilidade, quedas, latência, perda, pior horário, vezes em que a antena ficou inacessível e alertas disparados.
+  - Dia, hora e liga/desliga em **Alertas → Resumo semanal** (ou `ORBITLINK_WEEKLY_DIGEST_*` no `orbitlink.env`). **Enviar agora** manda os últimos 7 dias na hora.
+  - Sem internet no horário, o resumo espera na fila e sai quando a conexão volta. Se o agente estava parado e só voltou mais de 24 h depois, aquela semana é pulada. Semana sem nenhum dado observado não gera resumo.
+  - Cobertura abaixo de 99% aparece no texto: nesse caso o consumo real é igual ou maior que o mostrado.
 - **Franquia do plano:** em **Configurações**, informe a franquia mensal (GB) e o dia de virada do ciclo. A tela de Consumo passa a mostrar o percentual e a projeção, e os alertas avisam em 80% e 100%. É uma **estimativa local**: períodos em que o agente não observou a antena não entram na conta, e a fatura oficial pode diferir.
 - **Variáveis `NEXT_PUBLIC_*`:** são embutidas no build. Depois de alterá-las, rode `sudo orbitlinkctl update` em vez de só `restart`.
 

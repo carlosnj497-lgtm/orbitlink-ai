@@ -215,6 +215,20 @@ export interface NotificationStatus {
   failed_24h: number;
   last_sent_at: number | null;
   last_error: { channel: string; last_error: string; at: number } | null;
+  /** Bot que responde perguntas (copiloto) no chat autorizado. */
+  telegram_chat?: { enabled: boolean; last_poll_ok?: number | null; last_error?: string | null; answered?: number };
+}
+
+/** Resumo semanal pelo Telegram (GET /v1/alerts/digest). weekday: 0 = segunda ... 6 = domingo. */
+export interface DigestStatus {
+  enabled: boolean;
+  telegram: boolean;
+  weekday: number;
+  hour: number;
+  /** Próximo envio (epoch s); null quando desativado ou sem Telegram. */
+  next_at: number | null;
+  /** Fim (0h local) da última semana já processada. */
+  last_period_end: number | null;
 }
 
 export interface UsageSummary {

@@ -35,3 +35,6 @@ apps/esp32-firmware/include/secrets.h
 .DS_Store
 Thumbs.db
 tools-venv/
+
+# Claude Code (preferências locais)
+.claude/settings.local.json

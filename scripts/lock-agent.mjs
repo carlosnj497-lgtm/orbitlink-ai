@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Regenera as versões travadas do agente Python (com hash de cada arquivo):
-//   apps/agent/requirements.lock      execução + IA  -> usado pelo servidor Ubuntu (deploy/linux)
+//   apps/agent/requirements.lock      execução       -> usado pelo servidor Ubuntu (deploy/linux)
 //   apps/agent/requirements-dev.lock  + ferramentas  -> usado pelo install.ps1 e pelo CI
 // Os dois arquivos valem para Windows e Linux (--universal) com Python 3.12.
 // Requer o uv: `pip install uv` (ou https://docs.astral.sh/uv/). Uso: npm run lock:agent [-- --upgrade]
@@ -28,7 +28,7 @@ function run(args) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
-run([...common, "--extra", "ai", "-o", "requirements.lock"]);
+run([...common, "-o", "requirements.lock"]);
 // o lock de desenvolvimento é restrito às mesmas versões do lock de execução
-run([...common, "--extra", "ai", "--extra", "dev", "-c", "requirements.lock", "-o", "requirements-dev.lock"]);
+run([...common, "--extra", "dev", "-c", "requirements.lock", "-o", "requirements-dev.lock"]);
 console.log("apps/agent/requirements.lock e requirements-dev.lock atualizados. Rode npm run test:agent antes de commitar.");

@@ -210,7 +210,7 @@ build_release() {
   # O próprio agente, sem resolver dependências de novo
   as_user "${vpy}" -m pip install --quiet --no-cache-dir --no-deps "${dest}/apps/agent" >&2
   as_user "${vpy}" -m pip check >&2 || die "dependências Python inconsistentes (pip check)"
-  as_user "${vpy}" -c "import orbitlink_agent, grpc, fastapi, anthropic, cryptography" >&2
+  as_user "${vpy}" -c "import orbitlink_agent, grpc, fastapi, httpx, cryptography" >&2
 
   info "Dependências Node e build do painel…" >&2
   # As variáveis NEXT_PUBLIC_* são embutidas no build: passa só elas, sem executar o arquivo de ambiente.

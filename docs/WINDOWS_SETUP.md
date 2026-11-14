@@ -19,7 +19,7 @@ node --version     # v20 ou superior
 cd C:\Users\<voce>\Desktop\projetos\starlink
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 # -SkipBuild  pula o build do painel
-# -WithAI     (obsoleto: o SDK da Anthropic já vem em apps/agent/requirements-dev.lock)
+# -WithAI     (obsoleto: a IA via Groq usa o httpx, que já vem nas dependências)
 ```
 
 O script cria `apps\agent\.venv`, instala as dependências npm, gera o `.env` com um `ORBITLINK_API_TOKEN` aleatório (com ACL apenas do seu usuário) e faz o build de produção.

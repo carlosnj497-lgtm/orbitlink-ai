@@ -27,10 +27,19 @@
 
 ## IA
 
-- A chave da Anthropic fica só no agente (`ORBITLINK_ANTHROPIC_API_KEY`).
+- A chave do Groq fica só no agente (`ORBITLINK_GROQ_API_KEY`); o navegador nunca a recebe.
 - Todas as ferramentas são **somente leitura**, com schema `strict`. `prepare_control_action` só devolve uma proposta e não cria nenhuma operação.
 - Saídas de ferramentas vão delimitadas como `<dados_nao_confiaveis>`, sem caracteres de controle, truncadas em 12 000 caracteres. O prompt de sistema manda ignorar instruções contidas nelas (proteção contra injeção via nome de dispositivo ou log).
 - Há limite diário de perguntas, no máximo 6 iterações de ferramentas por pergunta, `max_tokens` configurável, custo estimado registrado e conversas expiradas automaticamente (30 dias por padrão).
+
+## Áudio (nota de voz do Telegram)
+
+- A transcrição usa a **mesma chave** da Groq (`ORBITLINK_GROQ_API_KEY`), que nunca sai do agente.
+- O arquivo é baixado do Telegram em memória e **não é salvo em disco**: só o texto transcrito entra no histórico, com a mesma retenção das conversas de texto (30 dias por padrão).
+- O download só acontece **depois** da checagem de chat autorizado, cota do dia e limite por minuto. Um chat não autorizado nunca faz o agente baixar o áudio.
+- Limites próprios: `ORBITLINK_AI_AUDIO_DAILY_REQUEST_LIMIT` (áudios por dia) e `ORBITLINK_AI_AUDIO_MAX_BYTES` (tamanho por arquivo). A cota de texto (tokens) e a de áudio (requisições) são independentes.
+- O custo é estimado por segundo de áudio, já com o mínimo de 10 s cobrados pela Groq por requisição, e registrado em `ai_audio_usage_daily`.
+- O áudio é enviado para a Groq (Whisper), ou seja, **sai do seu computador**. Isso vale para qualquer usuário que ligar o recurso.
 
 ## Servidor Linux
 
@@ -72,6 +81,7 @@
 
 - O token do bot do Telegram fica só no agente (`ORBITLINK_TELEGRAM_BOT_TOKEN`), nunca vai ao navegador, à fila de notificações nem aos logs (o `httpx` registra URLs e por isso fica em nível WARNING, e a redação de logs remove `/bot<token>`).
 - As mensagens levam só o nome da antena, a regra, o valor medido e o horário. Nada de IPs, IDs do terminal ou localização.
+- O bot que responde perguntas busca as mensagens no Telegram (long polling): nenhuma porta é aberta. Só o chat configurado é atendido, mensagens de outros chats são ignoradas sem resposta e sem registrar o conteúdo. A IA continua somente leitura: propostas de ação vão com o aviso "Nada foi executado" e só podem ser confirmadas no painel. Vale a cota diária do assistente e um limite por minuto (`ORBITLINK_TELEGRAM_CHAT_PER_MINUTE`). Ao ligar pela primeira vez, mensagens antigas são descartadas sem resposta.
 - O webhook pode conter segredo na própria URL (Slack, Discord). Por isso erros de entrega registram apenas o tipo do erro ou o código HTTP.
 
 ## Cadeia de suprimentos

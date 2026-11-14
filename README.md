@@ -1,12 +1,12 @@
 # OrbitLink AI
 
-Plataforma local para **monitorar, diagnosticar e controlar com segurança** uma Starlink Mini, com nó IoT ESP32 opcional, sincronização opcional com Supabase e copiloto Claude opcional.
+Plataforma local para **monitorar, diagnosticar e controlar com segurança** uma Starlink Mini, com nó IoT ESP32 opcional, sincronização opcional com Supabase e copiloto de IA opcional (Groq).
 
 > Projeto **independente**, sem afiliação com a Starlink/SpaceX. Usa somente a API local gRPC que a própria antena expõe na sua rede.
 
 ## Princípios
 
-- **Funciona 100% local**, sem Docker e sem serviço pago. Supabase, Claude e ESP32 são opcionais.
+- **Funciona 100% local**, sem Docker e sem serviço pago. Supabase, IA (Groq) e ESP32 são opcionais.
 - **Toda métrica mostra a origem**: `real`, `calculada`, `estimada`, `importada`, `sensor_esp32`, `indisponível` ou `demonstração`.
 - **Nada é inventado.** Campo ausente no firmware fica ausente, lacuna de observação nunca vira zero, e tráfego corrente nunca é rotulado como teste de velocidade.
 - **Ações só com confirmação humana.** Reiniciar a antena exige a matriz de capacidades, um administrador, um código de uso único e fica auditado. A IA apenas propõe.
@@ -18,12 +18,13 @@ Plataforma local para **monitorar, diagnosticar e controlar com segurança** uma
 |---|---|
 | Conector gRPC (reflection) | Implementado e testado contra servidor gRPC **sintético** com reflection. **Não validado em antena real**, porque a Mini ainda não chegou. |
 | Diagnóstico (`diagnose`) | Executado de verdade neste PC. Reporta corretamente "antena inacessível" e orienta sobre rota/bypass. |
-| Agente (coleta, SQLite, API, SSE, alertas, relatórios) | Implementado. 84 testes pytest, ruff e mypy strict OK. Dependências travadas com hash (`requirements.lock`). |
+| Agente (coleta, SQLite, API, SSE, alertas, relatórios) | Implementado. 112 testes pytest, ruff e mypy strict OK. Dependências travadas com hash (`requirements.lock`). |
 | Painel Next.js (14 telas + `/demo`) | Implementado. 21 testes Vitest e 9 E2E Playwright (incluindo axe, sem violações sérias). |
-| Franquia do plano e notificações | Percentual do ciclo, projeção e alertas em 80%/100% (estimativa local). Envio por Telegram e webhook com fila que sobrevive à queda da internet. Testado com servidor HTTP simulado; **ainda não testado com um bot real**. |
+| Franquia do plano e notificações | Percentual do ciclo, projeção e alertas em 80%/100% (estimativa local). Envio por Telegram e webhook com fila que sobrevive à queda da internet. Resumo semanal pelo Telegram (dia e hora configuráveis) e comando `/resumo`. Testado com servidor HTTP simulado; **ainda não testado com um bot real**. |
 | Supabase (migrations + RLS + ingestão) | 11 testes de isolamento em Postgres real (PGlite). **Ainda não aplicado ao seu projeto**: requer sua confirmação. |
 | Firmware ESP32 | Compila (`esp32dev` e `esp32dev_sensors`). **Não gravado em placa.** Emulador incluso. |
-| Claude | Loop de ferramentas somente leitura, testado com cliente simulado. Sem chave, usa diagnóstico por regras. |
+| IA (Groq) | Loop de ferramentas somente leitura (API compatível com OpenAI), testado com cliente simulado e com o Groq real. Sem chave, usa diagnóstico por regras. |
+| Áudio no Telegram (Whisper) | Nota de voz é transcrita pelo Whisper (`whisper-large-v3-turbo`) com a mesma chave da Groq e vira pergunta normal. Cota e custo próprios, tabelados à parte. **Validado contra o endpoint real da Groq** com áudio sintético (não com fala humana gravada). |
 | Painel remoto via Supabase | **Não implementado nesta entrega.** A nuvem recebe dados sincronizados e protegidos por RLS, mas o painel lê apenas o agente local. |
 | Implantação Ubuntu 24.04 (`deploy/linux`) | Scripts verificados com `bash -n` e `shellcheck`, 51 testes da `lib.sh` e dos modelos. O CI tem um job que instala de verdade num Ubuntu 24.04 limpo. **Passou em 13/11/2026** no repositório privado (instalação, saúde, superfície exposta, backup, update, rollback e reinício automático). |
 | CI (GitHub Actions) | `.github/workflows/ci.yml`: agente, painel, Supabase, E2E, scripts, auditoria de vulnerabilidades e instalação real no Ubuntu. Validado com `actionlint`. Roda a cada push e PR; verde desde 13/11/2026. |
@@ -41,6 +42,9 @@ powershell -ExecutionPolicy Bypass -File scripts\stop.ps1
 ```
 
 Demonstração sem antena: <http://127.0.0.1:3000/demo> (dados fictícios, sinalizados).
+
+Telegram: envie `/menu` para abrir a central com botões de consumo, franquia, qualidade, quedas e alertas.
+Consultas por comando não gastam IA. Veja [docs/TELEGRAM.md](docs/TELEGRAM.md).
 
 ## Servidor Linux (Ubuntu Server 24.04 LTS, sem Docker)
 

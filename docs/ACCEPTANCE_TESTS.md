@@ -39,6 +39,6 @@ npm run lint; npm run typecheck; npm run build
 3. **Roteador:** em Dispositivos, "Consultar roteador". Funciona só se `wifi_get_clients` estiver verificado.
 4. **Supabase:** aplicar a migration, parear o agente e checar se `GET /v1/sync` zera a fila.
 5. **ESP32:** gravar via USB, parear e ver o nó online.
-6. **Claude:** definir `ORBITLINK_ANTHROPIC_API_KEY` e perguntar "Como está minha Starlink agora?".
-7. **Telegram:** configurar o bot, clicar em Alertas → Enviar teste e conferir a mensagem no celular.
+6. **IA (Groq):** definir `ORBITLINK_GROQ_API_KEY` e perguntar "Como está minha Starlink agora?".
+7. **Telegram:** configurar o bot, clicar em Alertas → Enviar teste e conferir a mensagem no celular. Depois, em Alertas → Resumo semanal → **Enviar agora** e `/resumo` no bot: os números devem bater com as telas Consumo e Qualidade (últimos 7 dias).
 8. **CI:** ✅ feito em 13/11/2026 (repositório privado, todos os jobs verdes). A cada mudança, conferir o run no GitHub Actions.

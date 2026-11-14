@@ -69,6 +69,7 @@ segundo a segundo, e transforma isso em histórico, alertas e respostas.
 | 🌙 **Quedas de madrugada** | Cada interrupção fica registrada com horário e duração (e a causa, quando a antena informa), mesmo com ninguém olhando. |
 | 📦 **Franquia sob controle** | Consumo do ciclo, projeção do mês e aviso no Telegram em 80% e 100% do plano. |
 | 📲 **Avisos no celular** | Alertas, resumo semanal e consultas por comando no Telegram, sem abrir o painel. |
+| 🌧️ **Foi a chuva?** | O clima da sua cidade aparece junto da conexão: dá para ver se uma queda coincidiu com chuva forte. |
 | 🗣️ **Pergunte em português** | "Minha internet ficou ruim ontem à noite?" Resposta com período, fonte e incerteza. |
 | 🔒 **Dados com você** | Tudo roda na sua rede. Nada sai sem você configurar, e a nuvem é opcional. |
 
@@ -84,6 +85,7 @@ segundo a segundo, e transforma isso em histórico, alertas e respostas.
 | 🤖 | **Central de IA** | Perguntas em português respondidas com os dados do agente (Groq). Sem chave, responde por regras. |
 | 💬 | **Bot do Telegram** | `/menu`, consultas por comando sem gastar IA, perguntas em texto ou nota de voz e resumo semanal. |
 | 🔁 | **Controle seguro** | Reiniciar a antena exige administrador, código de uso único e fica auditado. A IA só sugere. |
+| 🌦️ | **Clima (opcional)** | Clima da sua cidade pela Open-Meteo (gratuita): cartão no Dashboard, faixas de chuva nos gráficos e o tempo de cada queda em Eventos. |
 | 🔌 | **ESP32 (opcional)** | Sensores de tensão, falta de energia e temperatura, autenticados por HMAC. |
 | ☁️ | **Supabase (opcional)** | Sincronização com RLS. O painel continua lendo só o agente local. |
 
@@ -181,6 +183,7 @@ Consultas por comando não gastam IA. Perguntas em texto ou voz usam a cota diá
                          ├─ SQLite WAL + migrações + retenção automática
                          ├─ Alertas · Diagnóstico por regras · Relatórios · Controle auditado
                          ├─ Bot do Telegram · IA Groq (somente leitura) · Whisper
+                         ├─ Clima opcional ──HTTPS──▶ Open-Meteo (só as coordenadas da cidade)
                          └─ Sync opcional ──HTTPS──▶ Supabase (RLS)
                        Listener ESP32 (opcional, HMAC) ◀── sensores na LAN
 ```
@@ -202,8 +205,8 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 | Componente | Situação |
 |---|---|
 | Conector gRPC | Testado contra servidor gRPC sintético com reflection. **Ainda não validado em antena real** (a Mini não chegou). |
-| Agente | 158 testes pytest, ruff e mypy strict. Dependências travadas com hash. |
-| Painel | 52 testes Vitest e 9 E2E Playwright (incluindo acessibilidade com axe). |
+| Agente | 169 testes pytest, ruff e mypy strict. Dependências travadas com hash. |
+| Painel | 56 testes Vitest e 9 E2E Playwright (incluindo acessibilidade com axe). |
 | Telegram e notificações | Comandos, fila de reenvio e resumo semanal testados com servidor simulado. |
 | IA (Groq) e Whisper | Testados com o endpoint real da Groq; áudio validado com voz sintética. |
 | Supabase | 11 testes de isolamento RLS em Postgres (PGlite). Ainda não aplicado a um projeto real. |
@@ -218,6 +221,8 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - [x] Alertas com fila de reenvio, bot do Telegram e resumo semanal
 - [x] Central de IA (Groq) e notas de voz transcritas pelo Whisper
 - [x] Instalação no Ubuntu com systemd, Nginx e UFW, testada no CI
+- [x] Clima da cidade (Open-Meteo) cruzado com a qualidade e as quedas
+- [ ] Aviso de chuva forte prevista no Telegram e comando `/clima`
 - [ ] Validação numa Starlink Mini real
 - [ ] Nó ESP32 gravado e testado numa placa
 - [ ] Painel remoto lendo os dados sincronizados no Supabase
@@ -245,13 +250,22 @@ acontece enquanto o computador estiver ligado.
 <br>
 Não por padrão. Tudo fica no SQLite local. Só sai alguma coisa se você ativar o Telegram, a IA da Groq (a pergunta e
 os dados necessários para respondê-la), as respostas em voz do bot (o texto da resposta vai ao serviço de voz da
-Microsoft) ou a sincronização com o seu próprio projeto Supabase.
+Microsoft), o clima (só as coordenadas da cidade escolhida, arredondadas a cerca de 1 km, vão para a Open-Meteo) ou a
+sincronização com o seu próprio projeto Supabase.
+</details>
+
+<details>
+<summary><b>O clima diz que a chuva derrubou a minha internet?</b></summary>
+<br>
+Não. Ele mostra que as duas coisas aconteceram ao mesmo tempo, o que ajuda a investigar, mas não prova a causa. O clima
+vem de um modelo meteorológico para a sua região, não de um sensor no seu telhado, por isso aparece como dado
+<b>estimado</b>. Para ativar, escolha a cidade em Configurações → Clima; sem cidade, nada é buscado.
 </details>
 
 <details>
 <summary><b>Quanto custa?</b></summary>
 <br>
-O projeto não tem custo. Telegram é gratuito. A IA usa a sua própria chave da Groq, que tem plano gratuito; sem chave,
+O projeto não tem custo. Telegram e o clima (Open-Meteo) são gratuitos. A IA usa a sua própria chave da Groq, que tem plano gratuito; sem chave,
 o assistente responde por regras. Há cotas diárias configuráveis para texto e áudio.
 </details>
 

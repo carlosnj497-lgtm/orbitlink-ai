@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentInfo, Capability, EventsResponse, ObstructionResponse, Quality, ServerHealth, StatusResponse, UsagePlan, UsageSeries, UsageSummary } from "@orbitlink/shared";
+import type { AgentInfo, Capability, EventsResponse, ObstructionResponse, Quality, ServerHealth, StatusResponse, UsagePlan, UsageSeries, UsageSummary } from "@astryon/shared";
 import { ArrowRight, Bell, CircleCheck, CircleX, Cpu, Database, HardDrive, Info, LayoutDashboard, PieChart, RadioTower, Radar, SatelliteDish, Server, ShieldCheck, Sparkles, TriangleAlert, Unplug } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";

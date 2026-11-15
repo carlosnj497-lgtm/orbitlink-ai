@@ -1,0 +1,17 @@
+[Unit]
+Description=ASTRYON - backup online do SQLite local
+After=astryon-agent.service
+
+[Service]
+Type=oneshot
+User=astryon
+Group=astryon
+UMask=0077
+ExecStart=/usr/local/lib/astryon/backup.sh
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/astryon
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+SyslogIdentifier=astryon-backup

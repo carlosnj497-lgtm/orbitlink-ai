@@ -1,6 +1,6 @@
 "use client";
 
-import type { GeocodeResult, WeatherHourly, WeatherStatus } from "@orbitlink/shared";
+import type { GeocodeResult, WeatherHourly, WeatherStatus } from "@astryon/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, CloudSun, Droplets, MapPin, Moon, Search, Sun, Trash2, Wind } from "lucide-react";
 import Link from "next/link";

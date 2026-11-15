@@ -8,10 +8,10 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from orbitlink_agent.api.app import create_app
-from orbitlink_agent.config import Settings
-from orbitlink_agent.storage.db import Database, now_ts
-from orbitlink_agent.weather import service as weather
+from astryon_agent.api.app import create_app
+from astryon_agent.config import Settings
+from astryon_agent.storage.db import Database, now_ts
+from astryon_agent.weather import service as weather
 
 from .test_api import login
 from .test_api import settings as api_settings

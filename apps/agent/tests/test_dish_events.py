@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import copy
 
-from orbitlink_agent.alerts.engine import AlertEngine, seed_defaults
-from orbitlink_agent.alerts.notify import Notifier
-from orbitlink_agent.collector.bus import EventBus
-from orbitlink_agent.collector.service import Collector
-from orbitlink_agent.config import Settings
-from orbitlink_agent.starlink.transport import FixtureTransport
-from orbitlink_agent.storage.db import Database, now_ts
+from astryon_agent.alerts.engine import AlertEngine, seed_defaults
+from astryon_agent.alerts.notify import Notifier
+from astryon_agent.collector.bus import EventBus
+from astryon_agent.collector.service import Collector
+from astryon_agent.config import Settings
+from astryon_agent.starlink.transport import FixtureTransport
+from astryon_agent.storage.db import Database, now_ts
 
 
 def _env(tmp_path, fixture_data):

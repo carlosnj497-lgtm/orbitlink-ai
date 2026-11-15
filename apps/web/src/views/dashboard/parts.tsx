@@ -1,6 +1,6 @@
 "use client";
 
-import type { Source, TelemetryPoint } from "@orbitlink/shared";
+import type { Source, TelemetryPoint } from "@astryon/shared";
 import { CircleCheck, CircleHelp, CircleX, Info, TriangleAlert } from "lucide-react";
 import { memo, type ReactNode, useId } from "react";
 import { SourceBadge } from "@/components/domain";

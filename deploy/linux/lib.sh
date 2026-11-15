@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# OrbitLink AI — funções compartilhadas pelos scripts de implantação Linux (install.sh, update.sh, orbitlinkctl).
+# ASTRYON — funções compartilhadas pelos scripts de implantação Linux (install.sh, update.sh, astryonctl).
 # Este arquivo é "sourced"; não execute diretamente.
 # shellcheck disable=SC2034  # variáveis usadas pelos scripts que carregam esta biblioteca
 
 # ---------------------------------------------------------------- caminhos padrão (sobrescrevíveis por ambiente)
-OL_USER="${OL_USER:-orbitlink}"
-OL_PREFIX="${OL_PREFIX:-/opt/orbitlink}"
+OL_USER="${OL_USER:-astryon}"
+OL_PREFIX="${OL_PREFIX:-/opt/astryon}"
 OL_RELEASES="${OL_PREFIX}/releases"
 OL_CURRENT="${OL_PREFIX}/current"
-OL_DATA="${OL_DATA:-/var/lib/orbitlink}"
-OL_ETC="${OL_ETC:-/etc/orbitlink}"
-OL_ENV_FILE="${OL_ETC}/orbitlink.env"
-OL_LIBEXEC="/usr/local/lib/orbitlink"
+OL_DATA="${OL_DATA:-/var/lib/astryon}"
+OL_ETC="${OL_ETC:-/etc/astryon}"
+OL_ENV_FILE="${OL_ETC}/astryon.env"
+OL_LIBEXEC="/usr/local/lib/astryon"
 OL_KEEP_RELEASES="${OL_KEEP_RELEASES:-3}"
 OL_AGENT_URL="http://127.0.0.1:8787"
 OL_WEB_URL="http://127.0.0.1:3000"
 OL_NODE_MAJOR="${OL_NODE_MAJOR:-22}"
-OL_SERVICES=(orbitlink-agent.service orbitlink-web.service)
+OL_SERVICES=(astryon-agent.service astryon-web.service)
 
 # ---------------------------------------------------------------- saída
 if [[ -t 1 ]]; then
@@ -64,7 +64,7 @@ node_bin() {
 render_unit() {
   # render_unit ORIGEM DESTINO — instala a unidade systemd trocando o Node pelo caminho detectado
   local src="$1" dst="$2" node
-  if [[ "$(basename "${src}")" == "orbitlink-web.service" ]]; then
+  if [[ "$(basename "${src}")" == "astryon-web.service" ]]; then
     node="$(node_bin)" || die "Node.js não encontrado em /usr/local/bin ou /usr/bin"
     sed "s|^ExecStart=/usr/bin/node |ExecStart=${node} |" "${src}" > "${dst}.tmp"
   else
@@ -108,7 +108,7 @@ PY
 tailscale_present() { command -v tailscale >/dev/null 2>&1 || ip link show tailscale0 >/dev/null 2>&1; }
 
 nginx_acl() {
-  # nginx_acl LAN_CIDR [COM_TAILSCALE] -> conteúdo de /etc/nginx/snippets/orbitlink-acl.conf
+  # nginx_acl LAN_CIDR [COM_TAILSCALE] -> conteúdo de /etc/nginx/snippets/astryon-acl.conf
   # 100.64.0.0/10 é a faixa do Tailscale, mas também a CGNAT da Starlink: só é liberada quando o Tailscale existe.
   local lan="$1" ts="${2:-0}"
   echo "# Gerado por install.sh — quem pode acessar o painel"
@@ -139,7 +139,7 @@ env_get() {
 
 public_env() {
   # public_env ARQUIVO -> linhas NEXT_PUBLIC_*=valor, lidas como o systemd lê o EnvironmentFile.
-  # Nunca faz "source": um valor com espaço (ORBITLINK_TERMINAL_NAME=Starlink Mini) viraria comando no bash.
+  # Nunca faz "source": um valor com espaço (ASTRYON_TERMINAL_NAME=Starlink Mini) viraria comando no bash.
   local line k v
   [[ -r "$1" ]] || return 0
   while IFS= read -r line || [[ -n "${line}" ]]; do
@@ -172,7 +172,7 @@ current_release() { readlink -f "${OL_CURRENT}" 2>/dev/null || true; }
 previous_release() {
   local cur; cur="$(current_release)"
   find "${OL_RELEASES}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort -r | while read -r r; do
-    if [[ "${OL_RELEASES}/${r}" != "${cur}" && -f "${OL_RELEASES}/${r}/.orbitlink-release-ok" ]]; then echo "${OL_RELEASES}/${r}"; break; fi
+    if [[ "${OL_RELEASES}/${r}" != "${cur}" && -f "${OL_RELEASES}/${r}/.astryon-release-ok" ]]; then echo "${OL_RELEASES}/${r}"; break; fi
   done
 }
 
@@ -210,7 +210,7 @@ build_release() {
   # O próprio agente, sem resolver dependências de novo
   as_user "${vpy}" -m pip install --quiet --no-cache-dir --no-deps "${dest}/apps/agent" >&2
   as_user "${vpy}" -m pip check >&2 || die "dependências Python inconsistentes (pip check)"
-  as_user "${vpy}" -c "import orbitlink_agent, grpc, fastapi, httpx, cryptography" >&2
+  as_user "${vpy}" -c "import astryon_agent, grpc, fastapi, httpx, cryptography" >&2
 
   info "Dependências Node e build do painel…" >&2
   # As variáveis NEXT_PUBLIC_* são embutidas no build: passa só elas, sem executar o arquivo de ambiente.
@@ -220,7 +220,7 @@ build_release() {
     || die "build do painel falhou (mensagens do npm acima)"
   [[ -d "${dest}/apps/web/.next" ]] || die "build do painel não gerou .next"
   install -d -o "${OL_USER}" -g "${OL_USER}" "${dest}/apps/web/.next/cache"
-  touch "${dest}/.orbitlink-release-ok"
+  touch "${dest}/.astryon-release-ok"
   echo "${dest}"
 }
 

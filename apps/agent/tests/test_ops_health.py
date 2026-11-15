@@ -10,12 +10,12 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from orbitlink_agent.alerts.engine import AlertEngine, measure, seed_defaults
-from orbitlink_agent.api.app import create_app
-from orbitlink_agent.collector.bus import EventBus
-from orbitlink_agent.config import Settings
-from orbitlink_agent.ops import backup, health
-from orbitlink_agent.storage.db import Database, now_ts
+from astryon_agent.alerts.engine import AlertEngine, measure, seed_defaults
+from astryon_agent.api.app import create_app
+from astryon_agent.collector.bus import EventBus
+from astryon_agent.config import Settings
+from astryon_agent.ops import backup, health
+from astryon_agent.storage.db import Database, now_ts
 
 from .test_api import login
 from .test_api import settings as api_settings
@@ -29,7 +29,7 @@ def _settings(tmp_path, **kw):
 
 @pytest.fixture
 def db(tmp_path):
-    return Database(tmp_path / "orbitlink.sqlite3")
+    return Database(tmp_path / "astryon.sqlite3")
 
 
 # ----------------------------------------------------------------- leituras do servidor
@@ -80,7 +80,7 @@ def test_disk_low_fires(tmp_path, db, monkeypatch):
     class Usage:
         total, free = 100, 4
 
-    monkeypatch.setattr("orbitlink_agent.alerts.engine.shutil.disk_usage", lambda p: Usage)
+    monkeypatch.setattr("astryon_agent.alerts.engine.shutil.disk_usage", lambda p: Usage)
     fired = AlertEngine(db, EventBus(), None, s.timezone, s).evaluate()
     assert len(fired) == 1 and "disco" in fired[0]["message"]
 
@@ -114,7 +114,7 @@ def test_downtime_notice_is_queued_on_startup(tmp_path):
 def test_healthcheck_url_must_be_https_and_is_secret(tmp_path):
     with pytest.raises(ValueError):
         _settings(tmp_path, healthcheck_url="http://hc-ping.com/x")
-    from orbitlink_agent.api.routes_settings import SECRET_FIELDS
+    from astryon_agent.api.routes_settings import SECRET_FIELDS
 
     assert "healthcheck_url" in SECRET_FIELDS
 

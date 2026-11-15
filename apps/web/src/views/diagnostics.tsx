@@ -1,6 +1,6 @@
 "use client";
 
-import type { Quality, Source, StatusResponse } from "@orbitlink/shared";
+import type { Quality, Source, StatusResponse } from "@astryon/shared";
 import { Activity, ArrowRight, CircleCheck, CircleX, Info, MessagesSquare, Sparkles, TriangleAlert, Wrench } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";

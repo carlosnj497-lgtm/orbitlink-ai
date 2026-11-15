@@ -1,4 +1,4 @@
-// OrbitLink AI — configuração de hardware do nó ESP32.
+// ASTRYON — configuração de hardware do nó ESP32.
 // Sensores são opcionais e ficam DESLIGADOS no ambiente padrão (esp32dev). Sem sensor, nenhum dado elétrico é enviado.
 #pragma once
 
@@ -29,4 +29,4 @@
 
 // ---- Rede -------------------------------------------------------------------
 #define OL_DEFAULT_AGENT_PORT 8788
-#define OL_AP_PREFIX "OrbitLink-Setup-"
+#define OL_AP_PREFIX "ASTRYON-Setup-"

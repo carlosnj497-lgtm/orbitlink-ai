@@ -1,4 +1,4 @@
-import type { UsagePlan, UsageWindow } from "@orbitlink/shared";
+import type { UsagePlan, UsageWindow } from "@astryon/shared";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { PlanCard } from "./usage";

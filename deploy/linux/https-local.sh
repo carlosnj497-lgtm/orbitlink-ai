@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ASTRYON — HTTPS + firewall para a instalação que roda a partir da pasta do projeto (serviços
-# orbitlink-agent/orbitlink-web apontando para o checkout, sem o /opt do install.sh).
+# astryon-agent/astryon-web apontando para o checkout, sem o /opt do install.sh).
 #
 #   sudo bash deploy/linux/https-local.sh            # aplica
 #   sudo bash deploy/linux/https-local.sh --undo     # desfaz (volta o painel para a porta 3000)
@@ -32,10 +32,10 @@ while [[ $# -gt 0 ]]; do
 done
 require_root
 
-TLS_DIR=/etc/orbitlink/tls
-DROPIN=/etc/systemd/system/orbitlink-web.service.d/20-https.conf
-SITE=/etc/nginx/sites-available/orbitlink
-WEB_UNIT=/etc/systemd/system/orbitlink-web.service
+TLS_DIR=/etc/astryon/tls
+DROPIN=/etc/systemd/system/astryon-web.service.d/20-https.conf
+SITE=/etc/nginx/sites-available/astryon
+WEB_UNIT=/etc/systemd/system/astryon-web.service
 REPO_ENV="$(cd "${SCRIPT_DIR}/../.." && pwd)/.env"
 
 repo_env_set() {
@@ -50,12 +50,12 @@ repo_env_set() {
 
 if [[ ${UNDO} -eq 1 ]]; then
   step "Desfazendo o HTTPS local"
-  rm -f "${DROPIN}" /etc/nginx/sites-enabled/orbitlink
-  repo_env_set ORBITLINK_COOKIE_SECURE false
-  systemctl disable --now orbitlink-tscert.timer >/dev/null 2>&1 || true
-  rm -f /etc/systemd/system/orbitlink-tscert.service /etc/systemd/system/orbitlink-tscert.timer
+  rm -f "${DROPIN}" /etc/nginx/sites-enabled/astryon
+  repo_env_set ASTRYON_COOKIE_SECURE false
+  systemctl disable --now astryon-tscert.timer >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/astryon-tscert.service /etc/systemd/system/astryon-tscert.timer
   systemctl daemon-reload
-  systemctl restart orbitlink-web.service
+  systemctl restart astryon-web.service
   if systemctl is-active --quiet nginx; then systemctl reload nginx; fi
   ok "painel de volta em http://<IP>:3000 (o Nginx e o UFW continuam instalados; 'sudo ufw disable' desliga o firewall)"
   exit 0
@@ -70,15 +70,15 @@ if ! command -v nginx >/dev/null 2>&1; then
 fi
 ok "Nginx $(nginx -v 2>&1 | sed 's/.*\///')"
 
-install -d -o root -g root -m 0755 /etc/orbitlink "${TLS_DIR}"
-if [[ ! -f "${TLS_DIR}/orbitlink.crt" ]]; then
+install -d -o root -g root -m 0755 /etc/astryon "${TLS_DIR}"
+if [[ ! -f "${TLS_DIR}/astryon.crt" ]]; then
   ip_now="$(lan_ip)"
   san="DNS:$(hostname),DNS:$(hostname).local,DNS:localhost,IP:127.0.0.1"
   [[ -n "${ip_now}" ]] && san="${san},IP:${ip_now}"
   openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 825 \
     -subj "/CN=$(hostname)/O=ASTRYON (autoassinado)" -addext "subjectAltName=${san}" \
-    -keyout "${TLS_DIR}/orbitlink.key" -out "${TLS_DIR}/orbitlink.crt" 2>/dev/null
-  chmod 0600 "${TLS_DIR}/orbitlink.key"; chmod 0644 "${TLS_DIR}/orbitlink.crt"
+    -keyout "${TLS_DIR}/astryon.key" -out "${TLS_DIR}/astryon.crt" 2>/dev/null
+  chmod 0600 "${TLS_DIR}/astryon.key"; chmod 0644 "${TLS_DIR}/astryon.crt"
   ok "certificado autoassinado da LAN (${san})"
 else
   ok "certificado da LAN já existe"
@@ -91,7 +91,7 @@ if tailscale_present && tailscale status >/dev/null 2>&1; then
   if tailscale cert --cert-file "${TLS_DIR}/ts.crt" --key-file "${TLS_DIR}/ts.key" "${TS_NAME}" >/dev/null 2>&1; then
     chmod 0600 "${TLS_DIR}/ts.key"; chmod 0644 "${TLS_DIR}/ts.crt"
     ok "certificado válido para https://${TS_NAME}"
-    cat > /etc/systemd/system/orbitlink-tscert.service <<EOF
+    cat > /etc/systemd/system/astryon-tscert.service <<EOF
 [Unit]
 Description=ASTRYON - renova o certificado HTTPS do Tailscale
 After=tailscaled.service
@@ -101,7 +101,7 @@ Type=oneshot
 ExecStart=/usr/bin/tailscale cert --cert-file ${TLS_DIR}/ts.crt --key-file ${TLS_DIR}/ts.key ${TS_NAME}
 ExecStartPost=/bin/systemctl reload nginx
 EOF
-    cat > /etc/systemd/system/orbitlink-tscert.timer <<'EOF'
+    cat > /etc/systemd/system/astryon-tscert.timer <<'EOF'
 [Unit]
 Description=ASTRYON - renovação semanal do certificado do Tailscale
 
@@ -131,10 +131,10 @@ is_private_cidr "${LAN}" || die "--lan-cidr precisa ser uma faixa privada (RFC 1
 TAILNET=0
 if tailscale_present; then TAILNET=1; fi
 install -d -m 0755 /etc/nginx/snippets
-nginx_acl "${LAN}" "${TAILNET}" > /etc/nginx/snippets/orbitlink-acl.conf
-install -m 0644 "${SCRIPT_DIR}/nginx/orbitlink-proxy.conf" /etc/nginx/snippets/orbitlink-proxy.conf
+nginx_acl "${LAN}" "${TAILNET}" > /etc/nginx/snippets/astryon-acl.conf
+install -m 0644 "${SCRIPT_DIR}/nginx/astryon-proxy.conf" /etc/nginx/snippets/astryon-proxy.conf
 NAMES="$(nginx_server_names "$(hostname)" "$(hostname).local")"
-sed "s|__SERVER_NAME__|${NAMES}|" "${SCRIPT_DIR}/nginx/orbitlink.conf" > "${SITE}"
+sed "s|__SERVER_NAME__|${NAMES}|" "${SCRIPT_DIR}/nginx/astryon.conf" > "${SITE}"
 if [[ -n "${TS_NAME}" ]]; then
   # Mesmo conteúdo do servidor 443 do modelo, com o certificado do Tailscale e o nome exato (que vence o
   # padrão *.ts.net do bloco principal na escolha pelo SNI).
@@ -153,15 +153,15 @@ if [[ -n "${TS_NAME}" ]]; then
         if (l ~ /server_name /) { print "    server_name " name ";"; skip = 1; continue }
         if (skip && l ~ /^ +~/) continue
         skip = 0
-        sub(/\/etc\/orbitlink\/tls\/orbitlink\.crt/, crt, l)
-        sub(/\/etc\/orbitlink\/tls\/orbitlink\.key/, key, l)
+        sub(/\/etc\/astryon\/tls\/astryon\.crt/, crt, l)
+        sub(/\/etc\/astryon\/tls\/astryon\.key/, key, l)
         print l
       }
     }' "${SITE}" > "${SITE}.ts"
   cat "${SITE}.ts" >> "${SITE}"
   rm -f "${SITE}.ts"
 fi
-ln -sfn "${SITE}" /etc/nginx/sites-enabled/orbitlink
+ln -sfn "${SITE}" /etc/nginx/sites-enabled/astryon
 if [[ -L /etc/nginx/sites-enabled/default ]]; then rm -f /etc/nginx/sites-enabled/default; fi
 nginx -t 2>&1 | sed 's/^/    /'
 systemctl enable --now nginx >/dev/null
@@ -177,15 +177,15 @@ install -d -m 0755 "$(dirname "${DROPIN}")"
 cat > "${DROPIN}" <<EOF
 # Gerado por deploy/linux/https-local.sh — remova com: sudo bash deploy/linux/https-local.sh --undo
 [Service]
-Environment=ORBITLINK_COOKIE_SECURE=true
+Environment=ASTRYON_COOKIE_SECURE=true
 ExecStart=
 ${exec_line/-H 0.0.0.0/-H 127.0.0.1}
 EOF
-repo_env_set ORBITLINK_COOKIE_SECURE true
+repo_env_set ASTRYON_COOKIE_SECURE true
 systemctl daemon-reload
-systemctl restart orbitlink-web.service
-if [[ -n "${TS_NAME}" ]]; then systemctl enable --now orbitlink-tscert.timer >/dev/null; fi
-wait_http "http://127.0.0.1:3000/login" 60 || warn "o painel demorou a responder; confira: journalctl -u orbitlink-web -n 50"
+systemctl restart astryon-web.service
+if [[ -n "${TS_NAME}" ]]; then systemctl enable --now astryon-tscert.timer >/dev/null; fi
+wait_http "http://127.0.0.1:3000/login" 60 || warn "o painel demorou a responder; confira: journalctl -u astryon-web -n 50"
 ok "painel em 127.0.0.1:3000 (não acessível direto pela rede) e cookie de sessão Secure"
 
 # ================================================================= 5. Firewall
@@ -205,7 +205,7 @@ if [[ ${FIREWALL} -eq 1 ]]; then
     ufw allow in on tailscale0 to any port 22 proto tcp comment 'astryon: ssh tailnet' >/dev/null
     ufw allow in on tailscale0 to any port 80,443 proto tcp comment 'astryon: painel tailnet' >/dev/null
   fi
-  if grep -qE '^ORBITLINK_ESP32_ENABLED=true' "${SCRIPT_DIR}/../../.env" 2>/dev/null; then
+  if grep -qE '^ASTRYON_ESP32_ENABLED=true' "${SCRIPT_DIR}/../../.env" 2>/dev/null; then
     ufw allow from "${LAN}" to any port 8788 proto tcp comment 'astryon: esp32 lan' >/dev/null
   fi
   ufw --force enable >/dev/null

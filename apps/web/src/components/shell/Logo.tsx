@@ -2,7 +2,7 @@ import { useId } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Símbolo do OrbitLink (desenho original — o projeto não usa marcas da Starlink/SpaceX): o horizonte de um
+ * Símbolo do ASTRYON (desenho original — o projeto não usa marcas da Starlink/SpaceX): o horizonte de um
  * planeta, uma órbita em arco e o satélite com brilho. Os ids dos degradês vêm de useId porque o logo aparece
  * mais de uma vez na página (barra lateral oculta + menu móvel); ids repetidos faziam o Chrome usar o degradê
  * de dentro do elemento oculto e o símbolo sumia, sobrando só o ponto do satélite.

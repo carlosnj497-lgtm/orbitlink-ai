@@ -3,7 +3,7 @@
 As leituras são SINTÉTICAS e enviadas com o nome de sensor real; use apenas para testes/demonstração e remova o
 nó emulado no painel depois (Centro ESP32 → remover). Nada aqui representa medição física.
 
-Uso (PowerShell, com o agente rodando e ORBITLINK_ESP32_ENABLED=true):
+Uso (PowerShell, com o agente rodando e ASTRYON_ESP32_ENABLED=true):
   apps\\agent\\.venv\\Scripts\\python.exe scripts\\esp32_emulator.py pair --code 123456
   apps\\agent\\.venv\\Scripts\\python.exe scripts\\esp32_emulator.py run --count 10
   apps\\agent\\.venv\\Scripts\\python.exe scripts\\esp32_emulator.py replay     # deve ser recusado (401)
@@ -48,7 +48,7 @@ def post_signed(base: str, st: dict, path: str, payload: dict, nonce: str | None
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Emulador ESP32 do OrbitLink (dados sintéticos)")
+    p = argparse.ArgumentParser(description="Emulador ESP32 do ASTRYON (dados sintéticos)")
     p.add_argument("--agent", default="http://127.0.0.1:8788")
     sub = p.add_subparsers(dest="cmd", required=True)
     pp = sub.add_parser("pair")

@@ -1,0 +1,4 @@
+# Permite que o usuário starlink pare/inicie/reinicie SÓ os serviços do ASTRYON sem senha.
+# Instalar com:  sudo install -m 0440 -o root -g root deploy/linux/sudoers-astryon-restart /etc/sudoers.d/astryon-restart
+# Remover com:   sudo rm /etc/sudoers.d/astryon-restart
+starlink ALL=(root) NOPASSWD: /usr/bin/systemctl stop astryon-web, /usr/bin/systemctl start astryon-web, /usr/bin/systemctl restart astryon-web, /usr/bin/systemctl restart astryon-agent, /usr/bin/systemctl status astryon-web astryon-agent --no-pager

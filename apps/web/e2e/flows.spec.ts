@@ -45,7 +45,7 @@ test.describe.serial("fluxos essenciais", () => {
     await page.goto("/relatorios");
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: /Baixar/ }).first().click();
-    expect((await download).suggestedFilename()).toMatch(/orbitlink-relatorio-.*\.pdf/);
+    expect((await download).suggestedFilename()).toMatch(/astryon-relatorio-.*\.pdf/);
   });
 
   test("solicitação de comando exige confirmação e reporta resultado real", async ({ page }) => {

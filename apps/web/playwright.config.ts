@@ -8,8 +8,8 @@ import { defineConfig } from "@playwright/test";
 const agentPython = process.platform === "win32" ? "..\\agent\\.venv\\Scripts\\python.exe" : "../agent/.venv/bin/python";
 const token = "e2e-token-somente-para-testes";
 const env = {
-  ORBITLINK_API_TOKEN: token,
-  ORBITLINK_ENV_FILE: "nao-existe.env",
+  ASTRYON_API_TOKEN: token,
+  ASTRYON_ENV_FILE: "nao-existe.env",
 };
 
 export default defineConfig({
@@ -21,17 +21,17 @@ export default defineConfig({
   use: { baseURL: "http://127.0.0.1:3100", trace: "retain-on-failure" },
   webServer: [
     {
-      command: `${agentPython} -m orbitlink_agent serve --port 8790`,
+      command: `${agentPython} -m astryon_agent serve --port 8790`,
       cwd: "../agent",
       url: "http://127.0.0.1:8790/v1/health",
       reuseExistingServer: false,
       timeout: 60_000,
       env: {
         ...env,
-        ORBITLINK_DATA_DIR: "../../data/e2e",
-        ORBITLINK_FIXTURE_FILE: "tests/fixtures/dish_synthetic_v1.json",
-        ORBITLINK_STATUS_INTERVAL_S: "2",
-        ORBITLINK_HISTORY_INTERVAL_S: "3",
+        ASTRYON_DATA_DIR: "../../data/e2e",
+        ASTRYON_FIXTURE_FILE: "tests/fixtures/dish_synthetic_v1.json",
+        ASTRYON_STATUS_INTERVAL_S: "2",
+        ASTRYON_HISTORY_INTERVAL_S: "3",
       },
     },
     {
@@ -39,7 +39,7 @@ export default defineConfig({
       url: "http://127.0.0.1:3100/login",
       reuseExistingServer: false,
       timeout: 120_000,
-      env: { ...env, ORBITLINK_AGENT_URL: "http://127.0.0.1:8790" },
+      env: { ...env, ASTRYON_AGENT_URL: "http://127.0.0.1:8790" },
     },
   ],
 });

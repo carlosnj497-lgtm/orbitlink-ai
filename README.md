@@ -25,15 +25,15 @@ Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
 ## Início rápido
 
 ```bash
-git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/orbitlink && cd ~/orbitlink
+git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/astryon && cd ~/astryon
 sudo bash deploy/linux/install.sh
-sudo cat /etc/orbitlink/setup-code   # abra https://SEU-IP/ e crie o administrador
+sudo cat /etc/astryon/setup-code   # abra https://SEU-IP/ e crie o administrador
 ```
 
 Pronto: o agente passa a ler a sua antena. No Windows, veja [Instalação](#instalação). Sem antena por perto, abra `/demo`.
 
-> **ASTRYON** é o nome do painel. O repositório, os pacotes, as variáveis `ORBITLINK_*` e os serviços
-> `orbitlink-*` mantêm o nome técnico **OrbitLink**.
+> **ASTRYON** é o nome do projeto, do painel e dos pacotes. As variáveis usam o prefixo `ASTRYON_*`,
+> os serviços usam `astryon-*` e o comando de administração é `astryonctl`.
 > Projeto independente, sem afiliação com a Starlink ou a SpaceX. Usa apenas a API local gRPC que a
 > própria antena expõe na sua rede.
 >
@@ -41,6 +41,8 @@ Pronto: o agente passa a ler a sua antena. No Windows, veja [Instalação](#inst
 > Standard Actuated, High Performance e Flat High Performance**. A compatibilidade e os recursos
 > disponíveis dependem da API local gRPC exposta por cada modelo e firmware. A validação em antenas
 > reais ainda está pendente.
+
+Para atualizar uma instalação com o nome anterior, veja [Migração para ASTRYON](docs/MIGRATION_ASTRYON.md).
 
 ---
 
@@ -136,18 +138,18 @@ Todas as capturas vêm da rota `/demo`, com dados fictícios e a faixa de demons
 ### Servidor Linux (Ubuntu Server 24.04 LTS), recomendado
 
 ```bash
-git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/orbitlink && cd ~/orbitlink
+git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/astryon && cd ~/astryon
 sudo bash deploy/linux/install.sh        # systemd + Nginx (TLS) + UFW
-sudo cat /etc/orbitlink/setup-code       # código para criar o 1º administrador
+sudo cat /etc/astryon/setup-code       # código para criar o 1º administrador
 ```
 
 Depois abra `https://SEU-IP/` (o IP do servidor na sua rede) e crie o administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
 
 ```bash
-sudo orbitlinkctl status | logs agent -f | diagnose | doctor | restart | update --git-pull | rollback | backup
+sudo astryonctl status | logs agent -f | diagnose | doctor | restart | update --git-pull | rollback | backup
 ```
 
-Os serviços `orbitlink-agent` e `orbitlink-web` reiniciam sozinhos em falhas e registram no journald. Agente e painel escutam só em loopback; o Nginx publica o painel apenas para a LAN e a Tailnet. Guia completo: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
+Os serviços `astryon-agent` e `astryon-web` reiniciam sozinhos em falhas e registram no journald. Agente e painel escutam só em loopback; o Nginx publica o painel apenas para a LAN e a Tailnet. Guia completo: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
 
 ### Windows 10/11 (PowerShell)
 
@@ -163,9 +165,9 @@ Abra `http://localhost:3000` no próprio PC e crie o administrador. Para parar: 
 
 ## Telegram e IA
 
-1. Crie um bot no [@BotFather](https://t.me/BotFather) e coloque o token em `ORBITLINK_TELEGRAM_BOT_TOKEN`.
-2. Descubra o chat autorizado com `sudo orbitlinkctl telegram-chat-id` (ou `python -m orbitlink_agent telegram-chat-id`) e preencha `ORBITLINK_TELEGRAM_CHAT_ID`.
-3. Opcional: coloque uma chave da [Groq](https://console.groq.com/keys) em `ORBITLINK_GROQ_API_KEY` para respostas com IA e transcrição de notas de voz (Whisper).
+1. Crie um bot no [@BotFather](https://t.me/BotFather) e coloque o token em `ASTRYON_TELEGRAM_BOT_TOKEN`.
+2. Descubra o chat autorizado com `sudo astryonctl telegram-chat-id` (ou `python -m astryon_agent telegram-chat-id`) e preencha `ASTRYON_TELEGRAM_CHAT_ID`.
+3. Opcional: coloque uma chave da [Groq](https://console.groq.com/keys) em `ASTRYON_GROQ_API_KEY` para respostas com IA e transcrição de notas de voz (Whisper).
 
 | Comando | O que mostra |
 |---|---|
@@ -205,7 +207,7 @@ Consultas por comando não gastam IA. Perguntas em texto ou voz usam a cota diá
 | `apps/esp32-firmware/` | Firmware PlatformIO/Arduino do nó ESP32 |
 | `packages/shared/` | Contratos TS e tipos gerados do OpenAPI do agente |
 | `supabase/` | Migrações SQL com RLS e testes de isolamento (PGlite) |
-| `deploy/linux/` | Instalador, systemd, Nginx, UFW e `orbitlinkctl` |
+| `deploy/linux/` | Instalador, systemd, Nginx, UFW e `astryonctl` |
 | `scripts/` | Scripts do Windows e emulador do ESP32 |
 
 Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

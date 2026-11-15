@@ -10,10 +10,10 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from orbitlink_agent.ai import telegram_bot as tb
-from orbitlink_agent.api.app import create_app
-from orbitlink_agent.config import Settings
-from orbitlink_agent.storage.db import Database, now_ts
+from astryon_agent.ai import telegram_bot as tb
+from astryon_agent.api.app import create_app
+from astryon_agent.config import Settings
+from astryon_agent.storage.db import Database, now_ts
 
 TOKEN = "123456789:AAH-segredo_do_bot"
 CHAT = 8560810900
@@ -369,7 +369,7 @@ def test_app_starts_bot_and_reports_status(tmp_path):
     with TestClient(app) as c:
         c.post("/v1/auth/setup", json={"username": "admin", "password": "senha-forte-123"}, headers=svc)
         r = c.post("/v1/auth/login", json={"username": "admin", "password": "senha-forte-123"}, headers=svc)
-        h = {**svc, "X-OrbitLink-Session": r.json()["session"]}
+        h = {**svc, "X-ASTRYON-Session": r.json()["session"]}
         bot = app.state.ctx.extras["telegram_bot"]
         for _ in range(50):
             if bot.state["last_poll_ok"]:

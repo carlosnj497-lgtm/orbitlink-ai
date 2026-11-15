@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentInfo, EventsResponse, Quality, StatusResponse, Telemetry, UsagePlan, UsageSeries, UsageSummary } from "@orbitlink/shared";
+import type { AgentInfo, EventsResponse, Quality, StatusResponse, Telemetry, UsagePlan, UsageSeries, UsageSummary } from "@astryon/shared";
 import { Activity, ArrowDown, ArrowUp, ChartArea, Clock, House, Radar, Zap } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -87,7 +87,7 @@ export default function OverviewView() {
       )}
       {agent.data?.mode === "fixture" && !base && (
         <Callout tone="demo" title="Agente em modo FIXTURE" className="mb-4">
-          O agente está lendo um arquivo de fixture (ORBITLINK_FIXTURE_FILE). Os dados não são da sua antena.
+          O agente está lendo um arquivo de fixture (ASTRYON_FIXTURE_FILE). Os dados não são da sua antena.
         </Callout>
       )}
 

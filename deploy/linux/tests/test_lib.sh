@@ -18,31 +18,31 @@ check() { if [[ "$2" == "$3" ]]; then echo "ok   - $1"; else echo "FAIL - $1: es
 
 cat > "${OL_ENV_FILE}" <<'EOF'
 # comentário
-ORBITLINK_API_TOKEN=
-ORBITLINK_DATA_DIR=
-ORBITLINK_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiJ9.abc.def
+ASTRYON_API_TOKEN=
+ASTRYON_DATA_DIR=
+ASTRYON_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiJ9.abc.def
 EOF
-env_set ORBITLINK_API_TOKEN "tok-123_ABC"
-env_set ORBITLINK_DATA_DIR "/var/lib/orbitlink"
-env_set ORBITLINK_NOVA "valor novo"
-check "env_set substitui valor vazio" "$(env_get ORBITLINK_API_TOKEN)" "tok-123_ABC"
-check "env_set substitui caminho" "$(env_get ORBITLINK_DATA_DIR)" "/var/lib/orbitlink"
-check "env_set acrescenta chave nova" "$(env_get ORBITLINK_NOVA)" "valor novo"
-check "valor com pontos preservado" "$(env_get ORBITLINK_SUPABASE_ANON_KEY)" "eyJhbGciOiJIUzI1NiJ9.abc.def"
+env_set ASTRYON_API_TOKEN "tok-123_ABC"
+env_set ASTRYON_DATA_DIR "/var/lib/astryon"
+env_set ASTRYON_NOVA "valor novo"
+check "env_set substitui valor vazio" "$(env_get ASTRYON_API_TOKEN)" "tok-123_ABC"
+check "env_set substitui caminho" "$(env_get ASTRYON_DATA_DIR)" "/var/lib/astryon"
+check "env_set acrescenta chave nova" "$(env_get ASTRYON_NOVA)" "valor novo"
+check "valor com pontos preservado" "$(env_get ASTRYON_SUPABASE_ANON_KEY)" "eyJhbGciOiJIUzI1NiJ9.abc.def"
 check "comentário preservado" "$(head -n1 "${OL_ENV_FILE}")" "# comentário"
-check "sem chave duplicada" "$(grep -c '^ORBITLINK_DATA_DIR=' "${OL_ENV_FILE}")" "1"
-env_set ORBITLINK_API_TOKEN "outro"
-check "env_set idempotente" "$(grep -c '^ORBITLINK_API_TOKEN=' "${OL_ENV_FILE}")" "1"
+check "sem chave duplicada" "$(grep -c '^ASTRYON_DATA_DIR=' "${OL_ENV_FILE}")" "1"
+env_set ASTRYON_API_TOKEN "outro"
+check "env_set idempotente" "$(grep -c '^ASTRYON_API_TOKEN=' "${OL_ENV_FILE}")" "1"
 
 # public_env: lê só NEXT_PUBLIC_*, como o systemd, sem executar o arquivo (bug real do CI: "Mini: command not found")
 PUB="${TMP}/pub.env"
 # shellcheck disable=SC2016  # o $(...) literal é proposital: prova que o arquivo não é executado
-printf '%s\n' '# x' 'ORBITLINK_TERMINAL_NAME=Starlink Mini' 'NEXT_PUBLIC_SUPABASE_URL=https://abc.supabase.co' \
+printf '%s\n' '# x' 'ASTRYON_TERMINAL_NAME=Starlink Mini' 'NEXT_PUBLIC_SUPABASE_URL=https://abc.supabase.co' \
   'NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJ.a b.c"' "NEXT_PUBLIC_X='simples'" 'NEXT_PUBLIC_VAZIO=' \
   'NEXT_PUBLIC_CMD=$(touch '"${TMP}"'/pwned)' > "${PUB}"
 printf 'NEXT_PUBLIC_CRLF=valor\r\n' >> "${PUB}"
 out="$(public_env "${PUB}")"
-check "public_env ignora variáveis não públicas" "$(grep -c '^ORBITLINK_' <<<"${out}")" "0"
+check "public_env ignora variáveis não públicas" "$(grep -c '^ASTRYON_' <<<"${out}")" "0"
 check "public_env mantém URL" "$(grep '^NEXT_PUBLIC_SUPABASE_URL=' <<<"${out}")" "NEXT_PUBLIC_SUPABASE_URL=https://abc.supabase.co"
 check "public_env tira aspas duplas e preserva espaço" "$(grep '^NEXT_PUBLIC_SUPABASE_ANON_KEY=' <<<"${out}")" "NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ.a b.c"
 check "public_env tira aspas simples" "$(grep '^NEXT_PUBLIC_X=' <<<"${out}")" "NEXT_PUBLIC_X=simples"
@@ -84,20 +84,20 @@ unset -f ip
 UNITS="${HERE}/../systemd"
 # shellcheck disable=SC2329
 node_bin() { echo "/usr/local/bin/node"; }
-render_unit "${UNITS}/orbitlink-web.service" "${TMP}/web.service"
+render_unit "${UNITS}/astryon-web.service" "${TMP}/web.service"
 check "unidade do painel usa o Node detectado" \
-  "$(grep -c '^ExecStart=/usr/local/bin/node /opt/orbitlink/current/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000$' "${TMP}/web.service")" "1"
-check "resto da unidade do painel intacto" "$(diff <(grep -v '^ExecStart=' "${UNITS}/orbitlink-web.service") <(grep -v '^ExecStart=' "${TMP}/web.service") && echo igual)" "igual"
-render_unit "${UNITS}/orbitlink-agent.service" "${TMP}/agent.service"
-check "unidade do agente copiada sem alteração" "$(cmp -s "${UNITS}/orbitlink-agent.service" "${TMP}/agent.service" && echo igual)" "igual"
+  "$(grep -c '^ExecStart=/usr/local/bin/node /opt/astryon/current/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000$' "${TMP}/web.service")" "1"
+check "resto da unidade do painel intacto" "$(diff <(grep -v '^ExecStart=' "${UNITS}/astryon-web.service") <(grep -v '^ExecStart=' "${TMP}/web.service") && echo igual)" "igual"
+render_unit "${UNITS}/astryon-agent.service" "${TMP}/agent.service"
+check "unidade do agente copiada sem alteração" "$(cmp -s "${UNITS}/astryon-agent.service" "${TMP}/agent.service" && echo igual)" "igual"
 # shellcheck disable=SC2329
-if (node_bin() { return 1; }; render_unit "${UNITS}/orbitlink-web.service" "${TMP}/x.service") >/dev/null 2>&1; then r=sim; else r=nao; fi
+if (node_bin() { return 1; }; render_unit "${UNITS}/astryon-web.service" "${TMP}/x.service") >/dev/null 2>&1; then r=sim; else r=nao; fi
 check "sem Node acessível, a instalação da unidade falha (não grava caminho errado)" "${r}" "nao"
 unset -f node_bin
 . "${HERE}/../lib.sh"  # restaura node_bin original
 
 # --- Nginx: nenhuma diretiva de valor único repetida entre o snippet do proxy e o location que o inclui
-dups="$(python3 - "${HERE}/../nginx/orbitlink.conf" "${HERE}/../nginx/orbitlink-proxy.conf" <<'PY' | tr -d '\r'
+dups="$(python3 - "${HERE}/../nginx/astryon.conf" "${HERE}/../nginx/astryon-proxy.conf" <<'PY' | tr -d '\r'
 import re, sys
 REPEATABLE = {"proxy_set_header", "add_header", "limit_req", "include"}
 def names(text):
@@ -108,7 +108,7 @@ snippet = names(open(sys.argv[2], encoding="utf-8").read())
 found = set()
 for body in re.findall(r"location[^{]*\{([^}]*)\}", conf):
     own = names(body)
-    every = own + (snippet if "orbitlink-proxy.conf" in body else [])
+    every = own + (snippet if "astryon-proxy.conf" in body else [])
     found |= {n for n in every if n not in REPEATABLE and every.count(n) > 1}
 print(" ".join(sorted(found)))
 PY
@@ -125,7 +125,7 @@ check "ACL com Tailscale libera a Tailnet (IPv4 e IPv6)" "$(grep -c '^allow \(10
 check "ACL com Tailscale termina em deny all" "$(tail -n1 <<<"${acl}")" "deny all;"
 
 # --- Nginx: nomes aceitos no Host
-CONF="${HERE}/../nginx/orbitlink.conf"
+CONF="${HERE}/../nginx/astryon.conf"
 check "nomes do servidor sem repetição" "$(nginx_server_names srv srv srv.local "")" "srv srv.local"
 rendered="$(sed "s|__SERVER_NAME__|$(nginx_server_names srv srv srv.local)|" "${CONF}")"
 check "modelo renderizado sem marcador" "$(grep -c '__SERVER_NAME__' <<<"${rendered}" || true)" "0"

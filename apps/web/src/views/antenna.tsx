@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentInfo, MetricKey, StatusResponse, Telemetry } from "@orbitlink/shared";
+import type { AgentInfo, MetricKey, StatusResponse, Telemetry } from "@astryon/shared";
 import { Activity, ArrowRight, Clock, Cpu, Navigation, Radar, RadioTower, RefreshCw, SatelliteDish, ShieldCheck, SlidersHorizontal, Zap } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";

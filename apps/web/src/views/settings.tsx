@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentInfo, DigestStatus, NotificationStatus, ServerHealth, UsagePlan } from "@orbitlink/shared";
+import type { AgentInfo, DigestStatus, NotificationStatus, ServerHealth, UsagePlan } from "@astryon/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -82,7 +82,7 @@ const SECRET_LABELS: Record<string, string> = {
   telegram_chat_id: "Chat do Telegram",
 };
 
-const envName = (key: string) => `ORBITLINK_${key.toUpperCase()}`;
+const envName = (key: string) => `ASTRYON_${key.toUpperCase()}`;
 
 /** Valor de configuração legível: booleanos viram Sim/Não, segundos ganham unidade, ausente vira travessão. */
 function fmtValue(v: unknown, unit?: "s" | "d"): ReactNode {
@@ -308,7 +308,7 @@ function SettingsBody({ d }: { d: SettingsData }) {
               <span className="text-xs font-medium text-fg-muted">Fuso de exibição</span>
               <p className="flex h-9 items-center rounded-md border border-border bg-bg-elev px-3 font-mono text-sm text-fg-muted">{fmtValue(d.timezone)}</p>
               <p className="text-[11px] text-fg-subtle">
-                Definido por <span className="font-mono">ORBITLINK_TIMEZONE</span> no agente.
+                Definido por <span className="font-mono">ASTRYON_TIMEZONE</span> no agente.
               </p>
             </div>
           </div>
@@ -414,8 +414,8 @@ function SettingsBody({ d }: { d: SettingsData }) {
             <Skeleton className="h-24 w-full" />
           ) : n ? (
             <dl>
-              <Row label="Telegram" env="ORBITLINK_TELEGRAM_BOT_TOKEN + _CHAT_ID" value={<Badge tone={n.channels.telegram ? "accent" : "neutral"}>{n.channels.telegram ? "ativo" : "não configurado"}</Badge>} />
-              <Row label="Webhook" env="ORBITLINK_ALERT_WEBHOOK_URL" value={<Badge tone={n.channels.webhook ? "accent" : "neutral"}>{n.channels.webhook ? "ativo" : "não configurado"}</Badge>} />
+              <Row label="Telegram" env="ASTRYON_TELEGRAM_BOT_TOKEN + _CHAT_ID" value={<Badge tone={n.channels.telegram ? "accent" : "neutral"}>{n.channels.telegram ? "ativo" : "não configurado"}</Badge>} />
+              <Row label="Webhook" env="ASTRYON_ALERT_WEBHOOK_URL" value={<Badge tone={n.channels.webhook ? "accent" : "neutral"}>{n.channels.webhook ? "ativo" : "não configurado"}</Badge>} />
               <Row label="Último envio" value={n.last_sent_at ? `${fmtDateTime(n.last_sent_at)} (${fmtAgo(n.last_sent_at)})` : "nunca"} />
               <Row label="Na fila / falhas em 24 h" value={`${fmtNumber(n.pending, 0)} / ${fmtNumber(n.failed_24h, 0)}`} />
               {n.last_error && <Row label="Último erro" value={<span className="text-crit">{`${n.last_error.channel}: ${n.last_error.last_error}`}</span>} />}
@@ -446,11 +446,11 @@ function SettingsBody({ d }: { d: SettingsData }) {
             <Skeleton className="h-24 w-full" />
           ) : ai.data ? (
             <dl>
-              <Row label="Motor" env="ORBITLINK_GROQ_API_KEY" value={<Badge tone={ai.data.configured ? "accent" : "neutral"}>{ai.data.configured ? "Groq" : "somente regras"}</Badge>} />
-              <Row label="Modelo" env="ORBITLINK_AI_MODEL" value={fmtValue(ai.data.configured ? ai.data.model : d.ai_model)} />
-              <Row label="Perguntas hoje / limite diário" env="ORBITLINK_AI_DAILY_REQUEST_LIMIT" value={`${fmtNumber(today?.requests ?? 0, 0)} / ${fmtNumber(ai.data.daily_limit, 0)}`} />
-              <Row label="Guardar conversas por" env="ORBITLINK_AI_CONVERSATION_RETENTION_DAYS" value={fmtValue(ai.data.retention_days ?? d.ai_conversation_retention_days, "d")} />
-              <Row label="Áudio no Telegram (Whisper)" env="ORBITLINK_AI_TRANSCRIBE_ENABLED" value={ai.data.audio ? <Badge tone={ai.data.audio.enabled ? "accent" : "neutral"}>{ai.data.audio.enabled ? `ativo · ${ai.data.audio.model}` : "desligado"}</Badge> : "—"} />
+              <Row label="Motor" env="ASTRYON_GROQ_API_KEY" value={<Badge tone={ai.data.configured ? "accent" : "neutral"}>{ai.data.configured ? "Groq" : "somente regras"}</Badge>} />
+              <Row label="Modelo" env="ASTRYON_AI_MODEL" value={fmtValue(ai.data.configured ? ai.data.model : d.ai_model)} />
+              <Row label="Perguntas hoje / limite diário" env="ASTRYON_AI_DAILY_REQUEST_LIMIT" value={`${fmtNumber(today?.requests ?? 0, 0)} / ${fmtNumber(ai.data.daily_limit, 0)}`} />
+              <Row label="Guardar conversas por" env="ASTRYON_AI_CONVERSATION_RETENTION_DAYS" value={fmtValue(ai.data.retention_days ?? d.ai_conversation_retention_days, "d")} />
+              <Row label="Áudio no Telegram (Whisper)" env="ASTRYON_AI_TRANSCRIBE_ENABLED" value={ai.data.audio ? <Badge tone={ai.data.audio.enabled ? "accent" : "neutral"}>{ai.data.audio.enabled ? `ativo · ${ai.data.audio.model}` : "desligado"}</Badge> : "—"} />
             </dl>
           ) : null}
         </Section>
@@ -515,7 +515,7 @@ function SettingsBody({ d }: { d: SettingsData }) {
           </ul>
           <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-fg-muted sm:grid-cols-2">
             <p className="rounded-md border border-border px-3 py-2.5">
-              <span className="font-medium text-fg">Ubuntu:</span> edite <span className="font-mono">/etc/orbitlink/orbitlink.env</span> e rode <span className="font-mono">sudo orbitlinkctl restart</span>.
+              <span className="font-medium text-fg">Ubuntu:</span> edite <span className="font-mono">/etc/astryon/astryon.env</span> e rode <span className="font-mono">sudo astryonctl restart</span>.
             </p>
             <p className="rounded-md border border-border px-3 py-2.5">
               <span className="font-medium text-fg">Windows:</span> edite o <span className="font-mono">.env</span> na raiz e rode <span className="font-mono">scripts\stop.ps1</span> e <span className="font-mono">start.ps1</span>.

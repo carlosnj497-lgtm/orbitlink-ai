@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentInfo, StatusResponse } from "@orbitlink/shared";
+import type { AgentInfo, StatusResponse } from "@astryon/shared";
 import { CircleCheck, CircleHelp, CircleX, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { DishArt } from "@/components/art/DishArt";

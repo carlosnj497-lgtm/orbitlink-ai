@@ -53,7 +53,7 @@ function PairingCard() {
           <div className="rounded-lg border border-accent/30 bg-accent-soft p-3">
             <p className="text-xs text-fg-muted">Código (uso único, expira {fmtDateTime(gen.data.expires_at)}):</p>
             <p className="mt-1 font-mono text-3xl tracking-[0.3em] text-accent">{gen.data.code}</p>
-            <p className="mt-2 text-xs text-fg-muted">Digite este código no portal de configuração do ESP32 (Wi-Fi “OrbitLink-Setup-XXXX”). Veja docs/ESP32_SETUP.md.</p>
+            <p className="mt-2 text-xs text-fg-muted">Digite este código no portal de configuração do ESP32 (Wi-Fi “ASTRYON-Setup-XXXX”). Veja docs/ESP32_SETUP.md.</p>
           </div>
         )}
       </CardBody>
@@ -85,7 +85,7 @@ export default function Esp32View() {
       )}
       {d && !d.enabled && !demo && (
         <Callout tone="neutral" title="Módulo IoT não configurado" className="mb-4">
-          O ASTRYON funciona normalmente sem ESP32. Para usar, defina <code className="font-mono">ORBITLINK_ESP32_ENABLED=true</code> no .env e reinicie o agente.
+          O ASTRYON funciona normalmente sem ESP32. Para usar, defina <code className="font-mono">ASTRYON_ESP32_ENABLED=true</code> no .env e reinicie o agente.
           O listener aceitará apenas mensagens assinadas na porta 8788.
         </Callout>
       )}

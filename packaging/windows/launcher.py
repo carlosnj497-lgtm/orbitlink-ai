@@ -49,14 +49,14 @@ def ensure_env(root: Path) -> Path:
         env.write_text(
             "# Configuração do ASTRYON. Depois de editar, use \"Reiniciar serviços\" no ícone da bandeja.\n"
             "# Telegram, IA (Groq), clima e franquia: veja o .env.example do projeto.\n"
-            f"ORBITLINK_API_TOKEN={secrets.token_urlsafe(36)}\n"
-            f"ORBITLINK_DATA_DIR={root / 'data'}\n"
-            "ORBITLINK_HOST=127.0.0.1\n"
-            "ORBITLINK_COOKIE_SECURE=false\n"
-            "ORBITLINK_TIMEZONE=America/Sao_Paulo\n"
-            "ORBITLINK_TELEGRAM_BOT_TOKEN=\n"
-            "ORBITLINK_TELEGRAM_CHAT_ID=\n"
-            "ORBITLINK_GROQ_API_KEY=\n",
+            f"ASTRYON_API_TOKEN={secrets.token_urlsafe(36)}\n"
+            f"ASTRYON_DATA_DIR={root / 'data'}\n"
+            "ASTRYON_HOST=127.0.0.1\n"
+            "ASTRYON_COOKIE_SECURE=false\n"
+            "ASTRYON_TIMEZONE=America/Sao_Paulo\n"
+            "ASTRYON_TELEGRAM_BOT_TOKEN=\n"
+            "ASTRYON_TELEGRAM_CHAT_ID=\n"
+            "ASTRYON_GROQ_API_KEY=\n",
             encoding="utf-8",
         )
     return env
@@ -78,8 +78,8 @@ def child_env(root: Path) -> dict[str, str]:
     env_file = ensure_env(root)
     env = dict(os.environ)
     env.update(read_env(env_file))
-    env.update({"ORBITLINK_ENV_FILE": str(env_file), "NODE_ENV": "production", "PORT": "3000",
-                "HOSTNAME": "127.0.0.1", "ORBITLINK_AGENT_URL": "http://127.0.0.1:8787"})
+    env.update({"ASTRYON_ENV_FILE": str(env_file), "NODE_ENV": "production", "PORT": "3000",
+                "HOSTNAME": "127.0.0.1", "ASTRYON_AGENT_URL": "http://127.0.0.1:8787"})
     return env
 
 

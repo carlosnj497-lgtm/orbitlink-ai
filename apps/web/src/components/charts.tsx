@@ -1,6 +1,6 @@
 "use client";
 
-import type { Gap, TelemetryPoint } from "@orbitlink/shared";
+import type { Gap, TelemetryPoint } from "@astryon/shared";
 import {
   Area,
   AreaChart,

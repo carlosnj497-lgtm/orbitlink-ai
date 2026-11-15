@@ -5,7 +5,7 @@ primary_target: "src/views/overview.tsx"
 related_targets: ["src/components/shell/AppShell.tsx"]
 ---
 
-# Painel OrbitLink (todas as telas do app)
+# Painel ASTRYON (todas as telas do app)
 
 Scope: shell (cabeçalho, barra lateral, navegação móvel) e todas as telas em `src/views`, mais login. Mode: Operate.
 Audience: o dono da Starlink Mini, sozinho, no PC e no celular, de dia e à noite em casa.

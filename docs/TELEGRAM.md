@@ -1,4 +1,4 @@
-# Central Telegram do OrbitLink
+# Central Telegram do ASTRYON
 
 Envie `/start` ou `/menu` no chat autorizado para abrir a central com botões.
 O menu de comandos é registrado automaticamente quando o agente inicia.
@@ -42,7 +42,7 @@ Além das regras de alerta (perda, latência, quedas, franquia), o bot avisa soz
 - toda semana, junto do backup do banco (arquivo `.sqlite3.gz`), para guardar fora do servidor.
 
 Cada aviso vem de uma regra que pode ser ajustada ou desligada em Alertas, ou de uma variável no `.env`
-(`ORBITLINK_MONTHLY_REPORT_ENABLED`, `ORBITLINK_BACKUP_TELEGRAM`, `ORBITLINK_DOWNTIME_NOTICE_MIN`).
+(`ASTRYON_MONTHLY_REPORT_ENABLED`, `ASTRYON_BACKUP_TELEGRAM`, `ASTRYON_DOWNTIME_NOTICE_MIN`).
 
 ### Clima
 
@@ -67,10 +67,10 @@ sem chave adicional. O texto da resposta é enviado à Microsoft para gerar a vo
 o áudio permanece em memória e não é salvo em disco. O serviço requer internet
 e pode ficar indisponível: nesse caso, a resposta escrita continua disponível.
 
-- `ORBITLINK_TELEGRAM_VOICE_REPLIES=true`: preferência inicial para respostas faladas.
-- `ORBITLINK_AI_TTS_VOICE=pt-BR-FranciscaNeural`: voz brasileira.
-- `ORBITLINK_AI_TTS_TIMEOUT_S=45`: tempo máximo da síntese.
-- `ORBITLINK_AI_TTS_MAX_CHARS=3000`: limite de texto falado por resposta.
+- `ASTRYON_TELEGRAM_VOICE_REPLIES=true`: preferência inicial para respostas faladas.
+- `ASTRYON_AI_TTS_VOICE=pt-BR-FranciscaNeural`: voz brasileira.
+- `ASTRYON_AI_TTS_TIMEOUT_S=45`: tempo máximo da síntese.
+- `ASTRYON_AI_TTS_MAX_CHARS=3000`: limite de texto falado por resposta.
 
 Respostas longas têm áudio abreviado com aviso; o texto permanece completo.
 Depois de atualizar, instale `requirements.lock` e reinicie o agente.
@@ -79,10 +79,10 @@ Depois de atualizar, instale `requirements.lock` e reinicie o agente.
 
 Use as variáveis existentes do agente:
 
-- `ORBITLINK_TELEGRAM_BOT_TOKEN`: token fornecido pelo BotFather.
-- `ORBITLINK_TELEGRAM_CHAT_ID`: chat autorizado.
-- `ORBITLINK_TELEGRAM_CHAT_ENABLED`: habilita o bot de conversa.
-- `ORBITLINK_GROQ_API_KEY`: habilita as perguntas livres com IA.
+- `ASTRYON_TELEGRAM_BOT_TOKEN`: token fornecido pelo BotFather.
+- `ASTRYON_TELEGRAM_CHAT_ID`: chat autorizado.
+- `ASTRYON_TELEGRAM_CHAT_ENABLED`: habilita o bot de conversa.
+- `ASTRYON_GROQ_API_KEY`: habilita as perguntas livres com IA.
 
 Reinicie o agente após mudar a configuração ou atualizar o código.
 Execute somente um consumidor de `getUpdates` para o mesmo token.
@@ -93,7 +93,7 @@ Bot API (idioma padrão e português), execute:
 
 ```bash
 cd apps/agent
-.venv/bin/python -m orbitlink_agent.ai.telegram_setup
+.venv/bin/python -m astryon_agent.ai.telegram_setup
 ```
 
 O comando usa o token do ambiente do projeto sem exibi-lo e confere a

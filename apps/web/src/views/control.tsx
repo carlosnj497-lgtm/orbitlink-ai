@@ -1,6 +1,6 @@
 "use client";
 
-import type { Capability } from "@orbitlink/shared";
+import type { Capability } from "@astryon/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Power, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";

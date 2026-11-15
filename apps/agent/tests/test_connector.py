@@ -7,12 +7,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from orbitlink_agent.models import ConnState, Source
-from orbitlink_agent.starlink.capabilities import CapStatus, probe
-from orbitlink_agent.starlink.client import StarlinkClient
-from orbitlink_agent.starlink.errors import ErrorKind, StarlinkError
-from orbitlink_agent.starlink.normalize import normalize_status, outage_timestamp
-from orbitlink_agent.starlink.transport import FixtureTransport, GrpcTransport
+from astryon_agent.models import ConnState, Source
+from astryon_agent.starlink.capabilities import CapStatus, probe
+from astryon_agent.starlink.client import StarlinkClient
+from astryon_agent.starlink.errors import ErrorKind, StarlinkError
+from astryon_agent.starlink.normalize import normalize_status, outage_timestamp
+from astryon_agent.starlink.transport import FixtureTransport, GrpcTransport
 
 
 def test_grpc_reflection_status(fake_dish):

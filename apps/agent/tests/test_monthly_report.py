@@ -8,11 +8,11 @@ from zoneinfo import ZoneInfo
 import httpx
 import pytest
 
-from orbitlink_agent.ai import telegram_bot as tb
-from orbitlink_agent.config import Settings
-from orbitlink_agent.reports import builder, monthly
-from orbitlink_agent.storage.db import Database
-from orbitlink_agent.weather import service as weather
+from astryon_agent.ai import telegram_bot as tb
+from astryon_agent.config import Settings
+from astryon_agent.reports import builder, monthly
+from astryon_agent.storage.db import Database
+from astryon_agent.weather import service as weather
 
 from .test_telegram_bot import CHAT, FakeAI, _bot, _msg, _poll
 

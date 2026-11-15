@@ -1,6 +1,6 @@
 "use client";
 
-import type { DigestStatus, NotificationStatus } from "@orbitlink/shared";
+import type { DigestStatus, NotificationStatus } from "@astryon/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BellOff, BellRing, CalendarClock, Check, Plus, Send, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -81,7 +81,7 @@ function NotificationsCard() {
         )}
         {d && !any && (
           <Callout tone="info">
-            Para receber no celular: crie um bot com o @BotFather no Telegram, envie uma mensagem a ele e defina ORBITLINK_TELEGRAM_BOT_TOKEN e ORBITLINK_TELEGRAM_CHAT_ID (o comando <code>orbitlinkctl telegram-chat-id</code> mostra o número). Depois reinicie o agente.
+            Para receber no celular: crie um bot com o @BotFather no Telegram, envie uma mensagem a ele e defina ASTRYON_TELEGRAM_BOT_TOKEN e ASTRYON_TELEGRAM_CHAT_ID (o comando <code>astryonctl telegram-chat-id</code> mostra o número). Depois reinicie o agente.
           </Callout>
         )}
         {test.data &&

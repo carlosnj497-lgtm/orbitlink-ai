@@ -6,7 +6,7 @@
  * mudou, o carregamento falha com ChunkLoadError. A correção é simplesmente recarregar a página (uma vez).
  */
 
-const KEY = "orbitlink:chunk-reload-at";
+const KEY = "astryon:chunk-reload-at";
 const MIN_INTERVAL_MS = 30_000;
 
 export function isChunkLoadError(error: unknown): boolean {

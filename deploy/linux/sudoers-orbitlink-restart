@@ -1,4 +1,0 @@
-# Permite que o usuário starlink pare/inicie/reinicie SÓ os serviços do OrbitLink sem senha.
-# Instalar com:  sudo install -m 0440 -o root -g root deploy/linux/sudoers-orbitlink-restart /etc/sudoers.d/orbitlink-restart
-# Remover com:   sudo rm /etc/sudoers.d/orbitlink-restart
-starlink ALL=(root) NOPASSWD: /usr/bin/systemctl stop orbitlink-web, /usr/bin/systemctl start orbitlink-web, /usr/bin/systemctl restart orbitlink-web, /usr/bin/systemctl restart orbitlink-agent, /usr/bin/systemctl status orbitlink-web orbitlink-agent --no-pager

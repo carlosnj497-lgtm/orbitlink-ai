@@ -1,6 +1,6 @@
 "use client";
 
-import type { CapStatus, ConnState, Source } from "@orbitlink/shared";
+import type { CapStatus, ConnState, Source } from "@astryon/shared";
 import { AlertTriangle, CloudOff, Info, PlugZap, RefreshCw, ServerCrash } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ApiError } from "@/lib/api";

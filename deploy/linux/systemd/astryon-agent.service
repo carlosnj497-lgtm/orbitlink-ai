@@ -1,0 +1,57 @@
+[Unit]
+Description=ASTRYON - agente local (coleta Starlink, API em 127.0.0.1:8787)
+Documentation=file:///opt/astryon/current/docs/LINUX_SERVER.md
+After=network-online.target
+Wants=network-online.target
+PartOf=astryon.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=astryon
+Group=astryon
+WorkingDirectory=/var/lib/astryon
+EnvironmentFile=/etc/astryon/astryon.env
+Environment=ASTRYON_ENV_FILE=/etc/astryon/astryon.env
+Environment=ASTRYON_DATA_DIR=/var/lib/astryon
+Environment=ASTRYON_SECRETS_KEY_FILE=/etc/astryon/secrets.key
+Environment=ASTRYON_HOST=127.0.0.1
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/astryon/current/apps/agent/.venv/bin/python -m astryon_agent serve
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0027
+# Logs: stdout/stderr (JSON estruturado) -> journald.  journalctl -u astryon-agent
+SyslogIdentifier=astryon-agent
+
+# --- Endurecimento
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/astryon
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+# AF_NETLINK: leitura de rotas ("ip route get") no diagnóstico
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+MemoryMax=768M
+TasksMax=256
+
+[Install]
+WantedBy=astryon.target

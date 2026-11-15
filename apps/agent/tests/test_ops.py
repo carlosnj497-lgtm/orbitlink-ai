@@ -10,21 +10,21 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from orbitlink_agent.ai import copilot
-from orbitlink_agent.alerts.engine import AlertEngine
-from orbitlink_agent.api.deps import AppContext
-from orbitlink_agent.api.routes_devices import normalize_clients
-from orbitlink_agent.api.routes_esp32 import build_ingest_app
-from orbitlink_agent.collector.bus import EventBus
-from orbitlink_agent.collector.service import Collector
-from orbitlink_agent.config import Settings
-from orbitlink_agent.control import service as control
-from orbitlink_agent.esp32 import protocol
-from orbitlink_agent.reports import builder
-from orbitlink_agent.starlink.capabilities import probe
-from orbitlink_agent.starlink.transport import FixtureTransport
-from orbitlink_agent.storage.db import Database, now_ts
-from orbitlink_agent.usage import importer
+from astryon_agent.ai import copilot
+from astryon_agent.alerts.engine import AlertEngine
+from astryon_agent.api.deps import AppContext
+from astryon_agent.api.routes_devices import normalize_clients
+from astryon_agent.api.routes_esp32 import build_ingest_app
+from astryon_agent.collector.bus import EventBus
+from astryon_agent.collector.service import Collector
+from astryon_agent.config import Settings
+from astryon_agent.control import service as control
+from astryon_agent.esp32 import protocol
+from astryon_agent.reports import builder
+from astryon_agent.starlink.capabilities import probe
+from astryon_agent.starlink.transport import FixtureTransport
+from astryon_agent.storage.db import Database, now_ts
+from astryon_agent.usage import importer
 
 ADMIN = {"id": 1, "username": "admin", "role": "admin"}
 OTHER = {"id": 2, "username": "outro", "role": "admin"}
@@ -151,7 +151,7 @@ def _signed(client, path, secret, dev, body, ts=None, nonce=None):
 
 
 def test_esp32_pair_ingest_replay_and_power_event(env):
-    from orbitlink_agent.api.deps import AppContext
+    from astryon_agent.api.deps import AppContext
 
     ctx = AppContext(settings=env.s, db=env.db, bus=EventBus(), collector=None)
     c = TestClient(build_ingest_app(ctx))
@@ -191,7 +191,7 @@ def test_esp32_pair_ingest_replay_and_power_event(env):
 
 
 def test_secret_protection_roundtrip():
-    from orbitlink_agent.auth.secrets_store import protect, unprotect
+    from astryon_agent.auth.secrets_store import protect, unprotect
 
     s = "segredo-de-teste"
     stored = protect(s)
@@ -221,7 +221,7 @@ async def test_reports_generate(env):
     csv_text = builder.to_csv(env.db, env.col.state.terminal_id, end - 3600, end, "America/Fortaleza")
     assert csv_text.startswith("minuto_utc") and "demonstracao" in csv_text
     data = json.loads(builder.to_json(env.db, None, end - 3600, end, "America/Fortaleza", {"x": 1}))
-    assert data["consumo"]["bytes_total"] > 0 and "aviso" in data["orbitlink"]
+    assert data["consumo"]["bytes_total"] > 0 and "aviso" in data["astryon"]
     pdf = builder.to_pdf(env.db, None, end - 3600, end, "America/Fortaleza", "Mini")
     assert pdf[:4] == b"%PDF" and len(pdf) > 1500
 
@@ -339,7 +339,7 @@ async def test_diagnostic_summary_classifies(env):
     await env.col.poll_status()
     await env.col.poll_history()
     end = now_ts() + 1
-    from orbitlink_agent.diagnostics import engine
+    from astryon_agent.diagnostics import engine
 
     s = engine.summary(env.db, env.col.state.terminal_id, end - 3600, end, "America/Fortaleza")
     kinds = {f["kind"] for f in s["findings"]}
@@ -350,11 +350,11 @@ async def test_diagnostic_summary_classifies(env):
 def test_fernet_secret_protection(tmp_path, monkeypatch):
     import sys as _sys
 
-    from orbitlink_agent.auth import secrets_store
+    from astryon_agent.auth import secrets_store
 
     monkeypatch.setattr(_sys, "platform", "linux")
     key = tmp_path / "secrets.key"
-    monkeypatch.setenv("ORBITLINK_SECRETS_KEY_FILE", str(key))
+    monkeypatch.setenv("ASTRYON_SECRETS_KEY_FILE", str(key))
     stored = secrets_store.protect("segredo-esp32")
     assert stored.startswith("fernet:") and "segredo-esp32" not in stored
     assert key.exists()
@@ -363,7 +363,7 @@ def test_fernet_secret_protection(tmp_path, monkeypatch):
 
 
 def test_linux_route_parsing():
-    from orbitlink_agent.diagnostics.network import parse_linux_default_gateways, parse_linux_route
+    from astryon_agent.diagnostics.network import parse_linux_default_gateways, parse_linux_route
 
     r = parse_linux_route("192.168.100.1", [{"dst": "192.168.100.1", "gateway": "192.168.1.1", "dev": "enp1s0",
                                               "prefsrc": "192.168.1.50", "flags": [], "uid": 0, "cache": []}])

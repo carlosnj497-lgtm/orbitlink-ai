@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OrbitLink AI — remoção. Por padrão MANTÉM dados (/var/lib/orbitlink) e configuração (/etc/orbitlink).
+# ASTRYON — remoção. Por padrão MANTÉM dados (/var/lib/astryon) e configuração (/etc/astryon).
 #   sudo deploy/linux/uninstall.sh            # remove serviços, Nginx site, CLI e releases
 #   sudo deploy/linux/uninstall.sh --purge    # também apaga dados, backups, segredos e o usuário (pede confirmação)
 set -euo pipefail
@@ -9,23 +9,23 @@ PURGE=0
 require_root
 
 step "Parando e removendo serviços"
-systemctl disable --now orbitlink-backup.timer orbitlink.target orbitlink-web.service orbitlink-agent.service 2>/dev/null || true
-rm -f /etc/systemd/system/orbitlink-{agent,web,backup}.service /etc/systemd/system/orbitlink.target \
-      /etc/systemd/system/orbitlink-backup.timer
+systemctl disable --now astryon-backup.timer astryon.target astryon-web.service astryon-agent.service 2>/dev/null || true
+rm -f /etc/systemd/system/astryon-{agent,web,backup}.service /etc/systemd/system/astryon.target \
+      /etc/systemd/system/astryon-backup.timer
 systemctl daemon-reload
 
 step "Removendo site do Nginx"
-rm -f /etc/nginx/sites-enabled/orbitlink /etc/nginx/sites-available/orbitlink \
-      /etc/nginx/snippets/orbitlink-acl.conf /etc/nginx/snippets/orbitlink-proxy.conf
+rm -f /etc/nginx/sites-enabled/astryon /etc/nginx/sites-available/astryon \
+      /etc/nginx/snippets/astryon-acl.conf /etc/nginx/snippets/astryon-proxy.conf
 if nginx -t >/dev/null 2>&1; then systemctl reload nginx || true; fi
 info "o site 'default' não é restaurado automaticamente (ln -s ../sites-available/default /etc/nginx/sites-enabled/ se quiser)"
 
 step "Removendo CLI e releases"
-rm -f /usr/local/bin/orbitlinkctl
+rm -f /usr/local/bin/astryonctl
 rm -rf --one-file-system "${OL_LIBEXEC}" "${OL_PREFIX}"
 
-info "Regras do UFW com comentário 'orbitlink:' permanecem. Para remover: sudo ufw status numbered && sudo ufw delete <n>"
-info "O endurecimento do SSH (se aplicado) permanece em /etc/ssh/sshd_config.d/50-orbitlink-hardening.conf"
+info "Regras do UFW com comentário 'astryon:' permanecem. Para remover: sudo ufw status numbered && sudo ufw delete <n>"
+info "O endurecimento do SSH (se aplicado) permanece em /etc/ssh/sshd_config.d/50-astryon-hardening.conf"
 
 if [[ ${PURGE} -eq 1 ]] && confirm "APAGAR definitivamente dados, backups, segredos e o usuário ${OL_USER}?"; then
   rm -rf --one-file-system "${OL_DATA}" "${OL_ETC}"

@@ -6,7 +6,7 @@ import { CAP_META, PageHeader } from "@/components/domain";
 import { Badge, Button, Callout, Card, CardBody, CardHeader } from "@/components/ui/primitives";
 import { api, ApiError, useAgent } from "@/lib/api";
 import { useDemo } from "@/lib/demo-context";
-import type { AgentInfo, CapStatus } from "@orbitlink/shared";
+import type { AgentInfo, CapStatus } from "@astryon/shared";
 
 interface Probe { target: string; reachable: boolean; latency_ms: number | null; error: string | null }
 interface Report {

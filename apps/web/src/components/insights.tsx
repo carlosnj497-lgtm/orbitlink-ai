@@ -1,6 +1,6 @@
 "use client";
 
-import type { BestHours, InsightsCompare } from "@orbitlink/shared";
+import type { BestHours, InsightsCompare } from "@astryon/shared";
 import { ArrowDownRight, ArrowUpRight, CloudRain, Clock, Minus, Scale } from "lucide-react";
 import { QueryError, SourceBadge } from "@/components/domain";
 import { Badge, Card, CardBody, CardHeader, EmptyState, Skeleton } from "@/components/ui/primitives";

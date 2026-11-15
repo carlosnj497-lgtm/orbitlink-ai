@@ -1,6 +1,6 @@
 // SCHEMA SINTÉTICO PARA TESTES — NÃO é o proto oficial da SpaceX.
 // Imita o formato público da API local (serviço SpaceX.API.Device.Device, RPC único Handle com oneof)
-// para exercitar o caminho real de gRPC reflection do OrbitLink. Numeração de campos arbitrária.
+// para exercitar o caminho real de gRPC reflection do ASTRYON. Numeração de campos arbitrária.
 syntax = "proto3";
 
 package SpaceX.API.Device;

@@ -1,5 +1,5 @@
 ---
-name: OrbitLink AI
+name: ASTRYON
 description: Console local de operações para uma Starlink Mini, no PC e no celular.
 colors:
   void: "#000000"
@@ -164,7 +164,7 @@ components:
     padding: "10px"
 ---
 
-# Design System: OrbitLink AI
+# Design System: ASTRYON
 
 ## Overview
 

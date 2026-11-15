@@ -1,6 +1,6 @@
 "use client";
 
-import type { UsagePlan, UsageSeries, UsageSummary, UsageWindow } from "@orbitlink/shared";
+import type { UsagePlan, UsageSeries, UsageSummary, UsageWindow } from "@astryon/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, FileUp, Gauge, Info } from "lucide-react";
 import Link from "next/link";

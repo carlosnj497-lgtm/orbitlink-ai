@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from orbitlink_agent.starlink.history import boot_id_from_uptime, extract_new_samples
+from astryon_agent.starlink.history import boot_id_from_uptime, extract_new_samples
 
 T0 = datetime(2026, 11, 12, 12, 0, 0, tzinfo=UTC)
 

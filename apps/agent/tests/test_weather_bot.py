@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from orbitlink_agent.ai import telegram_views as views
-from orbitlink_agent.ai.copilot import TOOLS, Toolbox
-from orbitlink_agent.alerts.engine import AlertEngine, seed_defaults
-from orbitlink_agent.collector.bus import EventBus
-from orbitlink_agent.storage.db import Database, now_ts
-from orbitlink_agent.weather import service as weather
+from astryon_agent.ai import telegram_views as views
+from astryon_agent.ai.copilot import TOOLS, Toolbox
+from astryon_agent.alerts.engine import AlertEngine, seed_defaults
+from astryon_agent.collector.bus import EventBus
+from astryon_agent.storage.db import Database, now_ts
+from astryon_agent.weather import service as weather
 
 from .test_telegram_bot import CHAT, FakeAI, FakeTelegram, _bot, _msg, _poll, _settings
 
@@ -93,7 +93,7 @@ def test_strong_rain_forecast_alert_notifies_once_and_resolves(tmp_path, db):
     seed_defaults(db)
     rule = db.one("SELECT * FROM alert_rules WHERE kind = 'weather_rain_forecast'")
     assert rule and rule["threshold"] == 7.6 and rule["window_s"] == 3 * H
-    from orbitlink_agent.alerts.notify import Notifier
+    from astryon_agent.alerts.notify import Notifier
 
     eng = AlertEngine(db, EventBus(), None, s.timezone, s, Notifier(db, s))
     assert eng.evaluate() == []  # sem cidade: sem dado, nada dispara

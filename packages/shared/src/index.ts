@@ -1,6 +1,6 @@
 /**
  * Contratos compartilhados entre o agente (FastAPI) e o painel (Next.js).
- * Espelham as respostas de `apps/agent/orbitlink_agent/api/*`. O OpenAPI completo pode ser
+ * Espelham as respostas de `apps/agent/astryon_agent/api/*`. O OpenAPI completo pode ser
  * regenerado em `src/generated/agent-openapi.d.ts` com `npm run gen:types` (agente em execução).
  */
 import { z } from "zod";

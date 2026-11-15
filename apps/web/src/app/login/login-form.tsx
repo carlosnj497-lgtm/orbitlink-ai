@@ -98,7 +98,7 @@ export function LoginForm() {
             <div className="space-y-1.5">
               <Label htmlFor="sc">Código de configuração do servidor</Label>
               <Input id="sc" autoComplete="off" value={setupCode} onChange={(e) => setSetupCode(e.target.value)} required />
-              <p className="text-xs text-fg-subtle">No servidor: <code className="font-mono">sudo cat /etc/orbitlink/setup-code</code></p>
+              <p className="text-xs text-fg-subtle">No servidor: <code className="font-mono">sudo cat /etc/astryon/setup-code</code></p>
             </div>
           )}
           {error && (

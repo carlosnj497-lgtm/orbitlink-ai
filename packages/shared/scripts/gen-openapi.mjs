@@ -13,8 +13,8 @@ const py = join(agentDir, ".venv", process.platform === "win32" ? "Scripts\\pyth
 
 const spec = execFileSync(
   py,
-  ["-c", "import json; from orbitlink_agent.api.app import create_app; print(json.dumps(create_app(start_collector=False).openapi()))"],
-  { cwd: agentDir, encoding: "utf8", env: { ...process.env, ORBITLINK_ENV_FILE: "nao-existe.env" } },
+  ["-c", "import json; from astryon_agent.api.app import create_app; print(json.dumps(create_app(start_collector=False).openapi()))"],
+  { cwd: agentDir, encoding: "utf8", env: { ...process.env, ASTRYON_ENV_FILE: "nao-existe.env" } },
 );
 const ast = await openapiTS(JSON.parse(spec));
 const out = join(here, "..", "src", "generated", "agent-openapi.d.ts");

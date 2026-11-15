@@ -7,11 +7,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from orbitlink_agent.ai import telegram_views as views
-from orbitlink_agent.config import Settings
-from orbitlink_agent.reports import insights
-from orbitlink_agent.storage.db import Database
-from orbitlink_agent.weather import service as weather
+from astryon_agent.ai import telegram_views as views
+from astryon_agent.config import Settings
+from astryon_agent.reports import insights
+from astryon_agent.storage.db import Database
+from astryon_agent.weather import service as weather
 
 TZ = ZoneInfo("America/Fortaleza")
 H = 3600

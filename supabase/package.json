@@ -1,5 +1,5 @@
 {
-  "name": "@orbitlink/supabase",
+  "name": "@astryon/supabase",
   "version": "0.1.0",
   "private": true,
   "type": "module",

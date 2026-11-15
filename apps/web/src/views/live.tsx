@@ -1,6 +1,6 @@
 "use client";
 
-import type { EventsResponse, Source, StatusResponse, Telemetry, TelemetryPoint } from "@orbitlink/shared";
+import type { EventsResponse, Source, StatusResponse, Telemetry, TelemetryPoint } from "@astryon/shared";
 import { Activity, ArrowDown, ArrowRight, ArrowUp, ChartArea, Clock, Download, Info, ListChecks, Pause, Play, Radar, RadioTower, RefreshCw, Timer, TrendingDown, TrendingUp, Waves } from "lucide-react";
 import Link from "next/link";
 import { memo, type ReactNode, useId, useState } from "react";
@@ -295,7 +295,7 @@ export default function LiveView() {
   function exportCsv() {
     if (!telemetry) return;
     downloadCsv(
-      `orbitlink-telemetria-${range}.csv`,
+      `astryon-telemetria-${range}.csv`,
       ["timestamp_utc", "horario_local", "download_mbps", "upload_mbps", "latencia_pop_ms", "perda_pct", "potencia_w", "amostras", "fonte"],
       telemetry.points.map((p) => [new Date(p.t * 1000).toISOString(), fmtDateTime(p.t), p.down_mbps, p.up_mbps, p.latency_ms, p.drop_pct, p.power_w, p.n, telemetry.source]),
     );

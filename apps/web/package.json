@@ -1,5 +1,5 @@
 {
-  "name": "@orbitlink/web",
+  "name": "@astryon/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,7 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@orbitlink/shared": "^0.1.0",
+    "@astryon/shared": "^0.1.0",
     "@tanstack/react-query": "^5.107.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

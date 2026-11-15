@@ -11,14 +11,14 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from orbitlink_agent.alerts.engine import AlertEngine, seed_defaults
-from orbitlink_agent.alerts.notify import Notifier
-from orbitlink_agent.api.app import create_app
-from orbitlink_agent.collector.bus import EventBus
-from orbitlink_agent.config import Settings
-from orbitlink_agent.logging_setup import redact
-from orbitlink_agent.storage import queries
-from orbitlink_agent.storage.db import Database, now_ts
+from astryon_agent.alerts.engine import AlertEngine, seed_defaults
+from astryon_agent.alerts.notify import Notifier
+from astryon_agent.api.app import create_app
+from astryon_agent.collector.bus import EventBus
+from astryon_agent.config import Settings
+from astryon_agent.logging_setup import redact
+from astryon_agent.storage import queries
+from astryon_agent.storage.db import Database, now_ts
 
 TZ = "America/Fortaleza"
 Z = ZoneInfo(TZ)
@@ -207,7 +207,7 @@ def test_webhook_payload_and_resolution(tmp_path, db):
     n = Notifier(db, s, transport=httpx.MockTransport(hook))
     n.enqueue({"status": "resolved", "severity": "warn", "message": "Perda: normalizado", "ts": now_ts()})
     asyncio.run(n.deliver_due())
-    assert got[0]["status"] == "resolved" and got[0]["source"] == "OrbitLink AI"
+    assert got[0]["status"] == "resolved" and got[0]["source"] == "ASTRYON"
     assert got[0]["text"].startswith("✅ Resolvido")
 
 
@@ -254,7 +254,7 @@ def _login(c: TestClient) -> dict[str, str]:
     svc = {"Authorization": "Bearer svc-token"}
     c.post("/v1/auth/setup", json={"username": "admin", "password": "senha-forte-123"}, headers=svc)
     r = c.post("/v1/auth/login", json={"username": "admin", "password": "senha-forte-123"}, headers=svc)
-    return {**svc, "X-OrbitLink-Session": r.json()["session"]}
+    return {**svc, "X-ASTRYON-Session": r.json()["session"]}
 
 
 def test_api_plan_settings_and_notifications(tmp_path):
@@ -303,7 +303,7 @@ def test_broken_message_does_not_block_the_queue(tmp_path, db):
 
 
 def test_rate_limiter_forgets_old_keys():
-    from orbitlink_agent.auth.local import RateLimiter
+    from astryon_agent.auth.local import RateLimiter
 
     rl = RateLimiter(5, 0.0)
     for i in range(1100):

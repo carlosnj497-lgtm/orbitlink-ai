@@ -742,6 +742,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reports/telegram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report To Telegram
+         * @description Gera o PDF do período (padrão: 30 dias) e envia ao chat do Telegram.
+         */
+        post: operations["report_to_telegram_v1_reports_telegram_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/insights/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Compare */
+        get: operations["insights_compare_v1_insights_compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/insights/best-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Best Hours */
+        get: operations["insights_best_hours_v1_insights_best_hours_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/esp32/nodes": {
         parameters: {
             query?: never;
@@ -949,6 +1003,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/weather": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Weather Status */
+        get: operations["weather_status_v1_weather_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/weather/hourly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Weather Hourly */
+        get: operations["weather_hourly_v1_weather_hourly_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/weather/geocode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Weather Geocode */
+        get: operations["weather_geocode_v1_weather_geocode_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/weather/location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Weather Set Location */
+        put: operations["weather_set_location_v1_weather_location_put"];
+        post?: never;
+        /** Weather Clear Location */
+        delete: operations["weather_clear_location_v1_weather_location_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/weather/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Weather Refresh */
+        post: operations["weather_refresh_v1_weather_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ops/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Server Health */
+        get: operations["server_health_v1_ops_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ops/backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Backup Now
+         * @description Faz um backup agora e o envia ao Telegram (se configurado).
+         */
+        post: operations["backup_now_v1_ops_backup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/mqtt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mqtt Status */
+        get: operations["mqtt_status_v1_integrations_mqtt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1003,6 +1197,15 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** LocationBody */
+        LocationBody: {
+            /** Name */
+            name: string;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
         };
         /** NodePatch */
         NodePatch: {
@@ -1253,7 +1456,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1284,7 +1487,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -1318,7 +1521,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -1351,7 +1554,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1385,7 +1588,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1419,7 +1622,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1453,7 +1656,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1487,7 +1690,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1530,7 +1733,7 @@ export interface operations {
                 terminal_id?: number | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1566,7 +1769,7 @@ export interface operations {
                 terminal_id?: number | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1602,7 +1805,7 @@ export interface operations {
                 terminal_id?: number | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1645,7 +1848,7 @@ export interface operations {
                 terminal_id?: number | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1687,7 +1890,7 @@ export interface operations {
                 terminal_id?: number | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1727,7 +1930,7 @@ export interface operations {
                 terminal_id?: number | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1769,7 +1972,7 @@ export interface operations {
                 terminal_id?: number | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1812,7 +2015,7 @@ export interface operations {
                 limit?: number;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1854,7 +2057,7 @@ export interface operations {
                 terminal_id?: number | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1888,7 +2091,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1922,7 +2125,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1954,7 +2157,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -1988,7 +2191,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2026,7 +2229,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2064,7 +2267,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -2096,7 +2299,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2137,7 +2340,7 @@ export interface operations {
                 range?: string | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2178,7 +2381,7 @@ export interface operations {
                 range?: string | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2212,7 +2415,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2246,7 +2449,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2280,7 +2483,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2318,7 +2521,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -2358,7 +2561,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -2390,7 +2593,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -2433,7 +2636,7 @@ export interface operations {
                 limit?: number;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2467,7 +2670,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -2499,7 +2702,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2533,7 +2736,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2567,7 +2770,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2601,7 +2804,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2643,7 +2846,7 @@ export interface operations {
                 range?: string | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2675,7 +2878,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2713,7 +2916,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2747,11 +2950,129 @@ export interface operations {
             };
         };
     };
+    report_to_telegram_v1_reports_telegram_post: {
+        parameters: {
+            query?: {
+                /** @description Epoch UTC (s) */
+                start?: number | null;
+                /** @description Epoch UTC (s) */
+                end?: number | null;
+                /** @description 15m, 1h, 6h, 24h, 7d, 30d, 90d */
+                range?: string | null;
+            };
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    insights_compare_v1_insights_compare_get: {
+        parameters: {
+            query?: {
+                /** @description Epoch UTC (s) */
+                start?: number | null;
+                /** @description Epoch UTC (s) */
+                end?: number | null;
+                /** @description 15m, 1h, 6h, 24h, 7d, 30d, 90d */
+                range?: string | null;
+            };
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    insights_best_hours_v1_insights_best_hours_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     nodes_v1_esp32_nodes_get: {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2785,7 +3106,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2823,7 +3144,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -2855,7 +3176,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -2903,7 +3224,7 @@ export interface operations {
                 sensor?: string | null;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -2939,7 +3260,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -2973,7 +3294,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -3011,7 +3332,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -3045,7 +3366,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -3081,7 +3402,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -3115,7 +3436,7 @@ export interface operations {
                 refresh?: boolean;
             };
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -3149,7 +3470,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -3183,7 +3504,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -3221,7 +3542,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -3255,7 +3576,323 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-orbitlink-session"?: string | null;
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    weather_status_v1_weather_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    weather_hourly_v1_weather_hourly_get: {
+        parameters: {
+            query?: {
+                start?: number | null;
+                end?: number | null;
+                range?: string | null;
+            };
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    weather_geocode_v1_weather_geocode_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    weather_set_location_v1_weather_location_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    weather_clear_location_v1_weather_location_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    weather_refresh_v1_weather_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    server_health_v1_ops_health_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    backup_now_v1_ops_backup_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mqtt_status_v1_integrations_mqtt_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
                 authorization?: string | null;
             };
             path?: never;

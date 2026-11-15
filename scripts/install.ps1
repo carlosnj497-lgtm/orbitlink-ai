@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  Instala o OrbitLink AI no Windows 10/11 (sem Docker, sem privilégios de administrador).
+  Instala o ASTRYON no Windows 10/11 (sem Docker, sem privilégios de administrador).
 .DESCRIPTION
   1. Verifica Python 3.11+ e Node.js 20+.
   2. Cria o ambiente virtual do agente e instala dependências.
@@ -55,7 +55,7 @@ if (-not (Test-Path $envFile)) {
   $bytes = New-Object byte[] 32
   [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
   $token = [Convert]::ToBase64String($bytes).Replace("+", "-").Replace("/", "_").TrimEnd("=")
-  $lines = (Get-Content (Join-Path $Root ".env.example") -Encoding UTF8) -replace "^ORBITLINK_API_TOKEN=.*$", "ORBITLINK_API_TOKEN=$token"
+  $lines = (Get-Content (Join-Path $Root ".env.example") -Encoding UTF8) -replace "^ASTRYON_API_TOKEN=.*$", "ASTRYON_API_TOKEN=$token"
   # UTF-8 sem BOM (dotenv do Node e do Python leem melhor)
   [System.IO.File]::WriteAllLines($envFile, $lines, (New-Object System.Text.UTF8Encoding($false)))
   # Restringe a leitura do .env ao usuário atual

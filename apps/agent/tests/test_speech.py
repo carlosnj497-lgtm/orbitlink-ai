@@ -3,9 +3,9 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from orbitlink_agent.ai import copilot, speech
-from orbitlink_agent.ai import telegram_bot as tb
-from orbitlink_agent.storage.db import Database
+from astryon_agent.ai import copilot, speech
+from astryon_agent.ai import telegram_bot as tb
+from astryon_agent.storage.db import Database
 
 from .test_telegram_bot import CHAT, FakeAI, FakeTelegram, _bot, _msg, _poll, _settings
 

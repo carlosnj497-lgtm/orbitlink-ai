@@ -16,7 +16,7 @@ import type {
   WeatherHour,
   WeatherHourly,
   WeatherStatus,
-} from "@orbitlink/shared";
+} from "@astryon/shared";
 
 function rng(seed: number) {
   let a = seed >>> 0;

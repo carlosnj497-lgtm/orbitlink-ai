@@ -1,6 +1,6 @@
 "use client";
 
-import type { ConnState, StatusResponse } from "@orbitlink/shared";
+import type { ConnState, StatusResponse } from "@astryon/shared";
 import { useEffect, useSyncExternalStore } from "react";
 
 /**

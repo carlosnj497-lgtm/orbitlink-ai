@@ -7,9 +7,9 @@ import copy
 import pytest
 from fastapi.testclient import TestClient
 
-from orbitlink_agent.api.app import create_app
-from orbitlink_agent.config import Settings
-from orbitlink_agent.starlink.transport import FixtureTransport, GrpcTransport
+from astryon_agent.api.app import create_app
+from astryon_agent.config import Settings
+from astryon_agent.starlink.transport import FixtureTransport, GrpcTransport
 
 SVC = {"Authorization": "Bearer svc-token"}
 
@@ -27,7 +27,7 @@ def login(client) -> dict[str, str]:
     assert r.status_code in (201, 409)
     r = client.post("/v1/auth/login", json={"username": "admin", "password": "senha-forte-123"}, headers=SVC)
     assert r.status_code == 200
-    return {**SVC, "X-OrbitLink-Session": r.json()["session"]}
+    return {**SVC, "X-ASTRYON-Session": r.json()["session"]}
 
 
 @pytest.fixture

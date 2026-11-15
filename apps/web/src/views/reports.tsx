@@ -42,7 +42,7 @@ export default function ReportsView() {
       const r = await fetch(`/api/agent/reports/export?fmt=${fmt}&range=${range}`);
       if (!r.ok) throw new Error(errorText(await r.json().catch(() => ({})), r.status));
       const blob = await r.blob();
-      const name = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") ?? "")?.[1] ?? `orbitlink.${fmt}`;
+      const name = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") ?? "")?.[1] ?? `astryon.${fmt}`;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = name;

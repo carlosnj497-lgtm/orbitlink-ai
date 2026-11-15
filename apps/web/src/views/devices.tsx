@@ -6,7 +6,7 @@ import { CAP_META, PageHeader, QueryError, SourceBadge } from "@/components/doma
 import { Badge, Button, Callout, Card, CardBody, CardHeader, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { useAgent } from "@/lib/api";
 import { fmtBytesStr, fmtDuration } from "@/lib/format";
-import type { CapStatus, Source } from "@orbitlink/shared";
+import type { CapStatus, Source } from "@astryon/shared";
 
 interface Device {
   name: string | null;

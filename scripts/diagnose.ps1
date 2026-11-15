@@ -16,7 +16,7 @@ param(
 $Root = Split-Path -Parent $PSScriptRoot
 $vpy = Join-Path $Root "apps\agent\.venv\Scripts\python.exe"
 if (-not (Test-Path $vpy)) { Write-Host "Execute scripts\install.ps1 primeiro." -ForegroundColor Red; exit 1 }
-$argsList = @("-m", "orbitlink_agent", "diagnose")
+$argsList = @("-m", "astryon_agent", "diagnose")
 if ($Out) { $argsList += @("--out", $Out) }
 if ($SaveFixture) { $argsList += @("--save-fixture", $SaveFixture) }
 if ($Json) { $argsList += "--json" }

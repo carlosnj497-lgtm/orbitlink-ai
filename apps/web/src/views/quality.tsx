@@ -1,6 +1,6 @@
 "use client";
 
-import type { Quality, Telemetry, WeatherHourly } from "@orbitlink/shared";
+import type { Quality, Telemetry, WeatherHourly } from "@astryon/shared";
 import { CloudRain, Gauge, Info } from "lucide-react";
 import { useMemo, useState } from "react";
 import { TelemetryChart } from "@/components/charts";

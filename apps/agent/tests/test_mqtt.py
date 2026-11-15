@@ -9,9 +9,9 @@ import struct
 
 import pytest
 
-from orbitlink_agent.config import Settings
-from orbitlink_agent.integrations import mqtt
-from orbitlink_agent.storage.db import Database
+from astryon_agent.config import Settings
+from astryon_agent.integrations import mqtt
+from astryon_agent.storage.db import Database
 
 
 def _parse_remaining(buf: bytes, i: int) -> tuple[int, int]:

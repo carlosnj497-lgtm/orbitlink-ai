@@ -3,9 +3,9 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "orbitlink-agent"
+name = "astryon-agent"
 version = "0.1.0"
-description = "OrbitLink AI - agente local de monitoramento da Starlink Mini (projeto independente, sem afiliacao com a SpaceX)."
+description = "ASTRYON - agente local de monitoramento das antenas Starlink (projeto independente, sem afiliacao com a SpaceX)."
 requires-python = ">=3.11"
 license = "MIT"
 dependencies = [
@@ -36,13 +36,13 @@ dev = [
 ]
 
 [project.scripts]
-orbitlink-agent = "orbitlink_agent.cli:main"
+astryon-agent = "astryon_agent.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["orbitlink_agent*"]
+include = ["astryon_agent*"]
 
 [tool.setuptools.package-data]
-orbitlink_agent = ["migrations/*.sql"]
+astryon_agent = ["migrations/*.sql"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -68,5 +68,5 @@ ignore_missing_imports = true
 exclude = ["tests/", "build/"]
 
 [[tool.mypy.overrides]]
-module = ["orbitlink_agent.reports.*"]
+module = ["astryon_agent.reports.*"]
 disallow_untyped_calls = false

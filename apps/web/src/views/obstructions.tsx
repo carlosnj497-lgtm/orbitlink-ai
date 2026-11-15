@@ -1,6 +1,6 @@
 "use client";
 
-import type { ObstructionResponse, StatusResponse } from "@orbitlink/shared";
+import type { ObstructionResponse, StatusResponse } from "@astryon/shared";
 import { Radar } from "lucide-react";
 import { ObstructionGrid } from "@/components/charts";
 import { CAP_META, MetricCard, PageHeader, QueryError, SourceBadge } from "@/components/domain";

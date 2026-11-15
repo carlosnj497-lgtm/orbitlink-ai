@@ -118,7 +118,7 @@ function openStream() {
     try {
       const st = JSON.parse(e.data);
       qc.setQueryData(["agent", "status"], { available: true, dish_reachable: true, age_s: 0, stale: false, status: st });
-      window.dispatchEvent(new CustomEvent("orbitlink:status", { detail: st }));
+      window.dispatchEvent(new CustomEvent("astryon:status", { detail: st }));
     } catch {
       /* payload inválido é ignorado */
     }

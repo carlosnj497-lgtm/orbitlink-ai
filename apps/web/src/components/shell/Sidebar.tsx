@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentInfo, StatusResponse } from "@orbitlink/shared";
+import type { AgentInfo, StatusResponse } from "@astryon/shared";
 import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";

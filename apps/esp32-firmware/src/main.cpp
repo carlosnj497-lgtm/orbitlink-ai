@@ -1,10 +1,10 @@
-// OrbitLink AI — nó de telemetria ESP32 (protocolo v1).
+// ASTRYON — nó de telemetria ESP32 (protocolo v1).
 //
 // O ESP32 NÃO fala com a antena Starlink: ele mede o próprio ambiente/alimentação (quando há sensores) e envia
-// ao agente OrbitLink pela LAN, com mensagens assinadas (HMAC-SHA256, nonce único, timestamp).
+// ao agente ASTRYON pela LAN, com mensagens assinadas (HMAC-SHA256, nonce único, timestamp).
 //
 // Fluxo:
-//  1. Primeiro boot: abre o portal Wi-Fi "OrbitLink-Setup-XXXX" (WiFiManager). Informe Wi-Fi, IP do agente e o
+//  1. Primeiro boot: abre o portal Wi-Fi "ASTRYON-Setup-XXXX" (WiFiManager). Informe Wi-Fi, IP do agente e o
 //     código de pareamento de 6 dígitos gerado no painel (Centro ESP32).
 //  2. O firmware chama POST /esp32/v1/pair e guarda o segredo no NVS (Preferences). O código é de uso único.
 //  3. A cada 30 s: lê sensores habilitados, guarda num anel de 64 leituras e envia /esp32/v1/ingest assinado.
@@ -219,7 +219,7 @@ static bool pairWithAgent(const String &code) {
   String resp = http.getString();
   http.end();
   if (code_ != 200) {
-    Serial.printf("[orbitlink] pareamento recusado: HTTP %d\n", code_);
+    Serial.printf("[astryon] pareamento recusado: HTTP %d\n", code_);
     return false;
   }
   JsonDocument r;
@@ -227,7 +227,7 @@ static bool pairWithAgent(const String &code) {
   secretB64 = r["secret"].as<String>();
   timeOffset = (int64_t)r["server_time"].as<uint32_t>() - (int64_t)(millis() / 1000);
   prefs.putString("secret", secretB64);
-  Serial.println("[orbitlink] pareado com sucesso");
+  Serial.println("[astryon] pareado com sucesso");
   return true;
 }
 
@@ -269,7 +269,7 @@ static void sendBatch() {
     ledBlink(1);
   } else {
     backoffMs = min<uint32_t>(backoffMs ? backoffMs * 2 : 5000, 300000);
-    Serial.printf("[orbitlink] envio falhou (%d), nova tentativa em %lus\n", code, (unsigned long)(backoffMs / 1000));
+    Serial.printf("[astryon] envio falhou (%d), nova tentativa em %lus\n", code, (unsigned long)(backoffMs / 1000));
     if (code == 401) syncTimeFromAgent();
   }
 }
@@ -279,7 +279,7 @@ static void factoryResetIfHeld() {
   uint32_t start = millis();
   while (digitalRead(OL_PIN_RESET_BUTTON) == LOW) {
     if (millis() - start > 5000) {
-      Serial.println("[orbitlink] apagando configuração e pareamento");
+      Serial.println("[astryon] apagando configuração e pareamento");
       prefs.clear();
       WiFiManager wm;
       wm.resetSettings();
@@ -297,7 +297,7 @@ void setup() {
 #if OL_ENABLE_POWER_SENSE
   pinMode(OL_PIN_POWER_SENSE, INPUT);
 #endif
-  prefs.begin("orbitlink", false);
+  prefs.begin("astryon", false);
   uint64_t mac = ESP.getEfuseMac();
   char id[32];
   snprintf(id, sizeof(id), "esp32-%04x%08lx", (uint16_t)(mac >> 32), (unsigned long)mac);
@@ -309,7 +309,7 @@ void setup() {
   factoryResetIfHeld();
 
   WiFiManager wm;
-  WiFiManagerParameter pHost("host", "IP do agente OrbitLink", agentHost.c_str(), 64);
+  WiFiManagerParameter pHost("host", "IP do agente ASTRYON", agentHost.c_str(), 64);
   WiFiManagerParameter pPort("port", "Porta (padrão 8788)", String(agentPort).c_str(), 6);
   WiFiManagerParameter pCode("code", "Código de pareamento (6 dígitos)", "", 7);
   wm.addParameter(&pHost);
@@ -339,7 +339,7 @@ void setup() {
 #if OL_ENABLE_DS18B20
   ds18b20.begin();
 #endif
-  Serial.printf("[orbitlink] %s fw %s agente %s:%u %s\n", deviceId.c_str(), OL_FW_VERSION, agentHost.c_str(), agentPort,
+  Serial.printf("[astryon] %s fw %s agente %s:%u %s\n", deviceId.c_str(), OL_FW_VERSION, agentHost.c_str(), agentPort,
                 secretB64.isEmpty() ? "(NÃO PAREADO)" : "(pareado)");
 }
 

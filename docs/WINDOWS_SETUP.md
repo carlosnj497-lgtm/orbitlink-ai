@@ -22,7 +22,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 # -WithAI     (obsoleto: a IA via Groq usa o httpx, que já vem nas dependências)
 ```
 
-O script cria `apps\agent\.venv`, instala as dependências npm, gera o `.env` com um `ORBITLINK_API_TOKEN` aleatório (com ACL apenas do seu usuário) e faz o build de produção.
+O script cria `apps\agent\.venv`, instala as dependências npm, gera o `.env` com um `ASTRYON_API_TOKEN` aleatório (com ACL apenas do seu usuário) e faz o build de produção.
 
 ## 3. Diagnosticar
 
@@ -62,12 +62,12 @@ Cria uma Tarefa Agendada **no logon do seu usuário**, com nível Limitado (sem 
 |---|---|---|
 | 3000 | só localhost | Painel |
 | 8787 | só localhost | API do agente (token + sessão) |
-| 8788 | todas as interfaces (só se `ORBITLINK_ESP32_ENABLED=true`) | Ingestão HMAC do ESP32 |
+| 8788 | todas as interfaces (só se `ASTRYON_ESP32_ENABLED=true`) | Ingestão HMAC do ESP32 |
 
 Se usar o ESP32, libere **apenas** a porta 8788 e **apenas** para a rede privada:
 
 ```powershell
-New-NetFirewallRule -DisplayName "OrbitLink ESP32 (LAN)" -Direction Inbound -Protocol TCP -LocalPort 8788 -Profile Private -Action Allow
+New-NetFirewallRule -DisplayName "ASTRYON ESP32 (LAN)" -Direction Inbound -Protocol TCP -LocalPort 8788 -Profile Private -Action Allow
 ```
 
 Nunca encaminhe 8787, 8788 ou 9200 no roteador para a internet. Para acesso remoto, use uma VPN privada (ex.: Tailscale) e mantenha o painel atrás dela.

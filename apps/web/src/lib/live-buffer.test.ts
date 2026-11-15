@@ -1,4 +1,4 @@
-import type { StatusResponse } from "@orbitlink/shared";
+import type { StatusResponse } from "@astryon/shared";
 import { afterEach, describe, expect, it } from "vitest";
 import { LIVE_MAX, pushReading, resetReadings, toReading } from "./live-buffer";
 

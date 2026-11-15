@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# OrbitLink AI — instalação em Ubuntu Server 24.04 LTS (sem Docker, sem interface gráfica).
+# ASTRYON — instalação em Ubuntu Server 24.04 LTS (sem Docker, sem interface gráfica).
 #
-#   git clone <seu-repo> ~/orbitlink && cd ~/orbitlink
+#   git clone <seu-repo> ~/astryon && cd ~/astryon
 #   sudo deploy/linux/install.sh                 # instalação padrão (UFW + Nginx + systemd)
 #   sudo deploy/linux/install.sh --help
 #
@@ -63,7 +63,7 @@ if [[ "${ID}" != "ubuntu" || "${VERSION_ID}" != "24.04" ]]; then
 fi
 ok "${PRETTY_NAME}"
 [[ -d /run/systemd/system ]] || die "systemd não está ativo"
-[[ -f "${SRC}/apps/agent/pyproject.toml" ]] || die "execute a partir de um clone do repositório OrbitLink"
+[[ -f "${SRC}/apps/agent/pyproject.toml" ]] || die "execute a partir de um clone do repositório ASTRYON"
 SERVER_NAME="${SERVER_NAME:-$(hostname -f 2>/dev/null || hostname)}"
 
 # ================================================================= 2. pacotes
@@ -109,8 +109,8 @@ install -d -o root -g root -m 0755 "${OL_LIBEXEC}"
 step "Configuração (${OL_ENV_FILE})"
 if [[ ! -f "${OL_ENV_FILE}" ]]; then
   tmp="$(mktemp)"
-  sed -e "s|^ORBITLINK_API_TOKEN=.*|ORBITLINK_API_TOKEN=$(random_token)|" \
-      -e "s|^ORBITLINK_COOKIE_SECURE=.*|ORBITLINK_COOKIE_SECURE=true|" \
+  sed -e "s|^ASTRYON_API_TOKEN=.*|ASTRYON_API_TOKEN=$(random_token)|" \
+      -e "s|^ASTRYON_COOKIE_SECURE=.*|ASTRYON_COOKIE_SECURE=true|" \
       "${SRC}/.env.example" > "${tmp}"
   printf '\n# Gerado por install.sh em %s\n' "$(date -u +%FT%TZ)" >> "${tmp}"
   install -m 0640 -o root -g "${OL_USER}" "${tmp}" "${OL_ENV_FILE}"
@@ -120,15 +120,15 @@ else
   ok "arquivo existente preservado"
   chown root:"${OL_USER}" "${OL_ENV_FILE}"; chmod 0640 "${OL_ENV_FILE}"
 fi
-[[ -n "$(env_get ORBITLINK_API_TOKEN)" ]] || env_set ORBITLINK_API_TOKEN "$(random_token)"
-[[ -n "$(env_get ORBITLINK_SETUP_CODE)" ]] || env_set ORBITLINK_SETUP_CODE "$(openssl rand -hex 4)-$(openssl rand -hex 4)"
-env_set ORBITLINK_DATA_DIR "${OL_DATA}"
-env_set ORBITLINK_HOST 127.0.0.1
-env_set ORBITLINK_ALLOW_LAN false
-env_set ORBITLINK_FIXTURE_FILE ""
-if [[ ${ESP32} -eq 1 ]]; then env_set ORBITLINK_ESP32_ENABLED true; fi
+[[ -n "$(env_get ASTRYON_API_TOKEN)" ]] || env_set ASTRYON_API_TOKEN "$(random_token)"
+[[ -n "$(env_get ASTRYON_SETUP_CODE)" ]] || env_set ASTRYON_SETUP_CODE "$(openssl rand -hex 4)-$(openssl rand -hex 4)"
+env_set ASTRYON_DATA_DIR "${OL_DATA}"
+env_set ASTRYON_HOST 127.0.0.1
+env_set ASTRYON_ALLOW_LAN false
+env_set ASTRYON_FIXTURE_FILE ""
+if [[ ${ESP32} -eq 1 ]]; then env_set ASTRYON_ESP32_ENABLED true; fi
 install -m 0600 -o root -g root /dev/null "${OL_ETC}/setup-code"
-printf '%s\n' "$(env_get ORBITLINK_SETUP_CODE)" > "${OL_ETC}/setup-code"
+printf '%s\n' "$(env_get ASTRYON_SETUP_CODE)" > "${OL_ETC}/setup-code"
 
 if [[ ! -f "${OL_ETC}/secrets.key" ]]; then
   # chave Fernet (32 bytes, base64 url-safe) — separada do diretório de dados/backup
@@ -137,14 +137,14 @@ if [[ ! -f "${OL_ETC}/secrets.key" ]]; then
 fi
 chown root:"${OL_USER}" "${OL_ETC}/secrets.key"; chmod 0640 "${OL_ETC}/secrets.key"
 
-if [[ ! -f "${OL_ETC}/tls/orbitlink.crt" ]]; then
+if [[ ! -f "${OL_ETC}/tls/astryon.crt" ]]; then
   ip_now="$(lan_ip)"
   san="DNS:${SERVER_NAME},DNS:$(hostname),DNS:$(hostname).local,DNS:localhost,IP:127.0.0.1"
   [[ -n "${ip_now}" ]] && san="${san},IP:${ip_now}"
   openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 825 \
-    -subj "/CN=${SERVER_NAME}/O=OrbitLink AI (autoassinado)" -addext "subjectAltName=${san}" \
-    -keyout "${OL_ETC}/tls/orbitlink.key" -out "${OL_ETC}/tls/orbitlink.crt" 2>/dev/null
-  chmod 0600 "${OL_ETC}/tls/orbitlink.key"; chmod 0644 "${OL_ETC}/tls/orbitlink.crt"
+    -subj "/CN=${SERVER_NAME}/O=ASTRYON (autoassinado)" -addext "subjectAltName=${san}" \
+    -keyout "${OL_ETC}/tls/astryon.key" -out "${OL_ETC}/tls/astryon.crt" 2>/dev/null
+  chmod 0600 "${OL_ETC}/tls/astryon.key"; chmod 0644 "${OL_ETC}/tls/astryon.crt"
   ok "certificado TLS autoassinado (${san})"
 fi
 
@@ -156,18 +156,18 @@ ok "release ativa: ${NEW}"
 
 # ================================================================= 6. systemd, CLI e backup
 step "Serviços systemd"
-for u in orbitlink-agent.service orbitlink-web.service orbitlink.target orbitlink-backup.service orbitlink-backup.timer; do
+for u in astryon-agent.service astryon-web.service astryon.target astryon-backup.service astryon-backup.timer; do
   render_unit "${SCRIPT_DIR}/systemd/${u}" "/etc/systemd/system/${u}"
 done
 install -m 0755 "${SCRIPT_DIR}/backup.sh" "${OL_LIBEXEC}/backup.sh"
 install -m 0644 "${SCRIPT_DIR}/lib.sh" "${OL_LIBEXEC}/lib.sh"
 install -m 0755 "${SCRIPT_DIR}/update.sh" "${OL_LIBEXEC}/update.sh"
-install -m 0755 "${SCRIPT_DIR}/orbitlinkctl" /usr/local/bin/orbitlinkctl
+install -m 0755 "${SCRIPT_DIR}/astryonctl" /usr/local/bin/astryonctl
 printf '%s\n' "${SRC}" > "${OL_ETC}/source-dir"
 systemctl daemon-reload
-systemctl enable --now orbitlink.target orbitlink-agent.service orbitlink-web.service orbitlink-backup.timer >/dev/null
-systemctl restart orbitlink-agent.service orbitlink-web.service
-ok "orbitlink-agent, orbitlink-web e orbitlink-backup.timer habilitados (reinício automático em falhas)"
+systemctl enable --now astryon.target astryon-agent.service astryon-web.service astryon-backup.timer >/dev/null
+systemctl restart astryon-agent.service astryon-web.service
+ok "astryon-agent, astryon-web e astryon-backup.timer habilitados (reinício automático em falhas)"
 
 # ================================================================= 7. Nginx
 step "Nginx (proxy reverso, somente LAN/Tailnet)"
@@ -177,12 +177,12 @@ is_private_cidr "${LAN}" || die "--lan-cidr precisa ser uma faixa privada (RFC 1
 # A faixa do Tailscale (100.64.0.0/10) é a mesma da CGNAT da Starlink: só entra na ACL se o Tailscale existir.
 TAILNET=0
 if [[ ${WITH_TAILSCALE} -eq 1 ]] || tailscale_present; then TAILNET=1; fi
-nginx_acl "${LAN}" "${TAILNET}" > /etc/nginx/snippets/orbitlink-acl.conf
-install -m 0644 "${SCRIPT_DIR}/nginx/orbitlink-proxy.conf" /etc/nginx/snippets/orbitlink-proxy.conf
+nginx_acl "${LAN}" "${TAILNET}" > /etc/nginx/snippets/astryon-acl.conf
+install -m 0644 "${SCRIPT_DIR}/nginx/astryon-proxy.conf" /etc/nginx/snippets/astryon-proxy.conf
 # Só estes nomes (mais IPs literais e *.ts.net, já no modelo) são aceitos no "Host"; o resto recebe 444.
 NAMES="$(nginx_server_names "${SERVER_NAME}" "$(hostname)" "$(hostname).local")"
-sed "s|__SERVER_NAME__|${NAMES}|" "${SCRIPT_DIR}/nginx/orbitlink.conf" > /etc/nginx/sites-available/orbitlink
-ln -sfn /etc/nginx/sites-available/orbitlink /etc/nginx/sites-enabled/orbitlink
+sed "s|__SERVER_NAME__|${NAMES}|" "${SCRIPT_DIR}/nginx/astryon.conf" > /etc/nginx/sites-available/astryon
+ln -sfn /etc/nginx/sites-available/astryon /etc/nginx/sites-enabled/astryon
 if [[ -L /etc/nginx/sites-enabled/default ]]; then
   rm -f /etc/nginx/sites-enabled/default
   info "site 'default' do Nginx desabilitado (o arquivo original permanece em sites-available)"
@@ -218,7 +218,7 @@ if [[ ${FIREWALL} -eq 1 ]]; then
   ufw --force default deny incoming >/dev/null
   ufw --force default allow outgoing >/dev/null
   # SSH primeiro, para não perder o acesso
-  ufw limit from "${LAN}" to any port 22 proto tcp comment 'orbitlink: ssh lan' >/dev/null
+  ufw limit from "${LAN}" to any port 22 proto tcp comment 'astryon: ssh lan' >/dev/null
   # Sessões SSH ativas vindas de fora da LAN são liberadas explicitamente para não trancar você fora.
   # (o sudo descarta SSH_CONNECTION; por isso consultamos as conexões estabelecidas na porta 22)
   while read -r peer; do
@@ -229,18 +229,18 @@ a = ipaddress.ip_address(sys.argv[1])
 inside = a.is_loopback or a in ipaddress.ip_network(sys.argv[2]) or a in ipaddress.ip_network("100.64.0.0/10")
 sys.exit(0 if inside else 1)
 PY
-      ufw limit from "${peer}" to any port 22 proto tcp comment 'orbitlink: ssh sessao atual' >/dev/null
+      ufw limit from "${peer}" to any port 22 proto tcp comment 'astryon: ssh sessao atual' >/dev/null
       warn "sessão SSH ativa de ${peer} (fora de ${LAN}) liberada explicitamente"
     fi
   done < <(ss -Htn state established '( sport = :22 )' 2>/dev/null | awk '{print $4}' \
              | sed -E 's/^\[?(.*[^]])\]?:[0-9]+$/\1/' | sort -u)
-  ufw allow from "${LAN}" to any port 80,443 proto tcp comment 'orbitlink: painel lan' >/dev/null
-  if [[ "$(env_get ORBITLINK_ESP32_ENABLED)" == "true" ]]; then
-    ufw allow from "${LAN}" to any port 8788 proto tcp comment 'orbitlink: esp32 lan' >/dev/null
+  ufw allow from "${LAN}" to any port 80,443 proto tcp comment 'astryon: painel lan' >/dev/null
+  if [[ "$(env_get ASTRYON_ESP32_ENABLED)" == "true" ]]; then
+    ufw allow from "${LAN}" to any port 8788 proto tcp comment 'astryon: esp32 lan' >/dev/null
   fi
   if [[ ${TAILNET} -eq 1 ]]; then
-    ufw allow in on tailscale0 to any port 22 proto tcp comment 'orbitlink: ssh tailnet' >/dev/null
-    ufw allow in on tailscale0 to any port 80,443 proto tcp comment 'orbitlink: painel tailnet' >/dev/null
+    ufw allow in on tailscale0 to any port 22 proto tcp comment 'astryon: ssh tailnet' >/dev/null
+    ufw allow in on tailscale0 to any port 80,443 proto tcp comment 'astryon: painel tailnet' >/dev/null
   fi
   ufw --force enable >/dev/null
   ok "UFW ativo. Regras:"
@@ -257,12 +257,12 @@ if [[ ${HARDEN_SSH} -eq 1 ]]; then
   if [[ -z "${admin_user}" || ! -s "${keys}" ]]; then
     warn "nenhuma chave em ${keys:-~/.ssh/authorized_keys} do usuário que executou o sudo — endurecimento NÃO aplicado"
   elif confirm "Desativar login por senha e root via SSH (chave de ${admin_user} encontrada)?"; then
-    install -m 0644 "${SCRIPT_DIR}/ssh/50-orbitlink-hardening.conf" /etc/ssh/sshd_config.d/50-orbitlink-hardening.conf
+    install -m 0644 "${SCRIPT_DIR}/ssh/50-astryon-hardening.conf" /etc/ssh/sshd_config.d/50-astryon-hardening.conf
     if sshd -t; then
       systemctl reload ssh
       ok "SSH endurecido (mantenha esta sessão aberta e teste um novo login antes de sair)"
     else
-      rm -f /etc/ssh/sshd_config.d/50-orbitlink-hardening.conf
+      rm -f /etc/ssh/sshd_config.d/50-astryon-hardening.conf
       warn "configuração inválida; alteração revertida"
     fi
   fi
@@ -273,7 +273,7 @@ step "Verificação"
 if health_check 40; then
   ok "instalação concluída"
 else
-  warn "algum serviço não respondeu — veja: sudo orbitlinkctl doctor"
+  warn "algum serviço não respondeu — veja: sudo astryonctl doctor"
 fi
 ss -ltn '( sport = :8787 or sport = :3000 )' | awk 'NR>1 {print "    escutando em " $4}'
 
@@ -283,8 +283,8 @@ cat <<EOF
 ${C_BOLD}Pronto.${C_RESET}
   Painel:            https://${IP_SHOW:-<ip-do-servidor>}/   (certificado autoassinado: aceite o aviso do navegador)
   Código de setup:   sudo cat ${OL_ETC}/setup-code     (pedido ao criar o primeiro administrador)
-  Diagnóstico:       sudo orbitlinkctl diagnose
-  Estado/logs:       sudo orbitlinkctl status | sudo orbitlinkctl logs agent -f
-  Configuração:      sudo nano ${OL_ENV_FILE}  &&  sudo orbitlinkctl restart
+  Diagnóstico:       sudo astryonctl diagnose
+  Estado/logs:       sudo astryonctl status | sudo astryonctl logs agent -f
+  Configuração:      sudo nano ${OL_ENV_FILE}  &&  sudo astryonctl restart
   Guia completo:     ${SRC}/docs/LINUX_SERVER.md
 EOF

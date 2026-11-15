@@ -1,0 +1,8 @@
+[Unit]
+Description=ASTRYON (agente + painel)
+Documentation=file:///opt/astryon/current/docs/LINUX_SERVER.md
+Wants=astryon-agent.service astryon-web.service
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target

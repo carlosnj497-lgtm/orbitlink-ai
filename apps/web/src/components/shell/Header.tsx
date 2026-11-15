@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentInfo } from "@orbitlink/shared";
+import type { AgentInfo } from "@astryon/shared";
 import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { Bell, CircleUserRound, LogOut, Menu, Settings, Sparkles } from "lucide-react";
 import Link from "next/link";

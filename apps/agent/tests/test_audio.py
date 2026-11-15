@@ -11,10 +11,10 @@ import json
 import httpx
 import pytest
 
-from orbitlink_agent.ai import telegram_bot as tb
-from orbitlink_agent.ai import transcribe
-from orbitlink_agent.config import Settings
-from orbitlink_agent.storage.db import Database, now_ts
+from astryon_agent.ai import telegram_bot as tb
+from astryon_agent.ai import transcribe
+from astryon_agent.config import Settings
+from astryon_agent.storage.db import Database, now_ts
 
 TOKEN = "123456789:AAH-segredo_do_bot"
 CHAT = 8560810900

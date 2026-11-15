@@ -12,7 +12,7 @@ Uma pessoa só: o dono da Starlink Mini, que monitora a própria antena pelo ser
 
 ## Product Purpose
 
-OrbitLink AI monitora, diagnostica e controla com segurança uma Starlink Mini usando apenas a API local gRPC da antena. Sucesso: o dono vê em segundos se a conexão está saudável, descobre a causa quando não está e confia que cada número é real.
+ASTRYON monitora, diagnostica e controla com segurança uma Starlink Mini usando apenas a API local gRPC da antena. Sucesso: o dono vê em segundos se a conexão está saudável, descobre a causa quando não está e confia que cada número é real.
 
 ## Positioning
 
@@ -21,7 +21,7 @@ Funciona 100% local, sem nuvem obrigatória, e cada métrica mostra a origem (`r
 ## Operating Context
 
 - Agente Python (FastAPI, SQLite, SSE) em loopback; painel Next.js atrás do Nginx, acessível na LAN e na Tailnet.
-- Serviços systemd `orbitlink-agent` e `orbitlink-web`; o painel de produção roda `next start` a partir do repositório.
+- Serviços systemd `astryon-agent` e `astryon-web`; o painel de produção roda `next start` a partir do repositório.
 - Modo demonstração só em `/demo`, com faixa permanente.
 - Integrações opcionais: ESP32, Supabase, Telegram/webhook, IA via Groq.
 

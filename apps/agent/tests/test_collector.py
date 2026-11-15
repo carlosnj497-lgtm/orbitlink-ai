@@ -6,12 +6,12 @@ import copy
 
 import pytest
 
-from orbitlink_agent.collector.bus import EventBus
-from orbitlink_agent.collector.service import Collector
-from orbitlink_agent.config import Settings
-from orbitlink_agent.starlink.transport import FixtureTransport
-from orbitlink_agent.storage import queries
-from orbitlink_agent.storage.db import Database, now_ts
+from astryon_agent.collector.bus import EventBus
+from astryon_agent.collector.service import Collector
+from astryon_agent.config import Settings
+from astryon_agent.starlink.transport import FixtureTransport
+from astryon_agent.storage import queries
+from astryon_agent.storage.db import Database, now_ts
 
 
 def make(tmp_path, fixture_data, **kw):
@@ -137,7 +137,7 @@ async def test_quality_and_telemetry_queries(tmp_path, fixture_data):
 
 
 async def test_retention_keeps_recent(tmp_path, fixture_data):
-    from orbitlink_agent.storage.repo import apply_retention
+    from astryon_agent.storage.repo import apply_retention
 
     col, db, t = make(tmp_path, fixture_data)
     await col.poll_status()
@@ -162,7 +162,7 @@ def test_bus_publish_from_worker_thread_wakes_subscriber():
 
 def test_quality_ignores_seconds_without_loss_measurement(tmp_path):
     """Segundo sem `drop_rate` não é "0% de perda" nem "disponível": fica fora da perda e da disponibilidade."""
-    from orbitlink_agent.storage.repo import _recompute_minute
+    from astryon_agent.storage.repo import _recompute_minute
 
     db = Database(tmp_path / "q.sqlite3")
     minute = (now_ts() // 60) * 60 - 120
@@ -189,7 +189,7 @@ def test_quality_ignores_seconds_without_loss_measurement(tmp_path):
 
 
 def test_retention_prunes_logs_but_keeps_open_items(tmp_path):
-    from orbitlink_agent.storage.repo import apply_retention
+    from astryon_agent.storage.repo import apply_retention
 
     db = Database(tmp_path / "r.sqlite3")
     now = now_ts()

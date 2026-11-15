@@ -7,7 +7,7 @@
                       ▼
                Agente FastAPI (localhost, porta 8787) ──gRPC──▶ Starlink Mini (IP-DA-ANTENA, porta 9200)
                 │   ├─ Coletor asyncio (status 10 s, histórico 30 s, obstrução 5 min, capacidades 1 h)
-                │   ├─ SQLite WAL (data/orbitlink.sqlite3) + migrations
+                │   ├─ SQLite WAL (data/astryon.sqlite3) + migrations
                 │   ├─ Alertas · Diagnóstico por regras · Relatórios · Controle auditado · IA (opcional)
                 │   └─ Sync worker ──HTTPS──▶ Supabase RPC ingest_batch (opcional)
                 └─ Listener ESP32 (todas as interfaces, porta 8788, opcional) ◀── HMAC ── ESP32 na LAN
@@ -41,7 +41,7 @@
 ## Autenticação
 
 - **Local:** administrador criado no primeiro acesso (só a partir do loopback), senha com hash scrypt e sessões opacas de 12 h guardadas como SHA-256. Login com limite de tentativas.
-- **Serviço:** `ORBITLINK_API_TOKEN` (Bearer) obrigatório em todas as rotas `/v1` exceto `/v1/health`.
+- **Serviço:** `ASTRYON_API_TOKEN` (Bearer) obrigatório em todas as rotas `/v1` exceto `/v1/health`.
 - **Supabase (opcional):** usuários na nuvem isolados por RLS. Se o Supabase ficar fora do ar, o acesso local continua funcionando normalmente, sem nenhum desvio de verificação.
 
 ## Endpoints principais (`/v1`)

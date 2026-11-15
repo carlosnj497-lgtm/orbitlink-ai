@@ -2,10 +2,10 @@
 
 ## Fontes consultadas (nov/2026)
 
-- API local oficial: `SpaceExplorationTechnologies/enterprise-api/device-api`. Define o serviço `SpaceX.API.Device.Device/Handle` e publica somente `get_diagnostics` (dish ≥ 2023.51.0, roteador ≥ 2023.55). Antena em `IP-DA-ANTENA`, porta 9200; roteador em `IP-DO-ROTEADOR`, porta 9000. Os dois endereços ficam em `ORBITLINK_DISH_TARGET` e `ORBITLINK_ROUTER_TARGET` no `.env`.
+- API local oficial: `SpaceExplorationTechnologies/enterprise-api/device-api`. Define o serviço `SpaceX.API.Device.Device/Handle` e publica somente `get_diagnostics` (dish ≥ 2023.51.0, roteador ≥ 2023.55). Antena em `IP-DA-ANTENA`, porta 9200; roteador em `IP-DO-ROTEADOR`, porta 9000. Os dois endereços ficam em `ASTRYON_DISH_TARGET` e `ASTRYON_ROUTER_TARGET` no `.env`.
 - `sparky8512/starlink-grpc-tools` (Unlicense): usa gRPC reflection para `get_status`, `get_history`, `dish_get_obstruction_map`, `reboot` etc. Histórico com amostras de 1 s em anel de ~15 min. Desde 2026-05, a **localização não está disponível via gRPC na maioria dos planos**.
 
-## O que o OrbitLink usa
+## O que o ASTRYON usa
 
 | Recurso | Chamada | Uso | Observação |
 |---|---|---|---|
@@ -30,7 +30,7 @@ Ela é renovada a cada hora e sempre que a antena volta a responder. Um indicado
 - `downlink/uplink_throughput_bps` são **tráfego atual**. Mbps = bps / 1 000 000. O valor 0 normalmente indica **ocioso**.
 - `pop_ping_latency_ms` é medida pela antena até o PoP. Não é ping até sites.
 - O consumo é **estimado** pela integração das amostras de 1 s e não corresponde ao valor oficial. Use a importação de CSV para comparar com a conta.
-- O timestamp de `outages.start_timestamp_ns` não tem época documentada. O OrbitLink testa época Unix e GPS e marca a confiança.
+- O timestamp de `outages.start_timestamp_ns` não tem época documentada. O ASTRYON testa época Unix e GPS e marca a confiança.
 
 ## Validação na sua rede (quando a Mini chegar)
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ConnectionEvent, Gap } from "@orbitlink/shared";
+import type { ConnectionEvent, Gap } from "@astryon/shared";
 import { ArrowUpCircle, CircleAlert, CircleDot, Power, RadioTower, Unplug } from "lucide-react";
 import { Badge, Tabs, type Tone } from "@/components/ui/primitives";
 import { fmtDateTime, fmtDuration } from "@/lib/format";

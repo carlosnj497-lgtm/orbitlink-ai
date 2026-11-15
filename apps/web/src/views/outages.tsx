@@ -1,6 +1,6 @@
 "use client";
 
-import type { ConnectionEvent, EventsResponse, WeatherHourly, WeatherStatus } from "@orbitlink/shared";
+import type { ConnectionEvent, EventsResponse, WeatherHourly, WeatherStatus } from "@astryon/shared";
 import { CloudRain, Download, Unplug } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PageHeader, QueryError } from "@/components/domain";
@@ -76,7 +76,7 @@ export default function OutagesView() {
               size="sm"
               disabled={!d?.events.length}
               onClick={() =>
-                downloadCsv(`orbitlink-eventos-${range}.csv`, ["inicio_utc", "inicio_local", "fim_utc", "duracao_s", "tipo", "causa", "confianca", "clima_na_hora_estimado"], d!.events.map((e) => [new Date(e.start_ts * 1000).toISOString(), fmtDateTime(e.start_ts), e.end_ts ? new Date(e.end_ts * 1000).toISOString() : "", e.duration_s, e.kind, e.cause, e.confidence, wxNote(e) ?? ""]))
+                downloadCsv(`astryon-eventos-${range}.csv`, ["inicio_utc", "inicio_local", "fim_utc", "duracao_s", "tipo", "causa", "confianca", "clima_na_hora_estimado"], d!.events.map((e) => [new Date(e.start_ts * 1000).toISOString(), fmtDateTime(e.start_ts), e.end_ts ? new Date(e.end_ts * 1000).toISOString() : "", e.duration_s, e.kind, e.cause, e.confidence, wxNote(e) ?? ""]))
               }
             >
               <Download /> CSV

@@ -1,4 +1,4 @@
-import type { WeatherHour } from "@orbitlink/shared";
+import type { WeatherHour } from "@astryon/shared";
 import { describe, expect, it } from "vitest";
 import { describeWeather, rainBands, weatherAt, weatherNote } from "./weather";
 

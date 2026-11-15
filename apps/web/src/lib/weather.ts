@@ -4,7 +4,7 @@
  * O clima é uma ESTIMATIVA REGIONAL do modelo meteorológico, não um sensor no telhado. Por isso o painel
  * sempre fala em coincidência ("coincidiu com chuva forte"), nunca em causa.
  */
-import type { RainLevel, WeatherHour } from "@orbitlink/shared";
+import type { RainLevel, WeatherHour } from "@astryon/shared";
 
 export type WeatherIcon = "sun" | "moon" | "cloud-sun" | "cloud" | "fog" | "drizzle" | "rain" | "snow" | "storm";
 

@@ -7,13 +7,13 @@ aparecem sozinhos no Home Assistant, agrupados no dispositivo **ASTRYON · nome 
 
 1. No Home Assistant, instale o broker **Mosquitto** (Configurações → Complementos) e a integração **MQTT**.
    Crie um usuário para o ASTRYON.
-2. No `.env` do agente (no Ubuntu: `/etc/orbitlink/orbitlink.env`), preencha:
+2. No `.env` do agente (no Ubuntu: `/etc/astryon/astryon.env`), preencha:
 
    ```
-   ORBITLINK_MQTT_HOST=IP-DO-HOME-ASSISTANT
-   ORBITLINK_MQTT_PORT=1883
-   ORBITLINK_MQTT_USERNAME=astryon
-   ORBITLINK_MQTT_PASSWORD=senha-do-usuario
+   ASTRYON_MQTT_HOST=IP-DO-HOME-ASSISTANT
+   ASTRYON_MQTT_PORT=1883
+   ASTRYON_MQTT_USERNAME=astryon
+   ASTRYON_MQTT_PASSWORD=senha-do-usuario
    ```
 
 3. Reinicie o agente. Em Configurações → Conexões do painel, "MQTT / Home Assistant" deve mostrar **conectado**.
@@ -45,9 +45,9 @@ Se o agente cair, o broker publica **offline** sozinho (last will) e os sensores
 
 | Variável | Padrão | O que faz |
 |---|---|---|
-| `ORBITLINK_MQTT_TLS` | `false` | Conecta com TLS (porta costuma ser 8883) |
-| `ORBITLINK_MQTT_TOPIC_PREFIX` | `astryon` | Prefixo dos tópicos `astryon/<id>/state` e `/status` |
-| `ORBITLINK_MQTT_DISCOVERY` | `true` | Publica a descoberta automática em `homeassistant/...` |
-| `ORBITLINK_MQTT_INTERVAL_S` | `30` | Intervalo de publicação, em segundos |
+| `ASTRYON_MQTT_TLS` | `false` | Conecta com TLS (porta costuma ser 8883) |
+| `ASTRYON_MQTT_TOPIC_PREFIX` | `astryon` | Prefixo dos tópicos `astryon/<id>/state` e `/status` |
+| `ASTRYON_MQTT_DISCOVERY` | `true` | Publica a descoberta automática em `homeassistant/...` |
+| `ASTRYON_MQTT_INTERVAL_S` | `30` | Intervalo de publicação, em segundos |
 
 A senha do MQTT é tratada como segredo: não aparece no painel nem nos logs.

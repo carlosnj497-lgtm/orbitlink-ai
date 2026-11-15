@@ -31,7 +31,7 @@ Write-Host "==> Ícone"
 
 Write-Host "==> Agente (PyInstaller)"
 & $Py -m PyInstaller --noconfirm --clean --onedir --name astryon-agent `
-  --collect-submodules orbitlink_agent --collect-data orbitlink_agent `
+  --collect-submodules astryon_agent --collect-data astryon_agent `
   --collect-submodules uvicorn --collect-all grpc --collect-all grpc_reflection --collect-submodules google.protobuf `
   --collect-data reportlab --collect-submodules reportlab.graphics.barcode --collect-all edge_tts --collect-data certifi `
   --distpath (Join-Path $Stage "_pyi") --workpath (Join-Path $Here "build\agent") --specpath (Join-Path $Here "build") `
@@ -47,9 +47,9 @@ Copy-Item (Join-Path $Here "astryon.ico") $Stage
 Write-Host "==> Painel (Next.js standalone)"
 Push-Location $Root
 npm ci --no-audit --no-fund
-$env:ORBITLINK_WEB_STANDALONE = "1"
+$env:ASTRYON_WEB_STANDALONE = "1"
 npm run build -w apps/web
-Remove-Item Env:ORBITLINK_WEB_STANDALONE
+Remove-Item Env:ASTRYON_WEB_STANDALONE
 Pop-Location
 $Web = Join-Path $Stage "web"
 Copy-Item -Recurse (Join-Path $Root "apps\web\.next\standalone") $Web

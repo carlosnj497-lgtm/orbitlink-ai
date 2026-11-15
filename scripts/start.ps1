@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  Inicia o agente OrbitLink (127.0.0.1:8787) e o painel (127.0.0.1:3000) em segundo plano.
+  Inicia o agente ASTRYON (127.0.0.1:8787) e o painel (127.0.0.1:3000) em segundo plano.
 .PARAMETER Dev
   Usa `next dev` em vez do build de produção.
 #>
@@ -24,7 +24,7 @@ function Running($name) {
 
 if (Running "agent") { Write-Host "Agente já está em execução." }
 else {
-  $agent = Start-Process -FilePath $vpy -ArgumentList "-m", "orbitlink_agent", "serve" -WorkingDirectory (Join-Path $Root "apps\agent") `
+  $agent = Start-Process -FilePath $vpy -ArgumentList "-m", "astryon_agent", "serve" -WorkingDirectory (Join-Path $Root "apps\agent") `
     -RedirectStandardOutput (Join-Path $Run "agent.out.log") -RedirectStandardError (Join-Path $Run "agent.log") -WindowStyle Hidden -PassThru
   $agent.Id | Set-Content (Join-Path $Run "agent.pid")
   Write-Host "Agente iniciado (PID $($agent.Id)). Log: data\run\agent.log"

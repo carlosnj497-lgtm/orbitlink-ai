@@ -8,12 +8,12 @@ import json
 import httpx
 import pytest
 
-from orbitlink_agent.collector.bus import EventBus
-from orbitlink_agent.collector.service import Collector
-from orbitlink_agent.config import Settings
-from orbitlink_agent.starlink.transport import FixtureTransport
-from orbitlink_agent.storage.db import Database
-from orbitlink_agent.sync import worker
+from astryon_agent.collector.bus import EventBus
+from astryon_agent.collector.service import Collector
+from astryon_agent.config import Settings
+from astryon_agent.starlink.transport import FixtureTransport
+from astryon_agent.storage.db import Database
+from astryon_agent.sync import worker
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ async def test_server_error_keeps_queue(env):
 
 
 def _queue(db, n):
-    from orbitlink_agent.storage.repo import enqueue_sync
+    from astryon_agent.storage.repo import enqueue_sync
 
     for i in range(n):
         enqueue_sync(db, "usage_minute", f"1:{i}", {"terminal_id": 1, "minute_ts": i * 60, "bytes_down": 1.0,
@@ -90,7 +90,7 @@ def _queue(db, n):
 async def test_minute_recalculated_during_send_stays_pending(env):
     s, db, _ = env
     _queue(db, 2)
-    from orbitlink_agent.storage.repo import enqueue_sync
+    from astryon_agent.storage.repo import enqueue_sync
 
     def handler(request):
         # Enquanto o POST está em andamento, o minuto 0 é recalculado (mais amostras chegaram).

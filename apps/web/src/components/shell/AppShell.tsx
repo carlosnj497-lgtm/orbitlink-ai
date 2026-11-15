@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentInfo } from "@orbitlink/shared";
+import type { AgentInfo } from "@astryon/shared";
 import { useIsMutating } from "@tanstack/react-query";
 import { House, Menu, ScrollText, Sparkles, Wifi } from "lucide-react";
 import Link from "next/link";
@@ -128,7 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const section = sectionOf(slug);
   const [open, setOpen] = useState(false);
   const closeMenu = useCallback(() => setOpen(false), []);
-  const [collapsed, setCollapsed] = usePersistentFlag("orbitlink:sidebar-collapsed");
+  const [collapsed, setCollapsed] = usePersistentFlag("astryon:sidebar-collapsed");
 
   return (
     // --banner-h: altura da faixa de demonstração, para a barra lateral e o cabeçalho fixos ficarem abaixo dela.

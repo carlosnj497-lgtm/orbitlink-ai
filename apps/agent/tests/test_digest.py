@@ -10,12 +10,12 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from orbitlink_agent.ai import telegram_bot as tb
-from orbitlink_agent.alerts.notify import Notifier
-from orbitlink_agent.api.app import create_app
-from orbitlink_agent.config import Settings
-from orbitlink_agent.reports import digest
-from orbitlink_agent.storage.db import Database, now_ts
+from astryon_agent.ai import telegram_bot as tb
+from astryon_agent.alerts.notify import Notifier
+from astryon_agent.api.app import create_app
+from astryon_agent.config import Settings
+from astryon_agent.reports import digest
+from astryon_agent.storage.db import Database, now_ts
 
 TZ = "America/Fortaleza"
 Z = ZoneInfo(TZ)
@@ -188,7 +188,7 @@ def _login(c: TestClient) -> dict[str, str]:
     svc = {"Authorization": "Bearer svc-token"}
     c.post("/v1/auth/setup", json={"username": "admin", "password": "senha-forte-123"}, headers=svc)
     r = c.post("/v1/auth/login", json={"username": "admin", "password": "senha-forte-123"}, headers=svc)
-    return {**svc, "X-OrbitLink-Session": r.json()["session"]}
+    return {**svc, "X-ASTRYON-Session": r.json()["session"]}
 
 
 def test_api_digest_settings_survive_restart(tmp_path):

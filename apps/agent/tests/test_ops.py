@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from orbitlink_agent.ai import copilot
 from orbitlink_agent.alerts.engine import AlertEngine
+from orbitlink_agent.api.deps import AppContext
 from orbitlink_agent.api.routes_devices import normalize_clients
 from orbitlink_agent.api.routes_esp32 import build_ingest_app
 from orbitlink_agent.collector.bus import EventBus
@@ -60,6 +61,21 @@ async def test_control_flow_reports_real_result_and_blocks_replay(env):
     assert e.value.status == 409
     events = [r["event"] for r in env.db.query("SELECT event FROM control_audit_logs ORDER BY id")]
     assert events[0] == "preparado" and "resultado_failed" in events
+
+
+async def test_control_unexpected_error_is_recorded_not_stuck(env, monkeypatch):
+    cap = env.col.capability("dish.reboot")
+    p = control.prepare(env.db, cap, "reboot", ADMIN, "dish")
+
+    def boom(*a, **k):
+        raise RuntimeError("bug inesperado no cliente")
+
+    monkeypatch.setattr(env.col.client, "execute_control", boom)
+    res = await control.confirm_and_execute(env.db, env.col.client, p.operation_id, p.nonce, "REINICIAR", ADMIN)
+    assert res["status"] == "failed" and "RuntimeError" in res["detail"]
+    row = env.db.one("SELECT status, finished_at FROM control_requests WHERE operation_id = ?", (p.operation_id,))
+    assert row["status"] == "failed" and row["finished_at"]
+    assert "resultado_failed" in [r["event"] for r in env.db.query("SELECT event FROM control_audit_logs")]
 
 
 async def test_control_accepted_and_expired(env):
@@ -356,3 +372,18 @@ def test_linux_route_parsing():
     gws = parse_linux_default_gateways([{"dst": "default", "gateway": "192.168.1.1", "dev": "enp1s0"},
                                         {"dst": "10.0.0.0/8", "dev": "tailscale0"}])
     assert gws == ["192.168.1.1"]
+
+
+def test_esp32_listener_rejects_huge_body_and_brute_force(env):
+    ctx = AppContext(settings=env.s, db=env.db, bus=EventBus(), collector=env.col)
+    c = TestClient(build_ingest_app(ctx))
+    code, _ = protocol.create_pairing_code(env.db, "sala", 1)
+    wrong = "000000" if code != "000000" else "111111"
+    for _ in range(10):
+        r = c.post("/esp32/v1/pair", json={"code": wrong, "device_id": "esp32-aabbccddeeff", "firmware": "1.0"})
+        assert r.status_code == 401
+    # Depois de 10 tentativas erradas, o código verdadeiro também deixa de valer.
+    assert env.db.scalar("SELECT COUNT(*) FROM esp32_pairing_codes WHERE used_at IS NULL") == 0
+
+    big = b"x" * (40 * 1024)
+    assert c.post("/esp32/v1/ingest", content=big).status_code == 413

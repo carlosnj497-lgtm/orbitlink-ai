@@ -78,6 +78,11 @@ export default function Esp32View() {
     <>
       <PageHeader title="Centro ESP32" icon={<Cpu />} description="Nó IoT opcional de telemetria física. Não substitui o cliente gRPC da antena; envia as próprias medições ao agente, autenticadas por HMAC." />
       {q.error && <QueryError error={q.error} />}
+      {(patch.error ?? del.error) && (
+        <Callout tone="crit" className="mb-4" title="A ação não foi concluída">
+          {(patch.error ?? del.error)?.message}
+        </Callout>
+      )}
       {d && !d.enabled && !demo && (
         <Callout tone="neutral" title="Módulo IoT não configurado" className="mb-4">
           O ASTRYON funciona normalmente sem ESP32. Para usar, defina <code className="font-mono">ORBITLINK_ESP32_ENABLED=true</code> no .env e reinicie o agente.

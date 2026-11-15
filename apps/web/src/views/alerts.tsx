@@ -208,6 +208,11 @@ export default function AlertsView() {
         description="Regras com duração mínima, histerese, cooldown e agrupamento para evitar spam. Notificações no aplicativo, no Telegram e por webhook."
         actions={<Button size="sm" variant="primary" disabled={demo} onClick={() => setEditing({})}><Plus /> Nova regra</Button>}
       />
+      {(toggle.error ?? silence.error ?? del.error ?? ack.error) && (
+        <Callout tone="crit" className="mb-4" title="A ação não foi concluída">
+          {(toggle.error ?? silence.error ?? del.error ?? ack.error)?.message}
+        </Callout>
+      )}
       <NotificationsCard />
       <DigestCard />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">

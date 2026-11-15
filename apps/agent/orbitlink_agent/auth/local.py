@@ -107,6 +107,8 @@ class RateLimiter:
 
     def allow(self, key: str) -> bool:
         now = time.monotonic()
+        if len(self._hits) > 1024:
+            self._prune(now)  # chaves antigas (IPs que já foram embora) não ficam na memória para sempre
         q = self._hits[key]
         while q and now - q[0] > self.window:
             q.popleft()
@@ -114,6 +116,10 @@ class RateLimiter:
             return False
         q.append(now)
         return True
+
+    def _prune(self, now: float) -> None:
+        for k in [k for k, q in self._hits.items() if not q or now - q[-1] > self.window]:
+            del self._hits[k]
 
     def reset(self, key: str) -> None:
         """Zera a contagem (login certo): o limite existe contra senhas erradas, não contra o próprio usuário."""

@@ -4,6 +4,7 @@ import { Download, FileJson, FileSpreadsheet, FileText } from "lucide-react";
 import { useState } from "react";
 import { PageHeader } from "@/components/domain";
 import { Button, Callout, Card, CardBody, CardHeader } from "@/components/ui/primitives";
+import { errorText } from "@/lib/api";
 import { useDemo } from "@/lib/demo-context";
 import { RangeTabs } from "./shared";
 
@@ -24,7 +25,7 @@ export default function ReportsView() {
     setBusy(fmt);
     try {
       const r = await fetch(`/api/agent/reports/export?fmt=${fmt}&range=${range}`);
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail ?? `Erro ${r.status}`);
+      if (!r.ok) throw new Error(errorText(await r.json().catch(() => ({})), r.status));
       const blob = await r.blob();
       const name = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") ?? "")?.[1] ?? `orbitlink.${fmt}`;
       const a = document.createElement("a");

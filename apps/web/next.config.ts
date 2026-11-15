@@ -6,7 +6,30 @@ import type { NextConfig } from "next";
 // carregou (e armazenou em cache) o env do diretório apps/web antes de avaliar este arquivo.
 loadEnvConfig(path.resolve(__dirname, "../.."), process.env.NODE_ENV !== "production", undefined, true);
 
+const isDev = process.env.NODE_ENV !== "production";
+
+// CSP: tudo do próprio painel. O Next injeta scripts inline de hidratação ('unsafe-inline'); em desenvolvimento
+// o HMR também precisa de 'unsafe-eval' e de websocket. Nada externo é carregado (fontes e imagens são locais).
+const csp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
+  "media-src 'self' blob:",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: csp },
+  // Só vale quando o painel é aberto por HTTPS (Nginx); em HTTP o navegador ignora.
+  { key: "Strict-Transport-Security", value: "max-age=31536000" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "same-origin" },

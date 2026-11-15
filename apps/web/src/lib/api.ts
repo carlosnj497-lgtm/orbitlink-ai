@@ -15,6 +15,20 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Texto de erro legível a partir da resposta do agente. O FastAPI devolve `detail` como texto ou, em erros de
+ * validação (422), como lista de objetos; renderizar o objeto direto derrubava a tela.
+ */
+export function errorText(body: unknown, status: number): string {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === "string" && detail) return detail;
+  if (Array.isArray(detail) && detail.length) {
+    const msgs = detail.map((d) => (d && typeof d === "object" && "msg" in d ? String((d as { msg: unknown }).msg) : "")).filter(Boolean);
+    if (msgs.length) return `Dados inválidos: ${msgs.slice(0, 3).join("; ")}`;
+  }
+  return `Erro ${status}`;
+}
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/agent/${path.replace(/^\//, "")}`, {
     ...init,
@@ -25,8 +39,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { detail?: unknown; code?: string };
-    const msg = typeof body.detail === "string" ? body.detail : `Erro ${res.status}`;
-    throw new ApiError(res.status, msg, body.code);
+    throw new ApiError(res.status, errorText(body, res.status), body.code);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -56,6 +69,9 @@ export type StreamState = "connecting" | "open" | "reconnecting" | "closed" | "d
  * Por isso a conexão também é fechada enquanto a aba está oculta e reaberta ao voltar.
  */
 let es: EventSource | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryDelay = 2000;
+const RETRY_MAX = 30_000;
 let streamQc: QueryClient | null = null;
 let subscribers = 0;
 let streamState: Exclude<StreamState, "demo"> = "connecting";
@@ -83,8 +99,21 @@ function openStream() {
   const src = new EventSource("/api/agent/stream");
   es = src;
   setStreamState("connecting");
-  src.onopen = () => setStreamState("open");
-  src.onerror = () => setStreamState(src.readyState === EventSource.CLOSED ? "closed" : "reconnecting");
+  src.onopen = () => {
+    retryDelay = 2000;
+    setStreamState("open");
+  };
+  src.onerror = () => {
+    if (src.readyState !== EventSource.CLOSED) {
+      setStreamState("reconnecting"); // o próprio navegador tenta de novo
+      return;
+    }
+    // Fechado de vez (ex.: agente reiniciando devolve 502, ou a sessão expirou): o navegador NÃO tenta mais.
+    // Reabre com espera crescente; antes, uma consulta comum leva ao login se a sessão tiver expirado.
+    if (es === src) es = null;
+    setStreamState("reconnecting");
+    scheduleReopen();
+  };
   src.addEventListener("status", (e: MessageEvent) => {
     try {
       const st = JSON.parse(e.data);
@@ -107,7 +136,26 @@ function openStream() {
   src.addEventListener("alert", () => qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "agent" && isAlertKey(q.queryKey[1]) }));
 }
 
+function scheduleReopen() {
+  if (retryTimer || subscribers === 0) return;
+  const wait = retryDelay;
+  retryDelay = Math.min(RETRY_MAX, retryDelay * 2);
+  retryTimer = setTimeout(async () => {
+    retryTimer = null;
+    if (subscribers === 0 || document.visibilityState === "hidden") return;
+    try {
+      await api("agent"); // 401 redireciona para o login; 502 (agente fora) cai no catch
+      openStream();
+    } catch {
+      scheduleReopen();
+    }
+  }, wait);
+}
+
 function closeStream() {
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = null;
+  retryDelay = 2000;
   es?.close();
   es = null;
   setStreamState("connecting");

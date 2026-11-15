@@ -85,13 +85,30 @@ def readings(c: Ctx, _u: User, node_id: int, start: StartQ = None, end: EndQ = N
 
 
 # --------------------------------------------------------------------------- listener LAN
+PAIR_MAX_FAILURES = 10
+
+
 def build_ingest_app(ctx: AppContext) -> FastAPI:
     app = FastAPI(title="OrbitLink ESP32 ingest", docs_url=None, redoc_url=None, openapi_url=None)
     limiter = RateLimiter(10, 60)
     skew = ctx.settings.esp32_clock_skew_s
 
+    pair_failures = {"n": 0}
+
     def client_ip(req: Request) -> str:
         return req.client.host if req.client else "?"
+
+    async def read_limited(req: Request) -> bytes:
+        """Lê o corpo sem passar de MAX_BODY: o listener fica na LAN e não pode ser derrubado por um corpo enorme."""
+        declared = req.headers.get("content-length")
+        if declared and declared.isdigit() and int(declared) > protocol.MAX_BODY:
+            raise HTTPException(413, "Corpo grande demais")
+        buf = bytearray()
+        async for chunk in req.stream():
+            buf += chunk
+            if len(buf) > protocol.MAX_BODY:
+                raise HTTPException(413, "Corpo grande demais")
+        return bytes(buf)
 
     @app.get("/esp32/v1/time")
     def server_time() -> dict[str, int]:
@@ -102,16 +119,26 @@ def build_ingest_app(ctx: AppContext) -> FastAPI:
         if not limiter.allow(f"pair:{client_ip(req)}"):
             raise HTTPException(429, "Muitas tentativas")
         try:
-            body = protocol.PairBody.model_validate_json(await req.body())
-            return await asyncio.to_thread(protocol.pair, ctx.db, body)
+            body = protocol.PairBody.model_validate_json(await read_limited(req))
+            res = await asyncio.to_thread(protocol.pair, ctx.db, body)
+            pair_failures["n"] = 0
+            return res
         except ValidationError as exc:
             raise HTTPException(422, "Payload inválido") from exc
         except protocol.AuthError as exc:
             log.warning("pareamento recusado de %s: %s", _mask_ip_str(client_ip(req)), exc.message)
+            pair_failures["n"] += 1
+            if pair_failures["n"] >= PAIR_MAX_FAILURES:
+                # O código tem só 6 dígitos: depois de muitas tentativas erradas (de qualquer IP), invalida os
+                # códigos ativos. O administrador gera outro no painel.
+                await asyncio.to_thread(ctx.db.execute, "UPDATE esp32_pairing_codes SET used_at = ? WHERE used_at IS NULL",
+                                        (now_ts(),))
+                pair_failures["n"] = 0
+                log.warning("códigos de pareamento ESP32 invalidados após %d tentativas erradas", PAIR_MAX_FAILURES)
             raise HTTPException(exc.status, exc.message) from exc
 
     async def authed(req: Request) -> tuple[dict[str, Any], bytes]:
-        raw = await req.body()
+        raw = await read_limited(req)
         headers = {k.lower(): v for k, v in req.headers.items()}
         try:
             node = await asyncio.to_thread(protocol.verify, ctx.db, headers, raw, skew)

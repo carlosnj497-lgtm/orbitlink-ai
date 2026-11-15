@@ -145,8 +145,14 @@ async def confirm_and_execute(db: Database, client: StarlinkClient, operation_id
             detail = "O firmware não implementa este comando (UNIMPLEMENTED)."
         else:
             detail = f"Falha: {err.kind.value}"
-    db.execute("UPDATE control_requests SET status=?, finished_at=?, result_detail=? WHERE operation_id=?",
-               (status, now_ts(), detail, operation_id))
+    except Exception as exc:  # noqa: BLE001
+        # Erro inesperado: nunca deixar a operação presa em "executing" sem resultado na auditoria.
+        status = "failed"
+        detail = (f"Erro inesperado ao enviar o comando ({type(exc).__name__}). O estado real da antena é "
+                  "desconhecido; verifique se ela reiniciou.")
+    await asyncio.to_thread(db.execute,
+                            "UPDATE control_requests SET status=?, finished_at=?, result_detail=? WHERE operation_id=?",
+                            (status, now_ts(), detail, operation_id))
     await asyncio.to_thread(audit, db, operation_id, user["username"], f"resultado_{status}", detail)
     return {"operation_id": operation_id, "status": status, "detail": detail}
 

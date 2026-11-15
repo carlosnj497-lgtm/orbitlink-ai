@@ -272,7 +272,8 @@ export function Callout({
   };
   const iconTone: Record<string, string> = { ok: "text-ok", warn: "text-warn", crit: "text-crit", accent: "text-accent", info: "text-accent", neutral: "text-fg-subtle", demo: "text-demo" };
   return (
-    <div role="status" className={cn("flex gap-3 rounded-md border px-3.5 py-3 text-sm", tones[tone], className)}>
+    // Erro crítico é anunciado na hora pelo leitor de tela; os demais avisos, sem interromper.
+    <div role={tone === "crit" ? "alert" : "status"} className={cn("flex gap-3 rounded-md border px-3.5 py-3 text-sm", tones[tone], className)}>
       {icon && <span className={cn("mt-0.5 shrink-0 [&>svg]:size-4", iconTone[tone])}>{icon}</span>}
       <div className="min-w-0">
         {title && <p className="font-medium text-fg">{title}</p>}

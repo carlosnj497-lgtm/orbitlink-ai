@@ -282,3 +282,30 @@ def test_api_overrides_survive_restart(tmp_path):
     with TestClient(create_app(_settings(tmp_path), start_collector=False)) as c:
         p = c.get("/v1/usage/plan", headers=_login(c)).json()
         assert p["cap_bytes"] == 50e9 and p["cycle_start_day"] == 3
+
+
+def test_broken_message_does_not_block_the_queue(tmp_path, db):
+    s = _settings(tmp_path, alert_webhook_url="https://exemplo.invalid/hook")
+    got = []
+
+    def hook(req):
+        got.append(json.loads(req.content))
+        return httpx.Response(200)
+
+    n = Notifier(db, s, transport=httpx.MockTransport(hook))
+    db.execute("INSERT INTO notification_outbox (channel, payload_json, created_at, next_attempt_at) "
+               "VALUES ('webhook', '{quebrado', ?, ?)", (now_ts(), now_ts()))
+    n.enqueue({"status": "active", "severity": "warn", "message": "Perda alta", "ts": now_ts()})
+    assert asyncio.run(n.deliver_due()) == 1
+    assert got and "Perda alta" in got[0]["text"]
+    bad = db.one("SELECT failed_at, last_error FROM notification_outbox WHERE payload_json = '{quebrado'")
+    assert bad["failed_at"] and "JSONDecodeError" in bad["last_error"]
+
+
+def test_rate_limiter_forgets_old_keys():
+    from orbitlink_agent.auth.local import RateLimiter
+
+    rl = RateLimiter(5, 0.0)
+    for i in range(1100):
+        rl.allow(f"ip-{i}")
+    assert len(rl._hits) <= 1025

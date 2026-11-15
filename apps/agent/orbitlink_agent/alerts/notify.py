@@ -104,8 +104,8 @@ class Notifier:
         sent = 0
         async with self._client() as client:
             for r in rows:
-                payload = json.loads(r["payload_json"])
                 try:
+                    payload = json.loads(r["payload_json"])
                     await self._send(client, r["channel"], payload)
                 except PermanentError as exc:
                     self.db.execute("UPDATE notification_outbox SET attempts=attempts+1, failed_at=?, last_error=? WHERE id=?",
@@ -119,6 +119,11 @@ class Notifier:
                                     (attempts, now_ts() + wait, err[:300], r["id"]))
                     if isinstance(exc, httpx.TransportError):
                         break  # sem conexão: não adianta tentar as demais agora
+                except Exception as exc:  # noqa: BLE001
+                    # Mensagem com defeito (payload antigo, fuso inválido...): descarta só ela, sem travar a fila.
+                    self.db.execute("UPDATE notification_outbox SET attempts=attempts+1, failed_at=?, last_error=? WHERE id=?",
+                                    (now_ts(), f"erro inesperado: {type(exc).__name__}"[:300], r["id"]))
+                    log.warning("notificação %s descartada por erro inesperado: %s", r["channel"], type(exc).__name__)
                 else:
                     self.db.execute("UPDATE notification_outbox SET attempts=attempts+1, sent_at=?, last_error=NULL WHERE id=?",
                                     (now_ts(), r["id"]))

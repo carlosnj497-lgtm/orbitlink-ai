@@ -140,6 +140,7 @@ export default function ControlView() {
               </div>
             ))}
             {prepare.error && <Callout tone="crit">{(prepare.error as ApiError).message}</Callout>}
+            {refresh.error && <Callout tone="crit">{(refresh.error as ApiError).message}</Callout>}
             <p className="text-xs text-fg-subtle">Factory reset e APIs privadas não são oferecidos.</p>
           </CardBody>
         </Card>

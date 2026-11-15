@@ -25,7 +25,7 @@ import { PageHeader, QueryError } from "@/components/domain";
 import { WeatherLocationForm } from "@/components/weather";
 import { hrefOf } from "@/components/shell/nav";
 import { Badge, Button, Callout, Card, Input, Label, Skeleton, Switch } from "@/components/ui/primitives";
-import { api, ApiError, useAgent } from "@/lib/api";
+import { api, ApiError, errorText, useAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
 import { fmtAgo, fmtBytesStr, fmtDateTime, fmtDay, fmtNumber, fmtPct } from "@/lib/format";
@@ -184,7 +184,10 @@ function AccountSection() {
       if (r.ok || r.status === 204) {
         setMsg({ ok: true, text: "Senha alterada. Todas as sessões foram encerradas; entre novamente." });
         setTimeout(() => (window.location.href = "/login"), 1500);
-      } else setMsg({ ok: false, text: (await r.json().catch(() => ({}))).detail ?? "Falha ao alterar a senha." });
+      } else {
+        const body = await r.json().catch(() => ({}));
+        setMsg({ ok: false, text: body && "detail" in body ? errorText(body, r.status) : "Falha ao alterar a senha." });
+      }
     } finally {
       setBusy(false);
     }

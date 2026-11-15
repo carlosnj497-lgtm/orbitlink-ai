@@ -353,7 +353,7 @@ async def ask(db: Database, settings: Settings, collector: Collector | None, use
     question_id = int(cur.lastrowid or 0)
 
     if not use_llm:
-        answer = rules_answer(db, settings, collector)
+        answer = await asyncio.to_thread(rules_answer, db, settings, collector)
         db.execute("INSERT INTO ai_messages (conversation_id, role, content, created_at) VALUES (?, 'assistant', ?, ?)",
                    (conversation_id, answer, now_ts()))
         return {"conversation_id": conversation_id, "answer": answer, "engine": "regras", "tools_used": [], "proposal": None}
@@ -426,7 +426,8 @@ async def _ask_llm(db: Database, settings: Settings, collector: Collector | None
             name = str(fn.get("name", ""))
             tools_used.append(name)
             try:
-                out = toolbox.run(name, _parse_args(fn.get("arguments")))
+                # Consultas de até 30 dias: fora do laço de eventos, para não congelar SSE, coletor e bot.
+                out = await asyncio.to_thread(toolbox.run, name, _parse_args(fn.get("arguments")))
                 if name == "prepare_control_action":
                     proposal = out
                 content = _untrusted(out)

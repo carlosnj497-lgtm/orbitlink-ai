@@ -9,9 +9,11 @@ import {
   Settings,
   Sparkles,
   TriangleAlert,
+  UserRound,
   Wifi,
   type LucideIcon,
 } from "lucide-react";
+import { CLOUD, CLOUD_SLUGS } from "@/lib/cloud-flag";
 import type { Slug } from "@/views/slugs";
 
 export interface NavPage {
@@ -30,7 +32,7 @@ export interface NavSection {
   alerts?: boolean;
 }
 
-export const SECTIONS: NavSection[] = [
+const ALL_SECTIONS: NavSection[] = [
   { id: "dashboard", label: "Dashboard", icon: House, pages: [{ slug: "", label: "Dashboard" }] },
   { id: "ia", label: "Central de IA", icon: Sparkles, pages: [{ slug: "assistente", label: "Central de IA" }] },
   {
@@ -76,6 +78,16 @@ export const SECTIONS: NavSection[] = [
   { id: "automacao", label: "Alertas", icon: BellRing, pages: [{ slug: "alertas", label: "Alertas" }], alerts: true },
   { id: "configuracoes", label: "Configurações", icon: Settings, pages: [{ slug: "configuracoes", label: "Configurações" }] },
 ];
+
+const CLOUD_SECTION: NavSection = { id: "conta", label: "Conta", icon: UserRound, pages: [{ slug: "conta", label: "Conta" }] };
+
+/** Na nuvem, só as telas que funcionam com os dados sincronizados, mais a página Conta. */
+export const SECTIONS: NavSection[] = CLOUD
+  ? [
+      ...ALL_SECTIONS.map((s) => ({ ...s, pages: s.pages.filter((p) => (CLOUD_SLUGS as readonly string[]).includes(p.slug)) })).filter((s) => s.pages.length),
+      CLOUD_SECTION,
+    ]
+  : ALL_SECTIONS;
 
 /** Caminho (sem o prefixo /demo) → slug da tela. */
 export function slugOf(pathname: string, base: string): string {

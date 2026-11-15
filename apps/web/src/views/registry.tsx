@@ -35,6 +35,7 @@ export const VIEWS: Record<string, ComponentType> = {
   antena: dynamic(() => import("./antenna"), { loading, ssr: false }),
   diagnosticos: dynamic(() => import("./diagnostics"), { loading, ssr: false }),
   instalacao: dynamic(() => import("./setup"), { loading, ssr: false }),
+  conta: dynamic(() => import("./account"), { loading, ssr: false }),
 };
 
 export function ViewRouter({ slug }: { slug: string }) {

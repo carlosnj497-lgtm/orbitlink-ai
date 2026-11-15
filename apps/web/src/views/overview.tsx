@@ -7,6 +7,7 @@ import { useState } from "react";
 import { type SeriesMode, TelemetryChart } from "@/components/charts";
 import { CoverageBar, PageHeader, QueryError, SourceBadge } from "@/components/domain";
 import { WeatherCard } from "@/components/weather";
+import { CLOUD } from "@/lib/cloud-flag";
 import { hrefOf } from "@/components/shell/nav";
 import { Callout, Card, CardBody, CardHeader, EmptyState, Skeleton, Tabs } from "@/components/ui/primitives";
 import { useAgent, useStatusInterval } from "@/lib/api";
@@ -248,13 +249,17 @@ export default function OverviewView() {
 
         {/* Coluna lateral em telas muito largas (linhas 1–4); Diagnóstico e Serviços ocupam a largura toda abaixo dela. Em telas menores, vira uma linha de dois cards. */}
         <div className="grid min-w-0 grid-cols-1 content-start gap-4 md:col-span-6 md:grid-cols-2 min-[105rem]:col-span-1 min-[105rem]:col-start-7 min-[105rem]:row-span-4 min-[105rem]:row-start-1 min-[105rem]:grid-cols-1">
-          <CoverageCard status={status.data} />
+          {!CLOUD && <CoverageCard status={status.data} />}
           <EventsCard events={events.data} />
         </div>
 
-        <DiagnosticsCard className="md:col-span-6 xl:col-span-4 min-[105rem]:col-span-5" />
-        <WeatherCard className="md:col-span-6 xl:col-span-2 min-[105rem]:col-span-2" />
-        <ServicesCard agent={agent.data} agentError={agent.error} className="md:col-span-6 min-[105rem]:col-span-7" />
+        {!CLOUD && (
+          <>
+            <DiagnosticsCard className="md:col-span-6 xl:col-span-4 min-[105rem]:col-span-5" />
+            <WeatherCard className="md:col-span-6 xl:col-span-2 min-[105rem]:col-span-2" />
+            <ServicesCard agent={agent.data} agentError={agent.error} className="md:col-span-6 min-[105rem]:col-span-7" />
+          </>
+        )}
       </div>
     </>
   );

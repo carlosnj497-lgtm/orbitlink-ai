@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { agentFetch, sameOrigin, SESSION_COOKIE } from "@/lib/server/agent";
+import { accessToken, clearSessionCookies, CloudError, cloudEnabled, setSessionCookies } from "@/lib/server/cloud";
+import { cloudGet, cloudMutate } from "@/lib/server/cloud-api";
 
 /**
  * Proxy autenticado navegador → agente. Encaminha somente /v1/<rota> permitidas, injeta o token de
@@ -19,6 +21,7 @@ async function handle(request: NextRequest, ctx: { params: Promise<{ path: strin
   if (request.method !== "GET" && !sameOrigin(request)) {
     return NextResponse.json({ detail: "Origem não permitida" }, { status: 403 });
   }
+  if (cloudEnabled()) return handleCloud(request, joined);
   const session = request.cookies.get(SESSION_COOKIE)?.value ?? null;
   if (!session) {
     return NextResponse.json({ detail: "Sessão ausente", code: "no_session" }, { status: 401 });
@@ -52,3 +55,30 @@ export const POST = handle;
 export const PUT = handle;
 export const PATCH = handle;
 export const DELETE = handle;
+
+/** Modo nuvem: as mesmas rotas, respondidas a partir do Supabase com o token da pessoa (RLS). */
+async function handleCloud(request: NextRequest, joined: string) {
+  const auth = await accessToken(request);
+  if (!auth) {
+    const res = NextResponse.json({ detail: "Sessão expirada. Entre de novo.", code: "no_session" }, { status: 401 });
+    clearSessionCookies(res);
+    return res;
+  }
+  if (joined === "stream") return new Response(null, { status: 204 }); // sem tempo real na nuvem: o painel usa consultas periódicas
+  let res: NextResponse;
+  try {
+    const data =
+      request.method === "GET"
+        ? await cloudGet(auth.token, joined, request.nextUrl.searchParams)
+        : await cloudMutate(auth.token, request.method, joined, ((await request.json().catch(() => ({}))) ?? {}) as Record<string, unknown>);
+    res = NextResponse.json(data, { headers: { "cache-control": "no-store" } });
+    if (joined === "cloud/export") res.headers.set("content-disposition", 'attachment; filename="astryon-meus-dados.json"');
+    if (joined === "cloud/delete-account") clearSessionCookies(res);
+  } catch (e) {
+    const status = e instanceof CloudError ? e.status : 502;
+    res = NextResponse.json({ detail: e instanceof CloudError ? e.message : "Falha ao consultar a nuvem." }, { status });
+    if (status === 401) clearSessionCookies(res);
+  }
+  if (auth.renewed) setSessionCookies(res, auth.renewed);
+  return res;
+}

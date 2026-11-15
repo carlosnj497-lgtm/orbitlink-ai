@@ -15,6 +15,7 @@ export const SLUGS = [
   "relatorios",
   "alertas",
   "configuracoes",
+  "conta",
 ] as const;
 
 export type Slug = (typeof SLUGS)[number];
@@ -37,6 +38,7 @@ export const TITLES: Record<string, string> = {
   relatorios: "Relatórios",
   alertas: "Alertas e Automações",
   configuracoes: "Configurações",
+  conta: "Conta",
 };
 
 /** Linha curta de contexto exibida ao lado do título no cabeçalho. */

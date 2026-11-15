@@ -2,6 +2,7 @@
 
 import { type QueryClient, useQuery, type UseQueryOptions, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useSyncExternalStore } from "react";
+import { CLOUD } from "./cloud-flag";
 import { useDemo } from "./demo-context";
 import { demoFetch } from "./demo-data";
 
@@ -189,11 +190,11 @@ export function useAgentStream(enabled = true): StreamState {
   const state = useSyncExternalStore(subscribeStreamState, getStreamState, getServerStreamState);
 
   useEffect(() => {
-    if (demo || !enabled) return;
+    if (demo || !enabled || CLOUD) return; // na nuvem não há tempo real: as telas consultam periodicamente
     return acquireStream(qc);
   }, [demo, enabled, qc]);
 
-  return demo ? "demo" : state;
+  return demo ? "demo" : CLOUD ? "closed" : state;
 }
 
 /**

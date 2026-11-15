@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DropdownMenu, Popover } from "radix-ui";
 import { useAgent, useAgentStream } from "@/lib/api";
+import { CLOUD } from "@/lib/cloud-flag";
 import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
 import { fmtAgo, fmtTime } from "@/lib/format";
@@ -32,6 +33,12 @@ function AgentChip() {
   const every = agent?.intervals?.status_s;
   const s = demo
     ? { tone: "demo" as const, dot: "bg-demo", label: "Demonstração", short: "Demo" }
+    : CLOUD
+      ? error
+        ? { tone: "crit" as const, dot: "bg-crit", label: "Nuvem indisponível", short: "Erro" }
+        : agent && !agent.status_stale
+          ? { tone: "ok" as const, dot: "bg-ok", label: "Sincronizado", short: "Sinc." }
+          : { tone: "warn" as const, dot: "bg-warn", label: "Sem dados recentes", short: "Atraso" }
     : error
       ? { tone: "crit" as const, dot: "bg-crit", label: "Agente offline", short: "Offline" }
       : stream === "open"
@@ -308,7 +315,7 @@ export function Header({ onOpenMenu, menuOpen }: { onOpenMenu: () => void; menuO
       <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2.5">
         <MissionClock />
         <AgentChip />
-        <AiChip />
+        {!CLOUD && <AiChip />}
         <span aria-hidden className="mx-0.5 hidden h-6 w-px bg-border sm:block" />
         <Notifications />
         <UserMenu />

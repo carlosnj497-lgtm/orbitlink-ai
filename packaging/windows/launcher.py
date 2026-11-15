@@ -8,6 +8,9 @@
 * Menu: Abrir painel, Conectar à conta, Reiniciar serviços, Ver logs, Editar configurações, Iniciar com o Windows,
   Sair. "Conectar à conta" pede o código gerado no painel na nuvem e liga este computador à conta.
 * Uma única instância: abrir de novo só abre o navegador.
+* Atualização automática (só na versão instalada): de tempos em tempos lê o `latest.json` publicado no
+  repositório público de releases. Se houver versão mais nova, baixa o instalador, confere o SHA-256, roda em
+  modo silencioso e fecha; o próprio instalador abre o ASTRYON de novo no fim.
 
 A pasta de dados fica fora da pasta do programa: atualizar ou reinstalar não apaga nada.
 
@@ -19,11 +22,14 @@ poupar o pendrive e a opção "Iniciar com o Windows" some do menu.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -35,6 +41,10 @@ APP_NAME = "ASTRYON"
 PANEL_URL = "http://127.0.0.1:3000"
 AGENT_URL = "http://127.0.0.1:8787/v1/health"
 LOG_MAX = 5 * 1024 * 1024
+UPDATE_FIRST_CHECK_S = 2 * 60  # primeira verificação: alguns minutos depois de abrir
+UPDATE_INTERVAL_S = 6 * 60 * 60  # depois, a cada 6 horas
+UPDATE_HOSTS = ("https://github.com/", "https://objects.githubusercontent.com/",
+                "https://release-assets.githubusercontent.com/")
 
 
 def app_dir() -> Path:
@@ -135,6 +145,79 @@ def child_env(root: Path, base: Path | None = None) -> dict[str, str]:
         env.update({"ASTRYON_PORTABLE": "1", "ASTRYON_DATA_DIR": str(root / "data"),
                     "ASTRYON_SECRETS_KEY_FILE": str(root / "data" / "secrets.key")})
     return env
+
+
+# ------------------------------------------------------------------ atualização automática
+def update_config(base: Path) -> dict[str, str]:
+    """Versão instalada e endereço do latest.json, gravados no build (update.json). Vazio = sem atualização."""
+    try:
+        data = json.loads((base / "update.json").read_text(encoding="utf-8-sig"))
+        return {k: str(data[k]) for k in ("version", "manifest") if data.get(k)}
+    except (OSError, ValueError):
+        return {}
+
+
+def parse_version(v: str) -> tuple[int, ...]:
+    """'v0.2.10' -> (0, 2, 10). Sufixos como '-dev.5' são ignorados; texto inválido -> ()."""
+    m = re.match(r"v?(\d+(?:\.\d+)*)", v.strip())
+    return tuple(int(x) for x in m.group(1).split(".")) if m else ()
+
+
+def is_newer(remote: str, local: str) -> bool:
+    r, loc = parse_version(remote), parse_version(local)
+    if not r:
+        return False
+    if loc and "-" in local and r == loc:
+        return True  # 0.2.0 final substitui 0.2.0-dev.N
+    return r > loc
+
+
+def trusted_url(url: str) -> bool:
+    return url.startswith(UPDATE_HOSTS)
+
+
+def fetch_json(url: str) -> dict[str, Any]:
+    req = urllib.request.Request(url, headers={"User-Agent": "ASTRYON-updater"})  # noqa: S310 - trusted_url
+    with urllib.request.urlopen(req, timeout=20) as r:  # noqa: S310 - só https do GitHub (trusted_url)
+        data = json.loads(r.read(256 * 1024).decode("utf-8-sig"))
+    return data if isinstance(data, dict) else {}
+
+
+def check_update(base: Path) -> dict[str, str] | None:
+    """Devolve {'version', 'url', 'sha256'} se houver versão mais nova publicada; senão None."""
+    cfg = update_config(base)
+    if not cfg.get("manifest") or not cfg.get("version") or not trusted_url(cfg["manifest"]):
+        return None
+    info = fetch_json(cfg["manifest"])
+    version, url, sha = str(info.get("version", "")), str(info.get("url", "")), str(info.get("sha256", "")).lower()
+    if not (is_newer(version, cfg["version"]) and trusted_url(url) and re.fullmatch(r"[0-9a-f]{64}", sha)):
+        return None
+    return {"version": version, "url": url, "sha256": sha}
+
+
+def download_installer(info: dict[str, str], dest_dir: Path | None = None) -> Path:
+    """Baixa o instalador e confere o SHA-256. Arquivo corrompido ou adulterado é apagado e gera erro."""
+    dest_dir = dest_dir or Path(tempfile.gettempdir())
+    dest = dest_dir / f"ASTRYON-Setup-{re.sub(r'[^0-9A-Za-z.-]', '', info['version'])}.exe"
+    h = hashlib.sha256()
+    req = urllib.request.Request(info["url"], headers={"User-Agent": "ASTRYON-updater"})  # noqa: S310 - trusted_url
+    with urllib.request.urlopen(req, timeout=60) as r, dest.open("wb") as f:  # noqa: S310 - trusted_url
+        if not trusted_url(r.geturl()):
+            raise ValueError("redirecionamento para endereço não confiável")
+        while chunk := r.read(1024 * 1024):
+            h.update(chunk)
+            f.write(chunk)
+    if h.hexdigest() != info["sha256"]:
+        dest.unlink(missing_ok=True)
+        raise ValueError("SHA-256 do instalador não confere")
+    return dest
+
+
+def run_installer(setup: Path) -> None:
+    """Instala em silêncio; /atualizacao=1 faz o instalador abrir o ASTRYON de novo no fim."""
+    flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    args = [str(setup), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/atualizacao=1"]
+    subprocess.Popen(args, creationflags=flags, close_fds=True)  # noqa: S603 - instalador conferido pelo SHA-256
 
 
 def commands(base: Path) -> dict[str, list[str]]:
@@ -342,6 +425,37 @@ def main() -> int:
         sup.stop_all()
         icon.stop()
 
+    updating = threading.Lock()
+    can_update = not is_portable and bool(update_config(base).get("manifest"))
+
+    def update_now(manual: bool = False) -> None:
+        if not updating.acquire(blocking=False):
+            return
+        try:
+            info = check_update(base)
+            if not info:
+                if manual:
+                    show_message(f"Você já está na versão mais recente ({update_config(base).get('version', '?')}).")
+                return
+            icon.notify(f"Baixando a versão {info['version']}…", APP_NAME)
+            setup = download_installer(info)
+            icon.notify(f"Instalando a versão {info['version']}. O ASTRYON volta sozinho em instantes.", APP_NAME)
+            run_installer(setup)
+            quit_app(icon)
+        except Exception as exc:  # noqa: BLE001 - sem rede, GitHub fora etc.: tenta de novo mais tarde
+            with (root / "logs" / "atualizacao.log").open("a", encoding="utf-8") as f:
+                f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {type(exc).__name__}: {exc}\n")
+            if manual:
+                show_message("Não foi possível procurar atualizações agora. Tente mais tarde.", error=True)
+        finally:
+            updating.release()
+
+    def updater() -> None:
+        time.sleep(UPDATE_FIRST_CHECK_S)
+        while not sup.stopping:
+            update_now()
+            time.sleep(UPDATE_INTERVAL_S)
+
     menu = pystray.Menu(
         pystray.MenuItem("Abrir painel", open_panel, default=True),
         pystray.MenuItem("Conectar à conta…", connect_account),
@@ -350,6 +464,9 @@ def main() -> int:
         pystray.MenuItem("Editar configurações", lambda *_: os.startfile(root / "astryon.env")),  # type: ignore[attr-defined]
         pystray.MenuItem("Iniciar com o Windows", toggle_autostart, checked=lambda _: autostart_enabled(),
                          visible=not is_portable),
+        pystray.MenuItem("Procurar atualizações",
+                         lambda *_: threading.Thread(target=update_now, args=(True,), daemon=True).start(),
+                         visible=can_update),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Sair", quit_app),
     )
@@ -368,6 +485,8 @@ def main() -> int:
             time.sleep(15)
 
     threading.Thread(target=monitor, daemon=True).start()
+    if can_update:
+        threading.Thread(target=updater, daemon=True).start()
     icon.run()
     return 0
 

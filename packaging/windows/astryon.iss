@@ -47,12 +47,19 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\ASTRYON.exe"; Description: "Abrir o ASTRYON agora"; Flags: nowait postinstall skipifsilent
+; Atualização automática (o ASTRYON.exe roda este instalador com /VERYSILENT /atualizacao=1): abre de novo no fim.
+Filename: "{app}\ASTRYON.exe"; Parameters: "--minimizado"; Flags: nowait runasoriginaluser; Check: IsAutoUpdate
 
 [UninstallRun]
 ; /T encerra junto o agente e o painel que o iniciador abriu.
 Filename: "taskkill"; Parameters: "/IM ASTRYON.exe /T /F"; Flags: runhidden; RunOnceId: "fecha-astryon"
 
 [Code]
+function IsAutoUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:atualizacao|0}') = '1';
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Data: String;

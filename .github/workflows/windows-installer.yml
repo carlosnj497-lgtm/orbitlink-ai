@@ -1,6 +1,9 @@
 # Monta o ASTRYON-Setup.exe numa máquina Windows de verdade.
 # - Manual (Actions → "Instalador Windows" → Run workflow): instalador como artefato para baixar.
-# - Tag v* (ex.: git tag v0.2.0 && git push origin v0.2.0): também anexa o instalador à release do GitHub.
+# - Tag v* (ex.: git tag v0.2.0 && git push origin v0.2.0): também anexa o instalador à release do GitHub e
+#   publica no repositório PÚBLICO de releases (este é privado). O ASTRYON instalado lê o latest.json de lá e se
+#   atualiza sozinho. Precisa do secret RELEASES_TOKEN (token com "Contents: read and write" no repo público).
+#   Repo público: variável ASTRYON_RELEASES_REPO (padrão carlosnj497-lgtm/astryon-releases).
 name: Instalador Windows
 
 on:
@@ -10,6 +13,9 @@ on:
 
 permissions:
   contents: write
+
+env:
+  RELEASES_REPO: ${{ vars.ASTRYON_RELEASES_REPO || 'carlosnj497-lgtm/astryon-releases' }}
 
 jobs:
   build:
@@ -43,6 +49,7 @@ jobs:
           # Variáveis do repositório (Settings → Secrets and variables → Actions → Variables). Opcionais.
           ASTRYON_CLOUD_SUPABASE_URL: ${{ vars.ASTRYON_CLOUD_SUPABASE_URL }}
           ASTRYON_CLOUD_SUPABASE_ANON_KEY: ${{ vars.ASTRYON_CLOUD_SUPABASE_ANON_KEY }}
+          ASTRYON_UPDATE_MANIFEST: https://github.com/${{ env.RELEASES_REPO }}/releases/latest/download/latest.json
         run: ./packaging/windows/build.ps1 -Version "${{ steps.ver.outputs.version }}"
       - uses: actions/upload-artifact@v4
         with:
@@ -57,3 +64,22 @@ jobs:
         run: |
           gh release view "${{ github.ref_name }}" 2>$null; if ($LASTEXITCODE -ne 0) { gh release create "${{ github.ref_name }}" --title "ASTRYON ${{ github.ref_name }}" --generate-notes }
           gh release upload "${{ github.ref_name }}" (Get-ChildItem packaging/windows/dist/*).FullName --clobber
+      - name: Publicar a atualização (repo público de releases)
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          if (-not $env:GH_TOKEN) { Write-Host "::warning::Sem o secret RELEASES_TOKEN: atualização automática não publicada."; exit 0 }
+          $setup = Get-Item "packaging/windows/dist/ASTRYON-Setup-$env:VERSION.exe"
+          $sha = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower()
+          $tag = "${{ github.ref_name }}"
+          @{ version = $env:VERSION; sha256 = $sha
+             url = "https://github.com/$env:RELEASES_REPO/releases/download/$tag/$($setup.Name)" } |
+            ConvertTo-Json | Out-File -Encoding utf8 packaging/windows/dist/latest.json
+          gh release view $tag -R $env:RELEASES_REPO 2>$null
+          if ($LASTEXITCODE -ne 0) { gh release create $tag -R $env:RELEASES_REPO --title "ASTRYON $tag" --notes "Instalador do ASTRYON $tag para Windows 10/11 (64 bits)." }
+          # O instalador primeiro; o latest.json por último, para ninguém ver a versão nova antes do arquivo existir.
+          gh release upload $tag -R $env:RELEASES_REPO $setup.FullName (Get-Item "packaging/windows/dist/ASTRYON-Portatil-$env:VERSION.zip").FullName --clobber
+          gh release upload $tag -R $env:RELEASES_REPO packaging/windows/dist/latest.json --clobber

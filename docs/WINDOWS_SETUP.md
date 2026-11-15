@@ -91,6 +91,25 @@ também a [versão portátil para pendrive](#versão-portátil-pendrive):
   instalador novo por cima; desinstalar pergunta se os dados devem ser apagados.
 - **Limite:** o monitoramento só acontece com o computador ligado. Para 24 horas, use o servidor Linux.
 
+### Atualização automática
+
+O ASTRYON instalado procura versão nova alguns minutos depois de abrir e a cada 6 horas (ou em **Procurar
+atualizações**, no menu da bandeja). Quando encontra, baixa o instalador, confere o SHA-256, instala em silêncio
+e abre de novo sozinho. Os dados não são apagados. A versão portátil não se atualiza sozinha.
+
+Como este repositório é privado, os instaladores são publicados num repositório **público só de releases**:
+
+1. **Uma vez só:** crie no GitHub o repositório público `astryon-releases` (vazio). Crie um token em
+   **Settings → Developer settings → Fine-grained tokens**, com acesso só a esse repositório e a permissão
+   **Contents: Read and write**. Salve o token neste repositório em **Settings → Secrets and variables →
+   Actions → New repository secret**, com o nome `RELEASES_TOKEN`. Para usar outro nome de repositório, crie a
+   variável `ASTRYON_RELEASES_REPO` (ex.: `seu-usuario/outro-nome`).
+2. **A cada versão:** `git tag v0.2.0 && git push origin v0.2.0`. O workflow monta o instalador e publica o
+   `.exe`, o `.zip` e o `latest.json` no repositório público. Os computadores com ASTRYON se atualizam em até 6 horas.
+
+Só instaladores gerados a partir desta mudança sabem se atualizar. Quem tem uma versão mais antiga precisa
+instalar uma vez na mão.
+
 O build é feito por `packaging/windows/build.ps1` (PyInstaller para o agente, Next.js standalone + Node portátil
 conferido pelo SHA-256 oficial, iniciador com `pystray` e Inno Setup).
 

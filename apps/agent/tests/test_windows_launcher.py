@@ -89,3 +89,76 @@ def test_log_na_primeira_execucao_cria_a_pasta(launcher, tmp_path):
     with sup._log("agente") as f:
         f.write(b"ok")
     assert (root / "logs" / "agente.log").read_bytes() == b"ok"
+
+
+# ------------------------------------------------------------------ atualização automática
+def test_comparacao_de_versoes(launcher):
+    assert launcher.is_newer("0.2.0", "0.1.0")
+    assert launcher.is_newer("v0.10.0", "0.9.9")
+    assert launcher.is_newer("0.2.0", "0.2.0-dev.7")  # versão final substitui a de teste
+    assert not launcher.is_newer("0.2.0", "0.2.0")
+    assert not launcher.is_newer("0.1.9", "0.2.0")
+    assert not launcher.is_newer("lixo", "0.1.0")
+
+
+def _instalado(tmp_path, version="0.1.0", manifest="https://github.com/x/astryon-releases/releases/latest/download/latest.json"):
+    import json
+
+    base = tmp_path / "app"
+    base.mkdir(exist_ok=True)
+    (base / "update.json").write_text(json.dumps({"version": version, "manifest": manifest}), encoding="utf-8-sig")
+    return base
+
+
+def test_sem_update_json_nao_procura_atualizacao(launcher, tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "fetch_json", lambda url: pytest.fail("não deveria acessar a rede"))
+    assert launcher.check_update(tmp_path) is None
+
+
+def test_encontra_versao_nova_e_recusa_enderecos_estranhos(launcher, tmp_path, monkeypatch):
+    sha = "a" * 64
+    remote = {"version": "0.2.0", "url": "https://github.com/x/astryon-releases/releases/download/v0.2.0/s.exe",
+              "sha256": sha}
+    monkeypatch.setattr(launcher, "fetch_json", lambda url: dict(remote))
+    base = _instalado(tmp_path)
+    assert launcher.check_update(base) == {"version": "0.2.0", "url": remote["url"], "sha256": sha}
+
+    remote["url"] = "https://exemplo-malicioso.com/s.exe"
+    assert launcher.check_update(base) is None
+    remote.update(url="https://github.com/x/s.exe", sha256="curto")
+    assert launcher.check_update(base) is None
+    assert launcher.check_update(_instalado(tmp_path, version="0.2.0")) is None  # já atualizado
+    assert launcher.check_update(_instalado(tmp_path, manifest="http://github.com/latest.json")) is None
+
+
+class _Resp:
+    def __init__(self, data: bytes, url: str = "https://objects.githubusercontent.com/x"):
+        self._data, self._url = data, url
+
+    def read(self, n: int = -1) -> bytes:
+        chunk, self._data = self._data[: n if n > 0 else None], self._data[n if n > 0 else len(self._data):]
+        return chunk
+
+    def geturl(self) -> str:
+        return self._url
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def test_download_confere_o_sha256(launcher, tmp_path, monkeypatch):
+    import hashlib
+
+    payload = b"instalador" * 1000
+    info = {"version": "0.2.0", "url": "https://github.com/x/s.exe", "sha256": hashlib.sha256(payload).hexdigest()}
+    monkeypatch.setattr(launcher.urllib.request, "urlopen", lambda req, timeout: _Resp(payload))
+    dest = launcher.download_installer(info, tmp_path)
+    assert dest.name == "ASTRYON-Setup-0.2.0.exe" and dest.read_bytes() == payload
+
+    info["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="SHA-256"):
+        launcher.download_installer(info, tmp_path)
+    assert not dest.exists()  # arquivo adulterado é apagado

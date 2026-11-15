@@ -6,13 +6,16 @@
   2. Painel Next.js em modo standalone + node.exe portátil (versão fixa, conferida pelo SHA-256 oficial).
   3. Iniciador da bandeja -> ASTRYON.exe.
   4. Inno Setup -> dist\ASTRYON-Setup-<versão>.exe.
-  5. Versão portátil (pendrive) -> dist\ASTRYON-Portatil-<versão>.zip (mesmos arquivos + portable.txt).
+  5. update.json (versão + endereço do latest.json) para a atualização automática.
+  6. Versão portátil (pendrive) -> dist\ASTRYON-Portatil-<versão>.zip (mesmos arquivos + portable.txt).
   Requisitos: Python 3.12, Node 22 (para o build), Inno Setup 6 (iscc no PATH).
 #>
 [CmdletBinding()]
 param([string]$Version = "0.1.0", [string]$NodeVersion = "",
       # Nuvem padrão do instalador (públicos: o endereço e a chave anon do Supabase). Vazios = sem nuvem pronta.
-      [string]$SupabaseUrl = $env:ASTRYON_CLOUD_SUPABASE_URL, [string]$SupabaseAnonKey = $env:ASTRYON_CLOUD_SUPABASE_ANON_KEY)
+      [string]$SupabaseUrl = $env:ASTRYON_CLOUD_SUPABASE_URL, [string]$SupabaseAnonKey = $env:ASTRYON_CLOUD_SUPABASE_ANON_KEY,
+      # Atualização automática: endereço do latest.json no repositório público de releases. Vazio = desligada.
+      [string]$UpdateManifest = $env:ASTRYON_UPDATE_MANIFEST)
 $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $Here = $PSScriptRoot
@@ -51,6 +54,9 @@ if ($SupabaseUrl -and $SupabaseAnonKey) {
     Out-File -Encoding utf8 (Join-Path $Stage "cloud.json")
   Write-Host "    nuvem padrão: $SupabaseUrl"
 }
+
+@{ version = $Version; manifest = $UpdateManifest } | ConvertTo-Json | Out-File -Encoding utf8 (Join-Path $Stage "update.json")
+if ($UpdateManifest) { Write-Host "    atualização automática: $UpdateManifest" }
 
 Write-Host "==> Painel (Next.js standalone)"
 Push-Location $Root

@@ -6,6 +6,7 @@ import { memo, type ReactNode, useId } from "react";
 import { SourceBadge } from "@/components/domain";
 import { Card, Skeleton, Tip } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
+import { bucketMeans, sparkGeometry } from "@/lib/sparkline";
 
 export function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
@@ -92,36 +93,7 @@ const SPARK_BUCKETS = 60;
  */
 export const MiniSpark = memo(function MiniSpark({ data, k, color }: { data: TelemetryPoint[]; k: "down_mbps" | "up_mbps"; color: string }) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const size = Math.max(1, Math.ceil(data.length / SPARK_BUCKETS));
-  const vals: (number | null)[] = [];
-  for (let i = 0; i < data.length; i += size) {
-    let sum = 0;
-    let n = 0;
-    for (const p of data.slice(i, i + size)) {
-      const v = p[k];
-      if (v !== null) {
-        sum += v;
-        n++;
-      }
-    }
-    vals.push(n ? sum / n : null);
-  }
-  const max = Math.max(0.001, ...vals.map((v) => v ?? 0));
-  const x = (i: number) => (vals.length > 1 ? (i / (vals.length - 1)) * SPARK_W : SPARK_W / 2);
-  const y = (v: number) => SPARK_H - 2 - (v / max) * (SPARK_H - 5);
-  const segments: string[] = [];
-  const areas: string[] = [];
-  let run: [number, number][] = [];
-  const flush = () => {
-    if (run.length > 1) {
-      const line = run.map(([px, py], j) => `${j ? "L" : "M"}${px.toFixed(1)} ${py.toFixed(1)}`).join("");
-      segments.push(line);
-      areas.push(`${line}L${run[run.length - 1][0].toFixed(1)} ${SPARK_H}L${run[0][0].toFixed(1)} ${SPARK_H}Z`);
-    }
-    run = [];
-  };
-  vals.forEach((v, i) => (v === null ? flush() : run.push([x(i), y(v)])));
-  flush();
+  const { runs, line, area } = sparkGeometry(bucketMeans(data, (p) => p[k], SPARK_BUCKETS), SPARK_W, SPARK_H);
   return (
     <svg viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none" className="mt-1.5 h-5 w-full" aria-hidden>
       <defs>
@@ -130,11 +102,11 @@ export const MiniSpark = memo(function MiniSpark({ data, k, color }: { data: Tel
           <stop offset="1" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      {areas.map((d, i) => (
-        <path key={`a${i}`} d={d} fill={`url(#${id})`} />
+      {runs.map((r, i) => (
+        <path key={`a${i}`} d={area(r)} fill={`url(#${id})`} />
       ))}
-      {segments.map((d, i) => (
-        <path key={`l${i}`} d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      {runs.map((r, i) => (
+        <path key={`l${i}`} d={line(r)} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       ))}
     </svg>
   );

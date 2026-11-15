@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
 import { fmtAgo, fmtDateTime, fmtDuration, fmtMbps, fmtNumber, fmtPct, fmtTime } from "@/lib/format";
 import { type LiveReading, useLiveReadings } from "@/lib/live-buffer";
+import { sparkGeometry } from "@/lib/sparkline";
 import { useNow } from "@/lib/use-now";
 import { num } from "./dashboard/parts";
 import { EVENT_META, GapNote } from "./shared";
@@ -86,20 +87,8 @@ const Trace = memo(function Trace({ values, color }: { values: (number | null)[]
   if (values.filter((v) => v !== null).length < 2) {
     return <div className="mt-2 grid h-[30px] place-items-center rounded-md border border-dashed border-border text-[10.5px] text-fg-subtle">aguardando leituras</div>;
   }
-  const max = Math.max(0.001, ...values.map((v) => v ?? 0));
-  const x = (i: number) => (i / Math.max(1, values.length - 1)) * TRACE_W;
-  const y = (v: number) => TRACE_H - 2 - (v / max) * (TRACE_H - 5);
   // Trechos contínuos; leituras sem valor quebram a linha (nunca viram zero).
-  const runs: [number, number][][] = [];
-  let run: [number, number][] = [];
-  values.forEach((v, i) => {
-    if (v === null) {
-      if (run.length > 1) runs.push(run);
-      run = [];
-    } else run.push([x(i), y(v)]);
-  });
-  if (run.length > 1) runs.push(run);
-  const line = (r: [number, number][]) => r.map(([px, py], j) => `${j ? "L" : "M"}${px.toFixed(1)} ${py.toFixed(1)}`).join("");
+  const { runs, line, area, x, y } = sparkGeometry(values, TRACE_W, TRACE_H);
   const last = values.length - 1;
   const lastV = values[last];
   return (
@@ -112,7 +101,7 @@ const Trace = memo(function Trace({ values, color }: { values: (number | null)[]
       </defs>
       {runs.map((r, i) => (
         <g key={i}>
-          <path d={`${line(r)}L${r[r.length - 1][0].toFixed(1)} ${TRACE_H}L${r[0][0].toFixed(1)} ${TRACE_H}Z`} fill={`url(#${id})`} />
+          <path d={area(r)} fill={`url(#${id})`} />
           <path d={line(r)} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         </g>
       ))}

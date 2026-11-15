@@ -22,7 +22,8 @@ minuto (consumo, latência, perda, quedas), não as amostras de 1 segundo nem a 
    Todos foram testados em Postgres real (`npm run test -w supabase`, 24 testes, inclusive isolamento entre contas).
 3. Em **Authentication → Providers → Email**: deixe "Confirm email" ligado e o mínimo de senha em 10.
 4. Em **Authentication → URL Configuration**: em "Site URL" coloque o endereço do painel na Vercel
-   (ex.: `https://astryon.vercel.app`) e acrescente `https://astryon.vercel.app/login` em "Redirect URLs".
+   (ex.: `https://astryon.vercel.app`) e acrescente `https://astryon.vercel.app/login` e `https://astryon.vercel.app/login/redefinir` em "Redirect URLs"
+   (a segunda é a página de "Esqueci a senha"; sem ela, o link do e-mail de recuperação não funciona).
 5. Opcional: agende a limpeza (requer a extensão pg_cron):
    `select cron.schedule('astryon-retention', '17 3 * * *', $$select public.apply_retention()$$);`
 

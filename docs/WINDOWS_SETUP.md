@@ -114,8 +114,10 @@ Como este repositório é privado, os instaladores são publicados num repositó
    e, num job separado, assina e publica o `.exe`, o `.zip` e o `latest.json` no repositório público. Os computadores
    com ASTRYON se atualizam em até 6 horas.
 
-Só instaladores gerados com a chave pública embutida sabem se atualizar. Quem tem uma versão mais antiga (sem
-assinatura) precisa instalar uma vez na mão.
+Instaladores gerados com a chave pública embutida só aceitam atualizações assinadas. Versões anteriores (que só
+conferiam o SHA-256) também aceitam o `latest.json` novo e passam para a versão que confere a assinatura na próxima
+atualização; daí em diante, nada sem assinatura é instalado. Instaladores ainda mais antigos, sem atualização
+automática, precisam ser instalados uma vez na mão.
 
 O build é feito por `packaging/windows/build.ps1` (PyInstaller para o agente, Next.js standalone + Node portátil
 com versão e SHA-256 fixados no script, iniciador com `pystray` e Inno Setup).

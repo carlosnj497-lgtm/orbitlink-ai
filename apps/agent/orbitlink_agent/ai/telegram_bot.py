@@ -60,6 +60,7 @@ HELP = (
     "/quedas: interrupções recentes\n"
     "/alertas: alertas ativos\n"
     "/clima: clima agora e próximas horas\n"
+    "/horario: melhores horários para downloads e chamadas\n"
     "/resumo: consumo, quedas e qualidade dos últimos 7 dias\n"
     "/relatorio: PDF dos últimos 30 dias (com comparação e clima)\n"
     "/bot: recursos, cotas e notificações\n"
@@ -348,7 +349,7 @@ class TelegramBot:
             await self.send(client, chat_id, "💬 Conversa nova. Pode perguntar.\n"
                             "O contexto anterior foi desvinculado; o histórico continua disponível no painel.", section="menu")
             return
-        if cmd.lstrip("/") in views.REPORTS | {"franquia", "alertas", "bot", "clima"}:
+        if cmd.lstrip("/") in views.REPORTS | {"franquia", "alertas", "bot", "clima", "horario"}:
             command = cmd.lstrip("/")
             args = text.split()[1:]
             if args and (command not in views.REPORTS or len(args) != 1 or args[0] not in views.PERIODS):

@@ -11,6 +11,7 @@ O menu de comandos é registrado automaticamente quando o agente inicia.
 | `/qualidade` | Disponibilidade, latência, jitter e perda |
 | `/quedas` | Até 10 interrupções recentes |
 | `/alertas` | Até 10 alertas ativos mais recentes |
+| `/horario` | Melhores e piores horas do dia (perda e latência) e próximas janelas boas sem chuva |
 | `/clima` | Clima agora, próximas horas e aviso se houver chuva forte prevista |
 | `/resumo` | Resumo consolidado dos últimos 7 dias |
 | `/relatorio` | PDF dos últimos 30 dias, com comparação com o período anterior e o clima |

@@ -80,7 +80,7 @@ segundo a segundo, e transforma isso em histórico, alertas e respostas.
 |---|---|---|
 | 📡 | **Ao vivo** | Download, upload, latência e perda de pacotes a cada segundo, com histórico, pausa e exportação CSV. |
 | 📊 | **Consumo e franquia** | Consumo do ciclo, projeção mensal e alertas em 80% e 100% do plano (estimativa local pelo tráfego da antena). |
-| ✅ | **Qualidade** | Disponibilidade, perda, jitter e percentis de latência por hora. Segundos sem medição ficam fora da conta. |
+| ✅ | **Qualidade** | Disponibilidade, perda, jitter e percentis de latência por hora, comparação com o período anterior (com e sem chuva) e os melhores horários do dia. Segundos sem medição ficam fora da conta. |
 | 🛰️ | **Antena e obstruções** | Estado, firmware, mapa de céu visto pela antena e porcentagem de obstrução. |
 | 🔔 | **Alertas** | Regras com debounce, histerese e cooldown, entregues pelo Telegram ou por webhook, com fila que sobrevive à queda da internet. |
 | 🤖 | **Central de IA** | Perguntas em português respondidas com os dados do agente (Groq). Sem chave, responde por regras. |
@@ -169,6 +169,7 @@ Abra `http://localhost:3000` no próprio PC e crie o administrador. Para parar: 
 | `/franquia` | Limite, saldo estimado e projeção do ciclo |
 | `/qualidade` · `/quedas` · `/alertas` | Qualidade, interrupções (com o clima de cada uma) e alertas ativos |
 | `/clima` | Clima agora, próximas horas e aviso de chuva forte |
+| `/horario` | Melhores horários para downloads e chamadas |
 | `/resumo` | Resumo dos últimos 7 dias |
 | `/relatorio` | PDF dos últimos 30 dias, com comparação e clima |
 

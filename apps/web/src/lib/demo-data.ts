@@ -295,6 +295,17 @@ export async function demoFetch(path: string): Promise<unknown> {
         retention_raw_days: 7, retention_minute_days: 400,
         ai_model: "openai/gpt-oss-120b", ai_conversation_retention_days: 30,
       };
+    case "insights/compare": {
+      const [s, e] = rangeOf(q, "7d");
+      const stats = (k: number) => ({ start: s, end: e, availability_pct: 99.4 - k * 0.5, loss_pct: 0.7 + k * 0.4, latency_p50_ms: 31 + k * 3, latency_p95_ms: 52 + k * 6, jitter_ms: 4.3, bytes_total: 18e9 - k * 2e9, drops: 3 + k * 2, coverage: 0.96, source: "demonstracao" });
+      return { current: stats(0), previous: stats(1), rain: { chuva: { loss_pct: 2.1, observed_seconds: 30_000 }, sem_chuva: { loss_pct: 0.5, observed_seconds: 500_000 } }, weather_configured: true, note: "Demonstração: números fictícios." };
+    }
+    case "insights/best-hours": {
+      const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, loss_pct: hour >= 19 && hour <= 21 ? 2.4 : hour >= 2 && hour <= 6 ? 0.1 : 0.6, latency_ms: 30 + (hour >= 19 && hour <= 21 ? 12 : 0), observed_seconds: 40_000 }));
+      const ranked = [...hours].sort((a, b) => a.loss_pct - b.loss_pct || (a.latency_ms ?? 0) - (b.latency_ms ?? 0));
+      const base = Math.floor(now() / 3600) * 3600;
+      return { days: 14, hours, best: ranked.slice(0, 3), worst: ranked.slice(-3).reverse(), next_good: [1, 2, 3].map((i) => ({ ts: base + i * 3600 * 4, hour: 0 })), enough_data: true, note: "Demonstração: horários fictícios." };
+    }
     case "ops/health":
       return { disk: { free_bytes: 92e9, total_bytes: 120e9, free_pct: 76.7 }, db_size_bytes: 48e6, cpu_temp_c: 52, mem_available_pct: 61, load_1m: 0.4, cpus: 2, last_backup_at: now() - 5 * 3600, healthcheck_configured: false, checked_at: now() };
     case "weather": return demoWeather();

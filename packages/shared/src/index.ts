@@ -383,6 +383,46 @@ export interface ServerHealth {
   checked_at: number;
 }
 
+/** Comparação de períodos e melhores horários (tendência do passado observado). */
+export interface PeriodStats {
+  start: number;
+  end: number;
+  availability_pct: number | null;
+  loss_pct: number | null;
+  latency_p50_ms: number | null;
+  latency_p95_ms: number | null;
+  jitter_ms: number | null;
+  bytes_total: number | null;
+  drops: number;
+  coverage: number;
+  source: Source;
+}
+
+export interface InsightsCompare {
+  current: PeriodStats;
+  previous: PeriodStats;
+  rain: Record<"chuva" | "sem_chuva", { loss_pct: number | null; observed_seconds: number }> | null;
+  weather_configured: boolean;
+  note: string;
+}
+
+export interface HourStat {
+  hour: number;
+  loss_pct: number;
+  latency_ms: number | null;
+  observed_seconds: number;
+}
+
+export interface BestHours {
+  days: number;
+  hours: HourStat[];
+  best: HourStat[];
+  worst: HourStat[];
+  next_good: { ts: number; hour: number }[];
+  enough_data: boolean;
+  note: string;
+}
+
 /** Payloads SSE validados no cliente. */
 export const sseAgentSchema = z.object({ version: z.string(), mode: z.string() }).passthrough();
 export const sseStatusSchema = z

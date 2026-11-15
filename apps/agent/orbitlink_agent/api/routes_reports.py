@@ -10,7 +10,7 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from ..reports import builder, monthly
+from ..reports import builder, insights, monthly
 from ..usage import importer
 from .deps import Admin, AppContext, Ctx, User
 from .routes_data import EndQ, RangeQ, StartQ, _terminal, resolve_range
@@ -75,6 +75,17 @@ async def report_to_telegram(c: Ctx, _a: Admin, start: StartQ = None, end: EndQ 
     if not ok:
         raise HTTPException(502, "O Telegram recusou o envio do relatório.")
     return {"ok": True}
+
+
+@router.get("/insights/compare")
+async def insights_compare(c: Ctx, _u: User, start: StartQ = None, end: EndQ = None, rng: RangeQ = None) -> dict[str, Any]:
+    s, e = resolve_range(start, end, rng, default="7d")
+    return await asyncio.to_thread(insights.compare, c.db, c.settings, s, e)
+
+
+@router.get("/insights/best-hours")
+async def insights_best_hours(c: Ctx, _u: User, days: int = 14) -> dict[str, Any]:
+    return await asyncio.to_thread(insights.best_hours, c.db, c.settings, max(3, min(days, 60)))
 
 
 def register(app: FastAPI) -> None:

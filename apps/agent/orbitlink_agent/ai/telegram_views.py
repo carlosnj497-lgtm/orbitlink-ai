@@ -23,6 +23,7 @@ COMMANDS = {
     "quedas": "Interrupções recentes",
     "alertas": "Alertas ativos",
     "clima": "Clima agora e próximas horas",
+    "horario": "Melhores horários para usar a internet",
     "resumo": "Resumo dos últimos 7 dias",
     "relatorio": "Relatório em PDF dos últimos 30 dias",
     "bot": "Recursos, cotas e notificações",
@@ -44,6 +45,7 @@ def keyboard(section: str = "menu") -> dict[str, Any]:
             [button("📶 Consumo", "consumo"), button("📦 Franquia", "franquia")],
             [button("⏱ Qualidade", "qualidade"), button("📉 Quedas", "quedas")],
             [button("🔔 Alertas", "alertas"), button("🌦 Clima", "clima")],
+            [button("🕐 Melhor horário", "horario")],
             [button("📄 Relatório PDF", "relatorio"), button("⚙️ Meu bot", "bot")],
             [button("💬 Nova conversa", "nova"), button("❓ Ajuda", "ajuda")],
             [button("🔊 Respostas em áudio", "audio")],
@@ -160,6 +162,8 @@ def render(db: Database, settings: Any, command: str, period: str = "24h") -> st
         ])
     if command == "clima":
         return render_weather(db, settings, when)
+    if command == "horario":
+        return render_best_hours(db, settings, when)
     raise ValueError("consulta desconhecida")
 
 
@@ -189,6 +193,28 @@ def render_weather(db: Database, settings: Any, when: Any) -> str:
         lines += ["", f"⚠️ Chuva forte prevista por volta das {when(f[1])[-5:-3]}h: a conexão pode oscilar."]
     lines += ["", f"Atualizado {when(c['fetched_at'])}{' (desatualizado)' if c['stale'] else ''}.",
               "Estimativa regional (Open-Meteo), não um sensor no local."]
+    return "\n".join(lines)
+
+
+def render_best_hours(db: Database, settings: Any, when: Any) -> str:
+    from ..reports import insights
+
+    b = insights.best_hours(db, settings)
+    lines = ["🕐 **Melhores horários**", f"Base: últimos {b['days']} dias observados", ""]
+    if not b["enough_data"]:
+        lines.append("Ainda não há observação suficiente (é preciso pelo menos 30 min em 6 horas diferentes do dia).")
+        return "\n".join(lines)
+
+    def fmt(h: dict[str, Any]) -> str:
+        return f"{h['hour']:02d}h · perda {number(h['loss_pct'], '%')} · latência {number(h['latency_ms'], ' ms')}"
+
+    lines += ["Melhores:", *[f"✅ {fmt(h)}" for h in b["best"]]]
+    if b["worst"]:
+        lines += ["", "Piores:", *[f"⚠️ {fmt(h)}" for h in b["worst"]]]
+    if b["next_good"]:
+        lines += ["", "Próximas janelas boas (sem chuva prevista): "
+                  + ", ".join(f"{when(x['ts'])[-5:-3]}h" for x in b["next_good"])]
+    lines += ["", "Tendência do passado observado, não garantia. Bom para downloads grandes e chamadas de vídeo."]
     return "\n".join(lines)
 
 

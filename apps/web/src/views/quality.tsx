@@ -5,6 +5,7 @@ import { CloudRain, Gauge, Info } from "lucide-react";
 import { useMemo, useState } from "react";
 import { TelemetryChart } from "@/components/charts";
 import { CoverageBar, MetricCard, PageHeader, QueryError, SourceBadge } from "@/components/domain";
+import { BestHoursCard, CompareCard } from "@/components/insights";
 import { Card, CardBody, CardHeader, EmptyState, Skeleton, Tip } from "@/components/ui/primitives";
 import { useAgent } from "@/lib/api";
 import { fmtDuration, fmtNumber, fmtPct } from "@/lib/format";
@@ -73,6 +74,11 @@ export default function QualityView() {
           Faixas azuis: horas com chuva estimada para a sua cidade (quanto mais forte, mais intensa). Mostram coincidência com a conexão, não causa.
         </p>
       )}
+
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <CompareCard range={range === "1h" || range === "6h" ? "24h" : range} />
+        <BestHoursCard />
+      </div>
 
       <Card className="mt-4">
         <CardHeader title="Perda e latência por hora do dia" subtitle="Responde: quais horários têm mais perda? (America/Fortaleza)" icon={<Info />} />

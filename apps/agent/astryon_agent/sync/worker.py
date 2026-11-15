@@ -19,6 +19,7 @@ import httpx
 from .. import __version__
 from ..config import Settings
 from ..storage.db import Database, now_ts
+from . import pairing
 
 log = logging.getLogger("astryon.sync")
 BATCH = 500
@@ -107,14 +108,15 @@ class Rejected(RuntimeError):
 
 async def push_once(db: Database, settings: Settings, client: httpx.AsyncClient, dish_reachable: bool,
                     limit: int = BATCH) -> dict[str, Any]:
-    if not (settings.supabase_url and settings.supabase_anon_key and settings.supabase_agent_token):
+    token = await asyncio.to_thread(pairing.agent_token, db, settings)
+    if not (settings.supabase_url and settings.supabase_anon_key and token):
         raise RuntimeError("Supabase não configurado")
     batch, sent = await asyncio.to_thread(build_batch_snapshot, db, dish_reachable, limit)
     ids = [i for i, _ in sent]
     anon = settings.supabase_anon_key.get_secret_value()
     url = settings.supabase_url.rstrip("/") + "/rest/v1/rpc/ingest_batch"
     try:
-        r = await client.post(url, json={"p_agent_token": settings.supabase_agent_token.get_secret_value(), "p_batch": batch},
+        r = await client.post(url, json={"p_agent_token": token, "p_batch": batch},
                               headers={"apikey": anon, "Authorization": f"Bearer {anon}"}, timeout=30)
     except httpx.HTTPError as exc:
         await asyncio.to_thread(mark, db, ids, f"rede: {type(exc).__name__}")

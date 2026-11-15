@@ -71,6 +71,27 @@ def _cmd_supabase_token(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_pair(args: argparse.Namespace) -> int:
+    """Liga este agente à conta na nuvem com o código gerado no painel da conta (ex.: K7QF-2M9X)."""
+    import asyncio
+
+    from .config import get_settings
+    from .storage.db import Database
+    from .sync import pairing
+
+    s = get_settings()
+    db = Database(s.db_path)
+    try:
+        res = asyncio.run(pairing.claim(db, s, args.code, args.name))
+    except pairing.PairingError as exc:
+        print(f"Não foi possível parear: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        db.close()
+    print(f"Pareado com a conta \"{res['workspace_name']}\". Reinicie o agente para começar a sincronizar.")
+    return 0
+
+
 def _cmd_telegram_chat_id(_args: argparse.Namespace) -> int:
     """Lista os chats que falaram com o bot recentemente, para preencher ASTRYON_TELEGRAM_CHAT_ID."""
     import httpx
@@ -132,6 +153,11 @@ def main(argv: list[str] | None = None) -> int:
     t.add_argument("--email", required=True, help="E-mail da sua conta no Supabase (dono do workspace)")
     t.add_argument("--name", default="Agente ASTRYON")
     t.set_defaults(func=_cmd_supabase_token)
+
+    pr = sub.add_parser("pair", help="Liga este agente à sua conta na nuvem com o código do painel (ex.: K7QF-2M9X)")
+    pr.add_argument("code", help="Código de 8 caracteres gerado no painel da conta")
+    pr.add_argument("--name", default=None, help="Nome deste agente na conta (padrão: o nome da antena)")
+    pr.set_defaults(func=_cmd_pair)
 
     tg = sub.add_parser("telegram-chat-id", help="Descobre o chat_id para os alertas no Telegram")
     tg.set_defaults(func=_cmd_telegram_chat_id)

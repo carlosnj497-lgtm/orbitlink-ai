@@ -2,6 +2,7 @@
   "name": "orbitlink-ai",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "OrbitLink AI — monitoramento local da Starlink Mini + ESP32 (projeto independente, sem afiliação com a Starlink/SpaceX).",
   "workspaces": [
     "apps/web",

@@ -13,6 +13,7 @@ Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
 ![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows&logoColor=white)
+![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-22c55e)
 
 </div>
 
@@ -320,7 +321,7 @@ O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, paine
 
 ## Créditos
 
-Desenvolvido por [@carlosnj497-lgtm](https://github.com/carlosnj497-lgtm).
+Desenvolvido por [@carlosnj497-lgtm](https://github.com/carlosnj497-lgtm). Distribuído sob a [licença MIT](LICENSE).
 
 A leitura do histórico circular da antena segue o modelo documentado pela
 [starlink-grpc-tools](https://github.com/sparky8512/starlink-grpc-tools) (Unlicense). O código foi reescrito, não copiado.

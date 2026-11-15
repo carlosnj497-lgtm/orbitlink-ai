@@ -19,6 +19,14 @@ def upsert_terminal(db: Database, status: DishStatus, target: str, name: str | N
     key = status.device.terminal_key or f"ut-desconhecido-{target}"
     ts = int(status.observed_at.timestamp())
     with db.tx() as c:
+        old = c.execute("SELECT id, software_version FROM terminals WHERE terminal_key = ?", (key,)).fetchone()
+        new_fw = status.device.software_version
+        if old is not None and old["software_version"] and new_fw and new_fw != old["software_version"]:
+            # A antena trocou de firmware: vira evento (com as duas versões) e, pelas regras de alerta, aviso.
+            c.execute("""INSERT OR IGNORE INTO connection_events (terminal_id, kind, cause, start_ts, end_ts, duration_s,
+                           confidence, evidence_json) VALUES (?, 'firmware_update', ?, ?, ?, 0, 'confirmado', ?)""",
+                      (old["id"], f"Firmware {old['software_version']} → {new_fw}", ts, ts,
+                       json.dumps({"fonte": "get_status.device_info", "anterior": old["software_version"], "novo": new_fw})))
         c.execute(
             """INSERT INTO terminals (terminal_key, name, target, hardware_version, software_version, origin, first_seen, last_seen)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)

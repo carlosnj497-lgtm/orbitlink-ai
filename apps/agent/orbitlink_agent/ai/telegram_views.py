@@ -24,6 +24,7 @@ COMMANDS = {
     "alertas": "Alertas ativos",
     "clima": "Clima agora e próximas horas",
     "resumo": "Resumo dos últimos 7 dias",
+    "relatorio": "Relatório em PDF dos últimos 30 dias",
     "bot": "Recursos, cotas e notificações",
     "nova": "Começar uma conversa nova",
     "audio": "Ativar ou desativar respostas em voz",
@@ -43,7 +44,7 @@ def keyboard(section: str = "menu") -> dict[str, Any]:
             [button("📶 Consumo", "consumo"), button("📦 Franquia", "franquia")],
             [button("⏱ Qualidade", "qualidade"), button("📉 Quedas", "quedas")],
             [button("🔔 Alertas", "alertas"), button("🌦 Clima", "clima")],
-            [button("⚙️ Meu bot", "bot")],
+            [button("📄 Relatório PDF", "relatorio"), button("⚙️ Meu bot", "bot")],
             [button("💬 Nova conversa", "nova"), button("❓ Ajuda", "ajuda")],
             [button("🔊 Respostas em áudio", "audio")],
         ]
@@ -111,7 +112,7 @@ def render(db: Database, settings: Any, command: str, period: str = "24h") -> st
         lines = ["📉 **Interrupções recentes**", stamp, ""]
         labels = {"ping_drop": "Perda de ping", "unreachable": "Antena inacessível", "power_loss": "Falta de energia",
                   "outage": "Interrupção reportada pela antena", "status_outage": "Antena reportou indisponibilidade",
-                  "boot": "Reinício da antena"}
+                  "boot": "Reinício da antena", "firmware_update": "Atualização de firmware"}
         rained = False
         for e in events[:10]:
             duration = "em andamento" if e["open"] else number(e["duration_s"], " s")

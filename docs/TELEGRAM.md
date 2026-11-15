@@ -13,6 +13,7 @@ O menu de comandos é registrado automaticamente quando o agente inicia.
 | `/alertas` | Até 10 alertas ativos mais recentes |
 | `/clima` | Clima agora, próximas horas e aviso se houver chuva forte prevista |
 | `/resumo` | Resumo consolidado dos últimos 7 dias |
+| `/relatorio` | PDF dos últimos 30 dias, com comparação com o período anterior e o clima |
 | `/bot` | Recursos habilitados, cota de IA e fila de notificações |
 | `/nova` | Desvincula o contexto atual; não apaga o histórico do painel |
 | `/audio ligar` ou `/audio desligar` | Ativa ou desativa respostas faladas do assistente |
@@ -28,6 +29,19 @@ aparece com 🌧 e o clima daquela hora. É uma coincidência, não prova de cau
 Essas consultas funcionam sem IA. Para conversar, envie uma pergunta em texto
 ou uma nota de voz (se a transcrição estiver habilitada). Texto e voz mantêm o
 mesmo contexto; a cota diária de perguntas é compartilhada com o painel.
+
+### Avisos automáticos
+
+Além das regras de alerta (perda, latência, quedas, franquia), o bot avisa sozinho quando:
+
+- **a antena reinicia** (detectado pelo contador interno dela) ou **troca de firmware** (com as duas versões);
+- **o ASTRYON volta** depois de mais de 10 minutos fora do ar, dizendo por quanto tempo nada foi monitorado;
+- **o servidor** fica com menos de 10% de disco livre ou passa de 85 °C;
+- **o ciclo da franquia termina**: no dia seguinte, às 9h, chega o relatório do ciclo em PDF;
+- toda semana, junto do backup do banco (arquivo `.sqlite3.gz`), para guardar fora do servidor.
+
+Cada aviso vem de uma regra que pode ser ajustada ou desligada em Alertas, ou de uma variável no `.env`
+(`ORBITLINK_MONTHLY_REPORT_ENABLED`, `ORBITLINK_BACKUP_TELEGRAM`, `ORBITLINK_DOWNTIME_NOTICE_MIN`).
 
 ### Clima
 

@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     weekly_digest_enabled: bool = True
     weekly_digest_weekday: int = Field(default=0, ge=0, le=6)  # 0 = segunda ... 6 = domingo
     weekly_digest_hour: int = Field(default=8, ge=0, le=23)  # hora local (ORBITLINK_TIMEZONE)
+    # Relatório do ciclo em PDF pelo Telegram, no dia seguinte ao fim do ciclo de cobrança (às 9h).
+    monthly_report_enabled: bool = True
 
     # Franquia do plano (também ajustável em Configurações). Estimativa local, não a fatura oficial.
     usage_monthly_limit_gb: float | None = None

@@ -170,6 +170,7 @@ Abra `http://localhost:3000` no próprio PC e crie o administrador. Para parar: 
 | `/qualidade` · `/quedas` · `/alertas` | Qualidade, interrupções (com o clima de cada uma) e alertas ativos |
 | `/clima` | Clima agora, próximas horas e aviso de chuva forte |
 | `/resumo` | Resumo dos últimos 7 dias |
+| `/relatorio` | PDF dos últimos 30 dias, com comparação e clima |
 
 Consultas por comando não gastam IA. Perguntas em texto ou voz usam a cota diária, compartilhada com o painel. Todos os comandos: [docs/TELEGRAM.md](docs/TELEGRAM.md).
 

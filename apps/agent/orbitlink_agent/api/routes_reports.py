@@ -6,13 +6,13 @@ import asyncio
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from ..reports import builder
+from ..reports import builder, monthly
 from ..usage import importer
-from .deps import Admin, Ctx, User
+from .deps import Admin, AppContext, Ctx, User
 from .routes_data import EndQ, RangeQ, StartQ, _terminal, resolve_range
 from .routes_settings import public_settings
 
@@ -61,3 +61,30 @@ def import_commit(c: Ctx, _a: Admin, body: CommitBody) -> dict[str, Any]:
         return importer.commit(c.db, body.filename, body.content, body.mapping, c.settings.timezone)
     except (ValueError, UnicodeError) as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@router.post("/reports/telegram")
+async def report_to_telegram(c: Ctx, _a: Admin, start: StartQ = None, end: EndQ = None, rng: RangeQ = None) -> dict[str, Any]:
+    """Gera o PDF do período (padrão: 30 dias) e envia ao chat do Telegram."""
+    if not (c.settings.telegram_bot_token and c.settings.telegram_chat_id):
+        raise HTTPException(409, "Telegram não configurado. Defina ORBITLINK_TELEGRAM_BOT_TOKEN e ORBITLINK_TELEGRAM_CHAT_ID.")
+    s, e = resolve_range(start, end, rng, default="30d")
+    pdf, caption = await asyncio.to_thread(monthly.build, c.db, c.settings, s, e, (2 * s - e, s))
+    ok = await monthly.send_pdf(c.settings, pdf, caption.replace("Relatório do ciclo", "Relatório"),
+                                f"astryon-relatorio-{datetime.now(UTC):%Y%m%d-%H%M}.pdf")
+    if not ok:
+        raise HTTPException(502, "O Telegram recusou o envio do relatório.")
+    return {"ok": True}
+
+
+def register(app: FastAPI) -> None:
+    async def start(ctx: AppContext) -> None:
+        ctx.extras["monthly_task"] = asyncio.create_task(monthly.run(ctx.db, ctx.settings), name="monthly-report")
+
+    async def stop(ctx: AppContext) -> None:
+        t = ctx.extras.get("monthly_task")
+        if t:
+            t.cancel()
+
+    app.state.startup_hooks.append(start)
+    app.state.shutdown_hooks.append(stop)

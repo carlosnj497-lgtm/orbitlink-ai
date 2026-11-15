@@ -74,7 +74,9 @@ def to_json(db: Database, terminal_id: int | None, start: int, end: int, tz: str
     return json.dumps(data, ensure_ascii=False, indent=2, default=str)
 
 
-def to_pdf(db: Database, terminal_id: int | None, start: int, end: int, tz: str, terminal_name: str) -> bytes:
+def to_pdf(db: Database, terminal_id: int | None, start: int, end: int, tz: str, terminal_name: str,
+           title: str = "Relatório ASTRYON", sections: list[tuple[str, list[str]]] | None = None) -> bytes:
+    """PDF do período. `sections` acrescenta blocos (título, parágrafos) logo após o resumo, ex.: comparação."""
     from reportlab.graphics.charts.barcharts import VerticalBarChart
     from reportlab.graphics.shapes import Drawing
     from reportlab.lib import colors
@@ -88,11 +90,11 @@ def to_pdf(db: Database, terminal_id: int | None, start: int, end: int, tz: str,
     fmt = lambda ts: datetime.fromtimestamp(ts, z).strftime("%d/%m/%Y %H:%M")  # noqa: E731
     styles = getSampleStyleSheet()
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, title="Relatório OrbitLink AI", leftMargin=1.8 * cm, rightMargin=1.8 * cm)
+    doc = SimpleDocTemplate(buf, pagesize=A4, title=title, leftMargin=1.8 * cm, rightMargin=1.8 * cm)
     q = data["qualidade"]
     u = data["consumo"]
     story: list[Any] = [
-        Paragraph("Relatório OrbitLink AI", styles["Title"]),
+        Paragraph(title, styles["Title"]),
         Paragraph(f"{terminal_name} · {fmt(start)} a {fmt(end)} ({tz})", styles["Normal"]),
         Spacer(1, 10),
         Paragraph("Resumo executivo", styles["Heading2"]),
@@ -125,6 +127,10 @@ def to_pdf(db: Database, terminal_id: int | None, start: int, end: int, tz: str,
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f2f5f9")]),
     ]))
     story += [t, Spacer(1, 12)]
+    for heading, paras in sections or []:
+        story.append(Paragraph(heading, styles["Heading2"]))
+        story += [Paragraph(p, styles["Normal"]) for p in paras]
+        story.append(Spacer(1, 8))
 
     daily = data["consumo_diario"][-31:]
     if daily:

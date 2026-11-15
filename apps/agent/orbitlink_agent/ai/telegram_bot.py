@@ -28,7 +28,7 @@ import httpx
 
 from ..alerts.notify import PermanentError, RetryLater, _check
 from ..auth.local import RateLimiter
-from ..reports import digest
+from ..reports import digest, monthly
 from ..storage.db import Database, now_ts
 from . import copilot, speech, transcribe
 from . import telegram_views as views
@@ -61,6 +61,7 @@ HELP = (
     "/alertas: alertas ativos\n"
     "/clima: clima agora e próximas horas\n"
     "/resumo: consumo, quedas e qualidade dos últimos 7 dias\n"
+    "/relatorio: PDF dos últimos 30 dias (com comparação e clima)\n"
     "/bot: recursos, cotas e notificações\n"
     "/nova: começa uma conversa nova\n"
     "/audio ligar ou /audio desligar: respostas faladas do assistente\n"
@@ -358,6 +359,17 @@ class TelegramBot:
             period = args[0] if args else "24h"
             body = await asyncio.to_thread(views.render, self.db, self.settings, command, period)
             await self.send(client, chat_id, body, section=command)
+            return
+        if cmd == "/relatorio":
+            await self.send(client, chat_id, "📄 Gerando o relatório dos últimos 30 dias...")
+            end = now_ts()
+            start = end - 30 * 86400
+            pdf, caption = await asyncio.to_thread(monthly.build, self.db, self.settings, start, end, (start - 30 * 86400, start))
+            ok = await monthly.send_pdf(self.settings, pdf, caption.replace("Relatório do ciclo", "Relatório"),
+                                        f"astryon-relatorio-{datetime.now(ZoneInfo(self.settings.timezone)):%Y%m%d}.pdf",
+                                        self._transport)
+            if not ok:
+                await self.send(client, chat_id, "Não consegui enviar o PDF agora. Tente de novo em instantes.")
             return
         if cmd == "/resumo":
             text = await asyncio.to_thread(digest.build_rolling, self.db, self.settings)

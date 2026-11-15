@@ -36,6 +36,8 @@ KINDS: dict[str, dict[str, Any]] = {
     "esp32_voltage_high": {"label": "Sobretensão (sensor ESP32)", "unit": "V", "operator": "gt"},
     "esp32_power_lost": {"label": "Alimentação interrompida (sensor ESP32)", "unit": "", "operator": "lt"},
     "esp32_temp_high": {"label": "Temperatura alta (sensor ESP32)", "unit": "°C", "operator": "gt"},
+    "dish_rebooted": {"label": "Antena reiniciou", "unit": "eventos", "operator": "gt"},
+    "dish_firmware_changed": {"label": "Firmware da antena atualizado", "unit": "eventos", "operator": "gt"},
     "server_disk_low": {"label": "Pouco espaço livre no disco do servidor", "unit": "%", "operator": "lt"},
     "server_temp_high": {"label": "Temperatura alta no servidor", "unit": "°C", "operator": "gt"},
     "weather_rain_forecast": {"label": "Chuva forte prevista (clima estimado)", "unit": "mm/h", "operator": "gt"},
@@ -61,6 +63,14 @@ USAGE_CAP_RULES = [
 WEATHER_RULES = [
     ("Chuva forte prevista nas próximas 3 h", "weather_rain_forecast", 7.6, 0, 10800, "warn"),
 ]
+
+# Avisos de mudança na antena: disparam no evento e se encerram sozinhos depois da janela, sem mensagem de
+# "resolvido" (não há o que resolver).
+DISH_EVENT_RULES = [
+    ("Antena reiniciou", "dish_rebooted", 0, 0, 1800, "info"),
+    ("Firmware da antena atualizado", "dish_firmware_changed", 0, 0, 3600, "info"),
+]
+EVENT_KINDS = {"dish_rebooted", "dish_firmware_changed"}
 
 # Saúde do próprio servidor: o painel inteiro depende dele.
 SERVER_RULES = [
@@ -97,6 +107,11 @@ def seed_defaults(db: Database) -> None:
             if not db.scalar("SELECT COUNT(*) FROM alert_rules WHERE kind = ?", (srule[1],)):
                 _insert_rule(db, *srule, ts)
         db.set_kv("alerts:seed:server", "1")
+    if db.get_kv("alerts:seed:dish_events") is None:
+        for drule in DISH_EVENT_RULES:
+            if not db.scalar("SELECT COUNT(*) FROM alert_rules WHERE kind = ?", (drule[1],)):
+                _insert_rule(db, *drule, ts)
+        db.set_kv("alerts:seed:dish_events", "1")
 
 
 def measure(db: Database, collector: Collector | None, kind: str, window_s: int, tz: str,
@@ -128,6 +143,10 @@ def measure(db: Database, collector: Collector | None, kind: str, window_s: int,
             return None
         p = queries.usage_plan(db, None, tz, cap, getattr(settings, "usage_cycle_start_day", 1))
         return float(p["pct_used"]) if p["pct_used"] is not None else None
+    if kind in ("dish_rebooted", "dish_firmware_changed"):
+        ev_kind = "boot" if kind == "dish_rebooted" else "firmware_update"
+        return float(db.scalar("SELECT COUNT(*) FROM connection_events WHERE kind = ? AND start_ts >= ?",
+                               (ev_kind, start)) or 0)
     if kind == "server_disk_low":
         if settings is None:
             return None
@@ -200,8 +219,12 @@ class AlertEngine:
                     unit = KINDS.get(r["kind"], {}).get("unit", "")
                     done = (f"{r['name']}: a previsão não indica mais chuva forte" if r["kind"] == "weather_rain_forecast"
                             else f"{r['name']}: normalizado (valor atual {value:.2f} {unit})".strip())
-                    self._emit({"id": active["id"], "rule_id": r["id"], "status": "resolved", "severity": r["severity"],
-                                "message": done, "ts": now})
+                    resolved = {"id": active["id"], "rule_id": r["id"], "status": "resolved", "severity": r["severity"],
+                                "message": done, "ts": now}
+                    if r["kind"] in EVENT_KINDS:
+                        self.bus.publish("alert", resolved)  # aviso de evento só expira: nada a notificar
+                    else:
+                        self._emit(resolved)
                 continue
             if not _breach(r["operator"], value, r["threshold"]):
                 self.first_breach.pop(r["id"], None)
@@ -220,6 +243,8 @@ class AlertEngine:
                 when = datetime.fromtimestamp(f[1], ZoneInfo(self.tz)).strftime("%Hh") if f else "as próximas horas"
                 msg = (f"🌧️ Chuva forte prevista para {when} ({value:.1f} mm/h)".replace(".", ",")
                        + ". A conexão pode oscilar. Previsão regional (Open-Meteo), não é certeza")
+            if r["kind"] in EVENT_KINDS:
+                msg = self._event_message(r["kind"])
             last = self.db.one("SELECT * FROM alert_events WHERE rule_id = ? ORDER BY started_at DESC LIMIT 1", (r["id"],))
             if last and last["resolved_at"] and now - last["resolved_at"] < r["cooldown_s"]:
                 # dentro do cooldown: agrupa na ocorrência anterior em vez de criar outro evento. Ainda assim
@@ -239,6 +264,16 @@ class AlertEngine:
             fired.append(ev)
             self._emit(ev)
         return fired
+
+    def _event_message(self, kind: str) -> str:
+        ev_kind = "boot" if kind == "dish_rebooted" else "firmware_update"
+        ev = self.db.one("SELECT start_ts, cause FROM connection_events WHERE kind = ? ORDER BY start_ts DESC LIMIT 1",
+                         (ev_kind,))
+        when = datetime.fromtimestamp(ev["start_ts"], ZoneInfo(self.tz)).strftime("%d/%m às %H:%M") if ev else "agora"
+        if kind == "dish_rebooted":
+            return (f"🔄 A antena reiniciou ({when}), detectado pelo contador interno dela. "
+                    "A conexão costuma voltar em alguns minutos")
+        return f"⬆️ Firmware da antena atualizado ({when}): {ev['cause'] if ev else 'nova versão'}"
 
     async def run(self, interval_s: float = 30.0) -> None:
         await asyncio.to_thread(seed_defaults, self.db)

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ConnectionEvent, Gap } from "@orbitlink/shared";
-import { CircleAlert, CircleDot, Power, RadioTower, Unplug } from "lucide-react";
+import { ArrowUpCircle, CircleAlert, CircleDot, Power, RadioTower, Unplug } from "lucide-react";
 import { Badge, Tabs, type Tone } from "@/components/ui/primitives";
 import { fmtDateTime, fmtDuration } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
@@ -24,6 +24,8 @@ export const EVENT_META: Record<string, { label: string; icon: typeof Unplug; to
   ping_drop: { label: "Perda total de ping ao PoP", icon: CircleAlert, tone: "warn" },
   unreachable: { label: "Antena inacessível pelo agente", icon: RadioTower, tone: "neutral" },
   boot: { label: "Reinício da antena", icon: Power, tone: "info" },
+  firmware_update: { label: "Atualização de firmware", icon: ArrowUpCircle, tone: "info" },
+  power_loss: { label: "Falta de energia (ESP32)", icon: Power, tone: "crit" },
 };
 
 export const CONFIDENCE_META: Record<string, { label: string; tone: Tone; help: string }> = {

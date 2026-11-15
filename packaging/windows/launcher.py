@@ -155,6 +155,7 @@ class Supervisor:
 
     def _log(self, name: str) -> Any:
         path = self.root / "logs" / f"{name}.log"
+        path.parent.mkdir(parents=True, exist_ok=True)  # 1ª execução: a pasta ainda não existe
         if path.exists() and path.stat().st_size > LOG_MAX:
             path.replace(path.with_suffix(".log.1"))
         return path.open("ab")
@@ -305,6 +306,7 @@ def main() -> int:
         return 1
     base = app_dir()
     root, is_portable = data_root(base), portable(base)
+    ensure_env(root, is_portable)  # cria dados\, logs\ e astryon.env antes de iniciar os serviços
     minimized = "--minimizado" in sys.argv
     if not single_instance():
         webbrowser.open(PANEL_URL)

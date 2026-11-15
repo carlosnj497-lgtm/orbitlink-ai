@@ -80,3 +80,12 @@ def test_segredo_portatil_abre_com_a_chave_do_pendrive(tmp_path, monkeypatch):
     assert stored.startswith("fernet:")  # não DPAPI: precisa abrir em outro PC
     assert key.exists()
     assert secrets_store.unprotect(stored) == "token-da-conta"
+
+
+def test_log_na_primeira_execucao_cria_a_pasta(launcher, tmp_path):
+    """Primeira execução: a pasta logs\\ ainda não existe e o iniciador não pode quebrar ao abrir o log."""
+    root = tmp_path / "local" / "ASTRYON"
+    sup = launcher.Supervisor(tmp_path / "app", root)
+    with sup._log("agente") as f:
+        f.write(b"ok")
+    assert (root / "logs" / "agente.log").read_bytes() == b"ok"

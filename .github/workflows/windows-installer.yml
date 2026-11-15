@@ -39,6 +39,10 @@ jobs:
           "version=$v" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
       - name: Montar o instalador
         shell: pwsh
+        env:
+          # Variáveis do repositório (Settings → Secrets and variables → Actions → Variables). Opcionais.
+          ASTRYON_CLOUD_SUPABASE_URL: ${{ vars.ASTRYON_CLOUD_SUPABASE_URL }}
+          ASTRYON_CLOUD_SUPABASE_ANON_KEY: ${{ vars.ASTRYON_CLOUD_SUPABASE_ANON_KEY }}
         run: ./packaging/windows/build.ps1 -Version "${{ steps.ver.outputs.version }}"
       - uses: actions/upload-artifact@v4
         with:

@@ -5,7 +5,8 @@
 * Vigia os dois: se um cair, sobe de novo (com espera crescente).
 * Ícone verde (agente e painel respondendo) ou vermelho (algum dos dois fora do ar). A situação da antena
   aparece no próprio painel.
-* Menu: Abrir painel, Reiniciar serviços, Ver logs, Editar configurações, Iniciar com o Windows, Sair.
+* Menu: Abrir painel, Conectar à conta, Reiniciar serviços, Ver logs, Editar configurações, Iniciar com o Windows,
+  Sair. "Conectar à conta" pede o código gerado no painel na nuvem e liga este computador à conta.
 * Uma única instância: abrir de novo só abre o navegador.
 
 A pasta de dados fica fora da pasta do programa: atualizar ou reinstalar não apaga nada.
@@ -13,6 +14,7 @@ A pasta de dados fica fora da pasta do programa: atualizar ou reinstalar não ap
 
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import subprocess
@@ -62,6 +64,24 @@ def ensure_env(root: Path) -> Path:
     return env
 
 
+def cloud_defaults(base: Path) -> dict[str, str]:
+    """Endereço e chave pública da nuvem gravados no build (cloud.json); a chave anon do Supabase é pública."""
+    try:
+        data = json.loads((base / "cloud.json").read_text(encoding="utf-8"))
+        return {k: str(v) for k, v in data.items() if k in ("ASTRYON_SUPABASE_URL", "ASTRYON_SUPABASE_ANON_KEY") and v}
+    except (OSError, ValueError):
+        return {}
+
+
+def ensure_cloud(env_file: Path, base: Path) -> None:
+    """Acrescenta a configuração da nuvem ao astryon.env se ainda não estiver lá (não sobrescreve ajustes)."""
+    current = read_env(env_file)
+    missing = {k: v for k, v in cloud_defaults(base).items() if k not in current}
+    if missing:
+        with env_file.open("a", encoding="utf-8") as f:
+            f.write("".join(f"{k}={v}\n" for k, v in missing.items()))
+
+
 def read_env(path: Path) -> dict[str, str]:
     out: dict[str, str] = {}
     for line in path.read_text(encoding="utf-8-sig").splitlines():
@@ -76,6 +96,7 @@ def read_env(path: Path) -> dict[str, str]:
 
 def child_env(root: Path) -> dict[str, str]:
     env_file = ensure_env(root)
+    ensure_cloud(env_file, app_dir())
     env = dict(os.environ)
     env.update(read_env(env_file))
     env.update({"ASTRYON_ENV_FILE": str(env_file), "NODE_ENV": "production", "PORT": "3000",
@@ -147,6 +168,42 @@ class Supervisor:
                     if not self.stopping and p is not None and p.poll() is not None:
                         self.start(name)
             time.sleep(5)
+
+
+def pair_with_code(base: Path, root: Path, code: str) -> tuple[bool, str]:
+    """Roda `astryon-agent pair CÓDIGO` com a configuração deste computador. Devolve (ok, mensagem)."""
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        r = subprocess.run([str(base / "agent" / "astryon-agent.exe"), "pair", code.strip()], env=child_env(root),
+                           capture_output=True, text=True, timeout=60, creationflags=flags)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, f"Não foi possível rodar o agente ({type(exc).__name__})."
+    out = (r.stdout or r.stderr or "").strip().splitlines()
+    return r.returncode == 0, out[-1] if out else ("Pareado." if r.returncode == 0 else "Falhou.")
+
+
+def ask_code() -> str | None:
+    import tkinter as tk
+    from tkinter import simpledialog
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    code = simpledialog.askstring(APP_NAME, "Digite o código gerado em Conta → Conectar a antena\n(ex.: K7QF-2M9X):",
+                                  parent=root)
+    root.destroy()
+    return code
+
+
+def show_message(text: str, error: bool = False) -> None:
+    import tkinter as tk
+    from tkinter import messagebox
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    (messagebox.showerror if error else messagebox.showinfo)(APP_NAME, text, parent=root)
+    root.destroy()
 
 
 def http_ok(url: str) -> bool:
@@ -226,6 +283,20 @@ def main() -> int:
     def open_panel(*_: Any) -> None:
         webbrowser.open(PANEL_URL)
 
+    def connect_account(*_: Any) -> None:
+        def run() -> None:
+            code = ask_code()
+            if not code:
+                return
+            ok, msg = pair_with_code(base, root, code)
+            if ok:
+                sup.restart_all()
+                show_message(msg.replace(" Reinicie o agente para começar a sincronizar.", "") + "\nOs dados começam a aparecer na sua conta em alguns minutos.")
+            else:
+                show_message(msg, error=True)
+
+        threading.Thread(target=run, daemon=True).start()
+
     def toggle_autostart(*_: Any) -> None:
         set_autostart(not autostart_enabled())
 
@@ -236,6 +307,7 @@ def main() -> int:
 
     menu = pystray.Menu(
         pystray.MenuItem("Abrir painel", open_panel, default=True),
+        pystray.MenuItem("Conectar à conta…", connect_account),
         pystray.MenuItem("Reiniciar serviços", lambda *_: sup.restart_all()),
         pystray.MenuItem("Ver logs", lambda *_: os.startfile(root / "logs")),  # type: ignore[attr-defined]
         pystray.MenuItem("Editar configurações", lambda *_: os.startfile(root / "astryon.env")),  # type: ignore[attr-defined]

@@ -104,3 +104,24 @@ def test_pair_api(tmp_path, monkeypatch):
         assert bad.status_code == 400 and "Gere outro" in bad.json()["detail"]
         assert c.post("/v1/sync/pair", headers=h, json={"code": "K7QF-2M9X"}).json()["workspace_name"] == "Minha Starlink"
         assert c.delete("/v1/sync/pair", headers=h).json()["paired"] is False
+
+
+def test_appliance_pairing_without_login(tmp_path, monkeypatch):
+    async def fake_claim(db, settings, code, name=None, transport=None):
+        db.set_kv(pairing.KV_TOKEN, "plain:" + TOKEN)
+        db.set_kv(pairing.KV_INFO, json.dumps({"workspace_name": "Minha Starlink"}))
+        return {"paired": True, "workspace_name": "Minha Starlink"}
+
+    monkeypatch.setattr(pairing, "claim", fake_claim)
+    svc = {"Authorization": "Bearer svc-token"}
+    off = create_app(api_settings(tmp_path / "a", **CLOUD, backup_enabled=False), start_collector=False)
+    with TestClient(off) as c:
+        assert c.post("/v1/appliance/pair", headers=svc, json={"code": "K7QF-2M9X"}).status_code == 404  # fora do modo aparelho
+    app = create_app(api_settings(tmp_path / "b", **CLOUD, appliance=True, backup_enabled=False), start_collector=False)
+    with TestClient(app) as c:
+        assert c.post("/v1/appliance/pair", json={"code": "K7QF-2M9X"}).status_code == 401  # ainda exige o token do painel
+        assert c.get("/v1/appliance", headers=svc).json()["paired"] is False
+        r = c.post("/v1/appliance/pair", headers=svc, json={"code": "K7QF-2M9X"})
+        assert r.status_code == 200 and r.json()["workspace_name"] == "Minha Starlink"
+        again = c.post("/v1/appliance/pair", headers=svc, json={"code": "ABCD-EFGH"})
+        assert again.status_code == 409  # depois de pareado, a porta sem login fecha

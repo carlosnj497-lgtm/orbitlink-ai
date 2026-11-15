@@ -6,11 +6,11 @@ import asyncio
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from ..sync import pairing, worker
-from .deps import Admin, AppContext, Ctx, User
+from .deps import Admin, AppContext, Ctx, User, require_service
 
 router = APIRouter(prefix="/v1/sync", tags=["sincronizacao"])
 
@@ -62,6 +62,33 @@ async def unpair(c: Ctx, _a: Admin) -> dict[str, Any]:
     return pairing.info(c.db, c.settings)
 
 
+# ------------------------------------------------------------------ aparelho pronto (sem login)
+appliance = APIRouter(prefix="/v1/appliance", tags=["aparelho"], dependencies=[Depends(require_service)])
+
+
+@appliance.get("")
+def appliance_state(c: Ctx) -> dict[str, Any]:
+    p = pairing.info(c.db, c.settings)
+    return {"appliance": c.settings.appliance, "cloud_configured": p["cloud_configured"], "paired": p["paired"],
+            "workspace_name": p["workspace_name"], "terminal_name": c.settings.terminal_name}
+
+
+@appliance.post("/pair")
+async def appliance_pair(c: Ctx, body: PairBody) -> dict[str, Any]:
+    """Pareamento sem login, só em modo aparelho e só enquanto ainda não houver conta ligada."""
+    if not c.settings.appliance:
+        raise HTTPException(404, "Disponível só no modo aparelho.")
+    if pairing.info(c.db, c.settings)["paired"]:
+        raise HTTPException(409, "Este aparelho já está ligado a uma conta. Para trocar, remova o acesso dele "
+                                 "na sua conta e use o painel local.")
+    try:
+        res = await pairing.claim(c.db, c.settings, body.code, body.name)
+    except pairing.PairingError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    _ensure_task(c)
+    return {"paired": res["paired"], "workspace_name": res["workspace_name"]}
+
+
 def _ensure_task(ctx: AppContext) -> None:
     t = ctx.extras.get("sync_task")
     if t is not None and not t.done():
@@ -73,6 +100,8 @@ def _ensure_task(ctx: AppContext) -> None:
 
 
 def register(app: FastAPI) -> None:
+    app.include_router(appliance)
+
     async def start(ctx: AppContext) -> None:
         ctx.extras["sync_state"] = {}
         _ensure_task(ctx)

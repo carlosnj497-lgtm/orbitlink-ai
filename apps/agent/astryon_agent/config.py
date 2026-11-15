@@ -133,6 +133,10 @@ class Settings(BaseSettings):
     backup_telegram: bool = True
     backup_telegram_every_days: int = Field(default=7, ge=1, le=90)
 
+    # Aparelho pronto (ex.: Raspberry Pi vendido já instalado): enquanto NÃO estiver pareado, a página
+    # http://astryon.local/aparelho aceita o código da conta sem login de administrador (só na rede local).
+    appliance: bool = False
+
     # MQTT (opcional, ex.: Home Assistant). Sem host, nada é publicado.
     mqtt_host: str | None = None
     mqtt_port: int = Field(default=1883, ge=1, le=65535)

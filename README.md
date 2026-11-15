@@ -224,7 +224,7 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 | Supabase | 11 testes de isolamento RLS em Postgres (PGlite). Ainda não aplicado a um projeto real. |
 | Firmware ESP32 | Compila (`esp32dev` e `esp32dev_sensors`). Ainda não gravado em placa. |
 | Implantação Linux | 51 testes dos scripts e instalação real num Ubuntu 24.04 limpo no CI. |
-| Painel remoto via Supabase | Não implementado: a nuvem recebe os dados, mas o painel lê só o agente local. |
+| Painel na nuvem (Vercel + Supabase) | Login por e-mail, pareamento por código, Dashboard, Consumo, Qualidade, Eventos e Conta. Testado com Supabase simulado; falta publicar e aplicar o SQL no seu projeto. |
 
 ## Roteiro
 
@@ -237,7 +237,8 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - [x] Aviso de chuva forte prevista no Telegram e comando `/clima`
 - [ ] Validação em antenas Starlink reais dos diferentes modelos e gerações
 - [ ] Nó ESP32 gravado e testado numa placa
-- [ ] Painel remoto lendo os dados sincronizados no Supabase
+- [x] Serviço na nuvem: conta por e-mail, código de pareamento e painel lendo o Supabase ([NUVEM.md](docs/NUVEM.md))
+- [ ] Aparelho pronto (Raspberry Pi) com página de configuração: script pronto, falta testar no hardware ([APARELHO.md](docs/APARELHO.md))
 - [ ] Instalador `.exe` para Windows com ícone na bandeja: pronto para gerar no GitHub Actions, falta validar num Windows real
 
 ## Perguntas frequentes
@@ -329,6 +330,8 @@ O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, paine
 | [SECURITY.md](docs/SECURITY.md) | Modelo de segurança |
 | [ESP32_SETUP.md](docs/ESP32_SETUP.md) | Montagem e pareamento do ESP32 |
 | [SUPABASE.md](docs/SUPABASE.md) | Sincronização opcional com a nuvem |
+| [NUVEM.md](docs/NUVEM.md) | Serviço na nuvem: Supabase, Vercel e contas |
+| [APARELHO.md](docs/APARELHO.md) | Aparelho pronto (Raspberry Pi) |
 | [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md) | Sensores no Home Assistant via MQTT |
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Solução de problemas |
 | [ACCEPTANCE_TESTS.md](docs/ACCEPTANCE_TESTS.md) | Testes de aceitação |

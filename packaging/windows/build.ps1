@@ -9,7 +9,9 @@
   Requisitos: Python 3.12, Node 22 (para o build), Inno Setup 6 (iscc no PATH).
 #>
 [CmdletBinding()]
-param([string]$Version = "0.1.0", [string]$NodeVersion = "")
+param([string]$Version = "0.1.0", [string]$NodeVersion = "",
+      # Nuvem padrão do instalador (públicos: o endereço e a chave anon do Supabase). Vazios = sem nuvem pronta.
+      [string]$SupabaseUrl = $env:ASTRYON_CLOUD_SUPABASE_URL, [string]$SupabaseAnonKey = $env:ASTRYON_CLOUD_SUPABASE_ANON_KEY)
 $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $Here = $PSScriptRoot
@@ -43,6 +45,11 @@ Write-Host "==> Iniciador da bandeja"
   --distpath $Stage --workpath (Join-Path $Here "build\launcher") --specpath (Join-Path $Here "build") `
   (Join-Path $Here "launcher.py")
 Copy-Item (Join-Path $Here "astryon.ico") $Stage
+if ($SupabaseUrl -and $SupabaseAnonKey) {
+  @{ ASTRYON_SUPABASE_URL = $SupabaseUrl; ASTRYON_SUPABASE_ANON_KEY = $SupabaseAnonKey } | ConvertTo-Json |
+    Out-File -Encoding utf8 (Join-Path $Stage "cloud.json")
+  Write-Host "    nuvem padrão: $SupabaseUrl"
+}
 
 Write-Host "==> Painel (Next.js standalone)"
 Push-Location $Root

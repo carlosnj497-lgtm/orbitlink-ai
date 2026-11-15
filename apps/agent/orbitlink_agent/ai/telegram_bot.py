@@ -49,7 +49,8 @@ HELP = (
     "Exemplos:\n"
     "- Como está a conexão agora?\n"
     "- Quanto consumi este mês? Vou passar da franquia?\n"
-    "- Teve queda hoje? Por quê?\n\n"
+    "- Teve queda hoje? Por quê?\n"
+    "- A queda de ontem foi por causa da chuva?\n\n"
     "Comandos:\n"
     "/menu: abrir a central de consultas\n"
     "/status: diagnóstico rápido por regras (não usa IA)\n"
@@ -58,6 +59,7 @@ HELP = (
     "/qualidade: latência, perda e disponibilidade\n"
     "/quedas: interrupções recentes\n"
     "/alertas: alertas ativos\n"
+    "/clima: clima agora e próximas horas\n"
     "/resumo: consumo, quedas e qualidade dos últimos 7 dias\n"
     "/bot: recursos, cotas e notificações\n"
     "/nova: começa uma conversa nova\n"
@@ -250,13 +252,16 @@ class TelegramBot:
         self.state["running"] = True
         failures = 0
         async with self._client() as client:
-            try:
-                await self._call(client, "setMyCommands", {
-                    "commands": [{"command": key, "description": value} for key, value in views.COMMANDS.items()],
-                    "scope": {"type": "chat", "chat_id": self.settings.telegram_chat_id},
-                })
-            except (httpx.HTTPError, PermanentError, RetryLater):
-                log.warning("não foi possível registrar o menu de comandos do Telegram")
+            # Atualiza TODOS os menus que o telegram_setup publica (padrão e chat, sem idioma e em português):
+            # um menu "pt" antigo tem prioridade para clientes em português e esconderia comandos novos.
+            commands = [{"command": key, "description": value} for key, value in views.COMMANDS.items()]
+            for scope in ({"type": "default"}, {"type": "chat", "chat_id": self.settings.telegram_chat_id}):
+                for language in ("", "pt"):
+                    try:
+                        await self._call(client, "setMyCommands",
+                                         {"commands": commands, "scope": scope, "language_code": language})
+                    except (httpx.HTTPError, PermanentError, RetryLater):
+                        log.warning("não foi possível registrar o menu de comandos do Telegram")
             while True:
                 try:
                     t0 = time.monotonic()
@@ -342,7 +347,7 @@ class TelegramBot:
             await self.send(client, chat_id, "💬 Conversa nova. Pode perguntar.\n"
                             "O contexto anterior foi desvinculado; o histórico continua disponível no painel.", section="menu")
             return
-        if cmd.lstrip("/") in views.REPORTS | {"franquia", "alertas", "bot"}:
+        if cmd.lstrip("/") in views.REPORTS | {"franquia", "alertas", "bot", "clima"}:
             command = cmd.lstrip("/")
             args = text.split()[1:]
             if args and (command not in views.REPORTS or len(args) != 1 or args[0] not in views.PERIODS):

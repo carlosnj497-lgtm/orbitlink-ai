@@ -11,6 +11,7 @@ O menu de comandos é registrado automaticamente quando o agente inicia.
 | `/qualidade` | Disponibilidade, latência, jitter e perda |
 | `/quedas` | Até 10 interrupções recentes |
 | `/alertas` | Até 10 alertas ativos mais recentes |
+| `/clima` | Clima agora, próximas horas e aviso se houver chuva forte prevista |
 | `/resumo` | Resumo consolidado dos últimos 7 dias |
 | `/bot` | Recursos habilitados, cota de IA e fila de notificações |
 | `/nova` | Desvincula o contexto atual; não apaga o histórico do painel |
@@ -21,9 +22,24 @@ Consumo, qualidade e quedas aceitam `1h`, `6h`, `24h`, `7d` e `30d`.
 Exemplo: `/consumo 7d`. Sem argumento, usam as últimas 24 horas.
 Os botões de período executam uma nova consulta e mostram seu intervalo e fuso.
 
+Em `/quedas`, cada interrupção que coincidiu com chuva moderada ou mais forte, trovoada ou rajada forte
+aparece com 🌧 e o clima daquela hora. É uma coincidência, não prova de causa.
+
 Essas consultas funcionam sem IA. Para conversar, envie uma pergunta em texto
 ou uma nota de voz (se a transcrição estiver habilitada). Texto e voz mantêm o
 mesmo contexto; a cota diária de perguntas é compartilhada com o painel.
+
+### Clima
+
+Com a cidade definida no painel (Configurações → Clima), o bot passa a:
+
+- responder `/clima` com a condição atual, as próximas 6 horas e o aviso de chuva forte;
+- mostrar o clima junto das quedas em `/quedas`;
+- avisar sozinho quando houver **chuva forte prevista nas próximas 3 horas** (acima de 7,6 mm/h), pela
+  regra de alerta "Chuva forte prevista", que pode ser ajustada ou desligada em Alertas;
+- responder perguntas como "a queda de ontem foi por causa da chuva?" com os dados de clima do período.
+
+O clima vem da Open-Meteo (gratuita, sem chave). É uma estimativa regional, não um sensor no local.
 
 ### Respostas em voz
 

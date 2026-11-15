@@ -8,12 +8,15 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from ..collector.bus import EventBus
 from ..collector.service import Collector
 from ..storage import queries
 from ..storage.db import Database, now_ts
+from ..weather import service as weather
 from .notify import Notifier
 
 log = logging.getLogger("orbitlink.alerts")
@@ -31,6 +34,7 @@ KINDS: dict[str, dict[str, Any]] = {
     "esp32_voltage_high": {"label": "Sobretensão (sensor ESP32)", "unit": "V", "operator": "gt"},
     "esp32_power_lost": {"label": "Alimentação interrompida (sensor ESP32)", "unit": "", "operator": "lt"},
     "esp32_temp_high": {"label": "Temperatura alta (sensor ESP32)", "unit": "°C", "operator": "gt"},
+    "weather_rain_forecast": {"label": "Chuva forte prevista (clima estimado)", "unit": "mm/h", "operator": "gt"},
 }
 
 DEFAULT_RULES = [
@@ -46,6 +50,12 @@ DEFAULT_RULES = [
 USAGE_CAP_RULES = [
     ("Franquia: 80% consumida", "usage_cap_pct", 80, 0, 3600, "warn"),
     ("Franquia: 100% consumida", "usage_cap_pct", 100, 0, 3600, "crit"),
+]
+
+# Aviso antecipado: maior chuva prevista nas próximas 3 h (janela) acima de 7,6 mm/h ("forte"). Só avalia com a
+# localização do clima definida e previsão recente; sem isso o valor é "sem dados" e nada dispara.
+WEATHER_RULES = [
+    ("Chuva forte prevista nas próximas 3 h", "weather_rain_forecast", 7.6, 0, 10800, "warn"),
 ]
 
 
@@ -67,6 +77,11 @@ def seed_defaults(db: Database) -> None:
             for rule in USAGE_CAP_RULES:
                 _insert_rule(db, *rule, ts)
         db.set_kv("alerts:seed:usage_cap", "1")
+    if db.get_kv("alerts:seed:weather") is None:
+        if not db.scalar("SELECT COUNT(*) FROM alert_rules WHERE kind = 'weather_rain_forecast'"):
+            for wrule in WEATHER_RULES:
+                _insert_rule(db, *wrule, ts)
+        db.set_kv("alerts:seed:weather", "1")
 
 
 def measure(db: Database, collector: Collector | None, kind: str, window_s: int, tz: str,
@@ -98,6 +113,11 @@ def measure(db: Database, collector: Collector | None, kind: str, window_s: int,
             return None
         p = queries.usage_plan(db, None, tz, cap, getattr(settings, "usage_cycle_start_day", 1))
         return float(p["pct_used"]) if p["pct_used"] is not None else None
+    if kind == "weather_rain_forecast":
+        if settings is not None and not getattr(settings, "weather_enabled", True):
+            return None
+        f = weather.forecast_max_mm(db, window_s, now)
+        return f[0] if f else None
     if kind == "obstruction_high":
         if collector and collector.state.last_status:
             m = collector.state.last_status.metrics.get("obstruction_pct")
@@ -153,8 +173,10 @@ class AlertEngine:
                     self.db.execute("UPDATE alert_events SET status='resolved', resolved_at=? WHERE id=?", (now, active["id"]))
                     self.first_breach.pop(r["id"], None)
                     unit = KINDS.get(r["kind"], {}).get("unit", "")
+                    done = (f"{r['name']}: a previsão não indica mais chuva forte" if r["kind"] == "weather_rain_forecast"
+                            else f"{r['name']}: normalizado (valor atual {value:.2f} {unit})".strip())
                     self._emit({"id": active["id"], "rule_id": r["id"], "status": "resolved", "severity": r["severity"],
-                                "message": f"{r['name']}: normalizado (valor atual {value:.2f} {unit})".strip(), "ts": now})
+                                "message": done, "ts": now})
                 continue
             if not _breach(r["operator"], value, r["threshold"]):
                 self.first_breach.pop(r["id"], None)
@@ -168,6 +190,11 @@ class AlertEngine:
             msg = f"{r['name']}: valor {value:.2f} {unit} (limiar {r['threshold']:g} {unit})".strip()
             if r["kind"] in ("usage_cap_pct", "usage_month"):
                 msg += ". Estimativa local; a fatura oficial pode diferir"
+            if r["kind"] == "weather_rain_forecast":
+                f = weather.forecast_max_mm(self.db, r["window_s"], now)
+                when = datetime.fromtimestamp(f[1], ZoneInfo(self.tz)).strftime("%Hh") if f else "as próximas horas"
+                msg = (f"🌧️ Chuva forte prevista para {when} ({value:.1f} mm/h)".replace(".", ",")
+                       + ". A conexão pode oscilar. Previsão regional (Open-Meteo), não é certeza")
             last = self.db.one("SELECT * FROM alert_events WHERE rule_id = ? ORDER BY started_at DESC LIMIT 1", (r["id"],))
             if last and last["resolved_at"] and now - last["resolved_at"] < r["cooldown_s"]:
                 # dentro do cooldown: agrupa na ocorrência anterior em vez de criar outro evento. Ainda assim

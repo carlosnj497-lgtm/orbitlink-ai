@@ -24,6 +24,7 @@ from ..control.service import ACTIONS, capability_allows
 from ..diagnostics import engine
 from ..storage import queries
 from ..storage.db import Database, now_ts
+from ..weather import service as weather
 
 log = logging.getLogger("orbitlink.ai")
 
@@ -55,9 +56,11 @@ dos dados e nunca deve ser mencionada ao usuário. A confiabilidade vem dos camp
 - Se a antena estiver indisponível, informe o motivo registrado pelo agente (campo "motivo"); não invente causas \
 físicas (energia, obstrução, hardware) sem evidência — apresente-as no máximo como hipóteses a verificar.
 - Horários devem ser apresentados no fuso local informado na mensagem "Agora".
+- Para perguntas sobre clima ou se a chuva afetou a conexão, use get_weather. O clima é estimativa regional \
+(fonte "estimada"): diga que a queda "coincidiu com chuva forte", nunca que "foi causada pela chuva".
 - Você ACEITA perguntas ditadas por voz: o Telegram transcreve a nota de voz e a pergunta chega aqui como texto \
 com a marca de origem. Nunca diga que não entende áudio, que só processa texto, ou que o usuário precisa escrever. \
-Responda à pergunta normalmente, como se tivesse sido escrita. Se a transcrição estiver Clearly ambígua ou \
+Responda à pergunta normalmente, como se tivesse sido escrita. Se a transcrição estiver claramente ambígua ou \
 truncada, responda o que der para responder e peça para repetir a parte que não ficou clara.
 """
 
@@ -106,6 +109,9 @@ TOOLS = [
     _tool("get_network_devices", "Dispositivos conectados informados pelo roteador Starlink, se suportado."),
     _tool("get_esp32_telemetry", "Nós ESP32 pareados, estado e últimas leituras de sensores.", {"range": RANGE}),
     _tool("get_active_alerts", "Alertas ativos e recentes."),
+    _tool("get_weather", "Clima estimado (Open-Meteo) da cidade configurada: agora, próximas horas e, no período pedido, "
+          "horas com chuva e eventos de conexão que coincidiram com chuva ou tempestade. É estimativa regional: "
+          "use para apontar coincidência, nunca como prova de causa.", {"range": RANGE}),
     _tool("get_diagnostic_summary", "Diagnóstico por regras: disponibilidade, perdas, quedas, anomalias, achados.", {"range": RANGE}),
     _tool("prepare_control_action",
           "Gera uma PROPOSTA de ação de controle (não executa). O usuário confirma na tela de Controle.",
@@ -188,6 +194,14 @@ class Toolbox:
             return self.db.query("""SELECT r.name, e.severity, e.status, e.started_at, e.resolved_at, e.message, e.occurrences
                                     FROM alert_events e JOIN alert_rules r ON r.id = e.rule_id
                                     ORDER BY e.started_at DESC LIMIT 30""")
+        if name == "get_weather":
+            st = weather.status(self.db, self.s)
+            if not st["configured"]:
+                return {"configurado": False, "nota": "Nenhuma cidade definida em Configurações → Clima."}
+            s, e = self._range(args)
+            nxt = [h for h in weather.hourly(self.db, now_ts(), now_ts() + 6 * 3600) if h["is_forecast"]]
+            return {"configurado": True, "local": st["location"]["name"], "agora": st["current"],
+                    "proximas_horas": nxt, "periodo": weather.period_summary(self.db, s, e), "fonte": "estimada"}
         if name == "get_diagnostic_summary":
             s, e = self._range(args)
             res = engine.summary(self.db, self._tid(), s, e, tz)

@@ -10,6 +10,7 @@ from ..alerts.notify import Notifier
 from ..reports.builder import _fmt_bytes
 from ..storage import queries
 from ..storage.db import Database, now_ts
+from ..weather import service as weather
 
 PERIODS = {"1h": 3600, "6h": 21600, "24h": 86400, "7d": 604800, "30d": 2592000}
 REPORTS = {"consumo", "qualidade", "quedas"}
@@ -21,6 +22,7 @@ COMMANDS = {
     "qualidade": "Latência, perda e disponibilidade",
     "quedas": "Interrupções recentes",
     "alertas": "Alertas ativos",
+    "clima": "Clima agora e próximas horas",
     "resumo": "Resumo dos últimos 7 dias",
     "bot": "Recursos, cotas e notificações",
     "nova": "Começar uma conversa nova",
@@ -40,7 +42,8 @@ def keyboard(section: str = "menu") -> dict[str, Any]:
             [button("🛰 Status", "status"), button("📊 Resumo", "resumo")],
             [button("📶 Consumo", "consumo"), button("📦 Franquia", "franquia")],
             [button("⏱ Qualidade", "qualidade"), button("📉 Quedas", "quedas")],
-            [button("🔔 Alertas", "alertas"), button("⚙️ Meu bot", "bot")],
+            [button("🔔 Alertas", "alertas"), button("🌦 Clima", "clima")],
+            [button("⚙️ Meu bot", "bot")],
             [button("💬 Nova conversa", "nova"), button("❓ Ajuda", "ajuda")],
             [button("🔊 Respostas em áudio", "audio")],
         ]
@@ -106,15 +109,23 @@ def render(db: Database, settings: Any, command: str, period: str = "24h") -> st
     if command == "quedas":
         events = queries.events(db, start, end, limit=11)
         lines = ["📉 **Interrupções recentes**", stamp, ""]
-        labels = {"ping_drop": "Perda de ping", "unreachable": "Antena inacessível", "power_loss": "Falta de energia"}
+        labels = {"ping_drop": "Perda de ping", "unreachable": "Antena inacessível", "power_loss": "Falta de energia",
+                  "outage": "Interrupção reportada pela antena", "status_outage": "Antena reportou indisponibilidade",
+                  "boot": "Reinício da antena"}
+        rained = False
         for e in events[:10]:
             duration = "em andamento" if e["open"] else number(e["duration_s"], " s")
-            lines.append(f"• {when(e['start_ts'])} · {labels.get(e['kind'], e['kind'])} · {duration}")
+            wx = weather.note(weather.at(db, e["start_ts"]))
+            rained = rained or bool(wx)
+            lines.append(f"• {when(e['start_ts'])} · {labels.get(e['kind'], e['kind'])} · {duration}"
+                         + (f" · 🌧 {wx}" if wx else ""))
         if not events:
             lines.append("Nenhuma interrupção registrada. Isso não comprova conexão contínua em períodos sem coleta.")
         if len(events) > 10:
             lines.append("Mostrando as 10 mais recentes; veja o histórico completo no painel.")
         lines.append("\nFonte: eventos locais. Duração pode incluir tempo anterior ao período selecionado.")
+        if rained:
+            lines.append("🌧 = clima estimado naquela hora (Open-Meteo). Coincidência, não prova de causa.")
         return "\n".join(lines)
     if command == "alertas":
         rows = db.query("SELECT severity, message, started_at FROM alert_events WHERE status='active' "
@@ -141,8 +152,44 @@ def render(db: Database, settings: Any, command: str, period: str = "24h") -> st
             f"Notas de voz: {'ativadas' if ai and settings.ai_transcribe_enabled else 'desativadas'}",
             f"Notificações pendentes: {n['pending']} · falhas nas últimas 24 h: {n['failed_24h']}",
             f"Resumo semanal: {'ativado' if settings.weekly_digest_enabled else 'desativado'}",
+            f"Clima: {loc.name if (loc := weather.get_location(db, settings)) else 'sem cidade (defina em Configurações → Clima)'}",
             f"Fuso: {tz}", "",
             "Os comandos de consulta não gastam a cota de IA.",
             "Envie texto ou uma nota de voz para conversar. Use /nova para reiniciar o contexto.",
         ])
+    if command == "clima":
+        return render_weather(db, settings, when)
     raise ValueError("consulta desconhecida")
+
+
+def render_weather(db: Database, settings: Any, when: Any) -> str:
+    st = weather.status(db, settings)
+    if not st["configured"]:
+        return "\n".join(["🌦 **Clima**", "",
+                          "Nenhuma cidade definida. Escolha a cidade da antena no painel, em Configurações → Clima.",
+                          "Depois disso o clima aparece aqui, nos gráficos e junto das quedas."])
+    c = st["current"]
+    lines = ["🌦 **Clima**", f"{st['location']['name']}", ""]
+    if not c:
+        lines.append(f"Ainda sem dados. {('Último erro: ' + st['last_error']) if st['last_error'] else 'Aguardando a primeira busca.'}")
+        return "\n".join(lines)
+    lines += [f"Agora: **{describe_temp(c['temperature_c'])}** · {weather.describe(c['weather_code'])}",
+              f"Chuva: {number(c['precipitation_mm'], ' mm/h')} · Vento: {number(c['wind_kmh'], ' km/h')}"
+              f" · Rajadas: {number(c['gust_kmh'], ' km/h')} · Nuvens: {number(c['cloud_cover_pct'], '%')}"]
+    nxt = [h for h in weather.hourly(db, now_ts(), now_ts() + 7 * 3600) if h["is_forecast"]][:6]
+    if nxt:
+        lines += ["", "Próximas horas:"]
+        for h in nxt:
+            rain = f" · {h['precipitation_mm']:.1f} mm/h".replace(".", ",") if h["precipitation_mm"] else ""
+            lines.append(f"• {when(h['hour_ts'])[-5:-3]}h · {describe_temp(h['temperature_c'])} · "
+                         f"{weather.describe(h['weather_code'])}{rain}")
+    f = weather.forecast_max_mm(db, 3 * 3600)
+    if f and f[0] >= 7.6:
+        lines += ["", f"⚠️ Chuva forte prevista por volta das {when(f[1])[-5:-3]}h: a conexão pode oscilar."]
+    lines += ["", f"Atualizado {when(c['fetched_at'])}{' (desatualizado)' if c['stale'] else ''}.",
+              "Estimativa regional (Open-Meteo), não um sensor no local."]
+    return "\n".join(lines)
+
+
+def describe_temp(v: Any) -> str:
+    return "indisponível" if v is None else f"{round(v)} °C"

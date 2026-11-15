@@ -166,7 +166,8 @@ Abra `http://localhost:3000` no próprio PC e crie o administrador. Para parar: 
 | `/status` | Diagnóstico das últimas 24 h |
 | `/consumo 7d` | Download, upload e cobertura no período |
 | `/franquia` | Limite, saldo estimado e projeção do ciclo |
-| `/qualidade` · `/quedas` · `/alertas` | Qualidade, interrupções e alertas ativos |
+| `/qualidade` · `/quedas` · `/alertas` | Qualidade, interrupções (com o clima de cada uma) e alertas ativos |
+| `/clima` | Clima agora, próximas horas e aviso de chuva forte |
 | `/resumo` | Resumo dos últimos 7 dias |
 
 Consultas por comando não gastam IA. Perguntas em texto ou voz usam a cota diária, compartilhada com o painel. Todos os comandos: [docs/TELEGRAM.md](docs/TELEGRAM.md).
@@ -222,7 +223,7 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - [x] Central de IA (Groq) e notas de voz transcritas pelo Whisper
 - [x] Instalação no Ubuntu com systemd, Nginx e UFW, testada no CI
 - [x] Clima da cidade (Open-Meteo) cruzado com a qualidade e as quedas
-- [ ] Aviso de chuva forte prevista no Telegram e comando `/clima`
+- [x] Aviso de chuva forte prevista no Telegram e comando `/clima`
 - [ ] Validação numa Starlink Mini real
 - [ ] Nó ESP32 gravado e testado numa placa
 - [ ] Painel remoto lendo os dados sincronizados no Supabase

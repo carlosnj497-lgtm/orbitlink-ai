@@ -258,3 +258,71 @@ async def geocode(query: str, transport: httpx.AsyncBaseTransport | None = None)
             out.append({"name": ", ".join(str(p) for p in parts if p), "latitude": g["latitude"],
                         "longitude": g["longitude"]})
         return out
+
+
+# ------------------------------------------------------------------ uso pelo bot, alertas e IA
+WMO_PT = {0: "céu limpo", 1: "predomínio de sol", 2: "parcialmente nublado", 3: "nublado", 45: "neblina", 48: "neblina",
+          51: "garoa", 53: "garoa", 55: "garoa", 56: "garoa congelante", 57: "garoa congelante",
+          61: "chuva fraca", 63: "chuva moderada", 65: "chuva forte", 66: "chuva congelante", 67: "chuva congelante",
+          71: "neve", 73: "neve", 75: "neve", 77: "neve", 80: "pancadas fracas", 81: "pancadas moderadas",
+          82: "pancadas fortes", 85: "neve", 86: "neve", 95: "trovoada", 96: "trovoada com granizo", 99: "trovoada com granizo"}
+RAIN_PT = {"sem_chuva": "sem chuva", "fraca": "chuva fraca", "moderada": "chuva moderada", "forte": "chuva forte",
+           "muito_forte": "chuva muito forte"}
+NOTABLE = {"moderada", "forte", "muito_forte"}
+FRESH_S = 3 * 3600  # previsão buscada há mais que isso não alimenta alerta
+
+
+def describe(code: int | None) -> str:
+    return WMO_PT.get(code, "condição desconhecida") if code is not None else "sem dado"
+
+
+def note(h: dict[str, Any] | None) -> str | None:
+    """Frase curta sobre uma hora, só quando há algo relevante para a conexão (chuva moderada+, trovoada, rajada)."""
+    if not h:
+        return None
+    parts = []
+    level = rain_level(h.get("precipitation_mm"))
+    if level in NOTABLE:
+        parts.append(f"{RAIN_PT[level]} ({h['precipitation_mm']:.1f} mm/h)".replace(".", ","))
+    if (h.get("weather_code") or 0) >= 95:
+        parts.append("trovoada")
+    if (h.get("gust_kmh") or 0) >= 60:
+        parts.append(f"rajadas de {round(h['gust_kmh'])} km/h")
+    return " · ".join(parts) or None
+
+
+def at(db: Database, ts: int) -> dict[str, Any] | None:
+    """Clima registrado para a hora que contém `ts` (None se não houver)."""
+    return db.one("SELECT * FROM weather_hourly WHERE hour_ts = ?", ((ts // 3600) * 3600,))
+
+
+def forecast_max_mm(db: Database, horizon_s: int, now: int | None = None) -> tuple[float, int] | None:
+    """Maior chuva prevista (mm/h) nas próximas `horizon_s` e a hora em que ela cai. None sem previsão recente."""
+    now = now or now_ts()
+    row = db.one("""SELECT precipitation_mm, hour_ts FROM weather_hourly
+                    WHERE hour_ts >= ? AND hour_ts <= ? AND fetched_at >= ? AND precipitation_mm IS NOT NULL
+                    ORDER BY precipitation_mm DESC, hour_ts LIMIT 1""",
+                 ((now // 3600) * 3600, now + horizon_s, now - FRESH_S))
+    return (float(row["precipitation_mm"]), int(row["hour_ts"])) if row else None
+
+
+def period_summary(db: Database, start: int, end: int) -> dict[str, Any]:
+    """Resumo de um período passado: horas com chuva relevante e eventos de conexão que coincidiram com elas."""
+    hours = [h for h in hourly(db, start, end) if not h["is_forecast"]]
+    rainy = [h for h in hours if h["rain_level"] in NOTABLE]
+    events = db.query("""SELECT kind, start_ts, duration_s FROM connection_events
+                         WHERE start_ts >= ? AND start_ts < ? AND kind IN ('outage','status_outage','ping_drop','unreachable')
+                         ORDER BY start_ts""", (start, end))
+    coincide = []
+    for e in events:
+        n = note(at(db, e["start_ts"]))
+        if n:
+            coincide.append({**e, "clima": n})
+    return {
+        "horas_com_clima": len(hours),
+        "horas_com_chuva_relevante": len(rainy),
+        "maior_chuva_mm_h": max((h["precipitation_mm"] or 0 for h in hours), default=None) if hours else None,
+        "eventos_no_periodo": len(events),
+        "eventos_com_chuva_ou_tempestade": coincide[:50],
+        "aviso": "Clima é estimativa regional (Open-Meteo). Coincidir com chuva não prova que a chuva causou o evento.",
+    }

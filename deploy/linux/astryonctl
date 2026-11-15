@@ -22,12 +22,13 @@ Diagnóstico
   doctor                                   Saúde + diagnóstico + erros recentes + checagens de segurança
 
 Manutenção
-  update [--git-pull] [--source DIR]       Nova release com rollback automático
+  update [--git-pull] [--source DIR]       Nova release com rollback automático (código copiado para /opt/astryon/src)
   rollback                                 Volta para a release anterior
   backup                                   Backup online do SQLite agora
   restore ARQUIVO.sqlite3.gz               Restaura um backup (para o agente durante a troca)
   releases                                 Lista releases instaladas
   setup-code                               Mostra o código para criar o primeiro administrador
+  renew-cert [--force]                     Renova o certificado HTTPS autoassinado (automático com < 30 dias)
   esp32 enable|disable                     Liga/desliga o listener ESP32 (porta 8788, somente LAN)
   supabase-token --email E-MAIL            Gera token do agente + SQL (só o hash vai ao Supabase)
   telegram-chat-id                         Mostra o chat_id do Telegram (envie uma mensagem ao bot antes)
@@ -47,11 +48,11 @@ units_for() {
 agent_py() { echo "${OL_CURRENT}/apps/agent/.venv/bin/python"; }
 
 run_agent_cli() {
-  # Executa a CLI do agente como o usuário de serviço, com o mesmo ambiente do systemd.
-  # shellcheck disable=SC2016  # $0/$@ devem ser expandidos pelo bash interno, não aqui
-  runuser -u "${OL_USER}" -- env ASTRYON_ENV_FILE="${OL_ENV_FILE}" ASTRYON_DATA_DIR="${OL_DATA}" \
-    ASTRYON_SECRETS_KEY_FILE="${OL_ETC}/secrets.key" HOME="${OL_DATA}" \
-    bash -c 'set -a; . "$0"; set +a; cd /var/lib/astryon; exec "$@"' "${OL_ENV_FILE}" "$(agent_py)" -m astryon_agent "$@"
+  # Executa a CLI do agente como o usuário de serviço. O próprio agente lê o arquivo de ambiente
+  # (ASTRYON_ENV_FILE, mesmo formato do EnvironmentFile do systemd); ele NUNCA é executado pelo bash, então um
+  # valor com $(...) ou crases (uma senha, por exemplo) continua sendo só texto.
+  runuser -u "${OL_USER}" -- env -C "${OL_DATA}" ASTRYON_ENV_FILE="${OL_ENV_FILE}" ASTRYON_DATA_DIR="${OL_DATA}" \
+    ASTRYON_SECRETS_KEY_FILE="${OL_ETC}/secrets.key" HOME="${OL_DATA}" "$(agent_py)" -m astryon_agent "$@"
 }
 
 cmd_health() {
@@ -110,6 +111,11 @@ cmd_doctor() {
   for u in "${OL_SERVICES[@]}"; do info "${u}: NRestarts=$(systemctl show -p NRestarts --value "${u}")"; done
   step "Permissões sensíveis"
   stat -c '    %A %U:%G %n' "${OL_ENV_FILE}" "${OL_ETC}/secrets.key" "${OL_ETC}/setup-code" "${OL_DATA}" 2>/dev/null || true
+  step "Certificado HTTPS"
+  local left; left="$(cert_days_left "${OL_TLS}/astryon.crt")"
+  if [[ -z "${left}" ]]; then warn "certificado ilegível ou ausente"
+  elif (( left < 30 )); then warn "certificado expira em ${left} dias: sudo astryonctl renew-cert"
+  else ok "certificado válido por mais ${left} dias"; fi
 }
 
 cmd_rollback() {
@@ -127,14 +133,33 @@ cmd_restore() {
   gzip -t "${file}" || die "arquivo gzip inválido"
   confirm "Restaurar ${file}? O banco atual será guardado como .antes-da-restauracao" || die "cancelado"
   systemctl stop astryon-agent.service
-  local db="${OL_DATA}/astryon.sqlite3"
-  [[ -f "${db}" ]] && mv -f "${db}" "${db}.antes-da-restauracao-$(date +%s)"
-  rm -f "${db}-wal" "${db}-shm"
-  gunzip -c "${file}" > "${db}"
-  chown "${OL_USER}:${OL_USER}" "${db}"; chmod 0640 "${db}"
-  sqlite3 "${db}" "PRAGMA integrity_check;" | grep -qx ok || warn "integrity_check não retornou ok"
+  # Só o root LÊ o backup; tudo dentro de ${OL_DATA} (pasta do usuário de serviço) é feito COMO esse usuário.
+  # Assim um link simbólico plantado lá não faz o root sobrescrever nem mudar o dono de arquivos do sistema.
+  # shellcheck disable=SC2016  # $1/$2 são expandidos pelo bash interno
+  gunzip -c "${file}" | runuser -u "${OL_USER}" -- bash -c '
+    set -euo pipefail; umask 027; db="$1"
+    tmp="$(mktemp "${db}.restaurando.XXXXXX")"
+    cat > "${tmp}"
+    sqlite3 "${tmp}" "PRAGMA integrity_check;" | grep -qx ok || { rm -f "${tmp}"; echo "integrity_check falhou" >&2; exit 3; }
+    if [[ -e "${db}" ]]; then mv -fT "${db}" "${db}.antes-da-restauracao-$(date +%s)"; fi
+    rm -f "${db}-wal" "${db}-shm"
+    mv -fT "${tmp}" "${db}"
+  ' _ "${OL_DATA}/astryon.sqlite3" || { systemctl start astryon-agent.service; die "restauração abortada; banco atual mantido"; }
   systemctl start astryon-agent.service
   if health_check 40; then ok "restaurado"; else warn "agente não respondeu após restaurar"; fi
+}
+
+cmd_renew_cert() {
+  # Renova o certificado autoassinado quando faltam menos de 30 dias (ou sempre, com --force).
+  local force=0 left
+  [[ "${1:-}" == "--force" ]] && force=1
+  left="$(cert_days_left "${OL_TLS}/astryon.crt")"
+  if [[ ${force} -eq 0 && -n "${left}" && ${left} -gt 30 ]]; then ok "certificado válido por mais ${left} dias"; return 0; fi
+  local cn; cn="$(openssl x509 -noout -subject -nameopt multiline -in "${OL_TLS}/astryon.crt" 2>/dev/null \
+    | sed -n 's/^ *commonName *= *//p')"
+  cert_create "${cn:-$(hostname)}" "$(cert_san "${cn}")" || die "não foi possível gerar o certificado"
+  ok "novo certificado autoassinado (825 dias); o navegador vai pedir para aceitar de novo"
+  if nginx -t >/dev/null 2>&1; then systemctl reload nginx; fi
 }
 
 cmd_esp32() {
@@ -175,6 +200,7 @@ main() {
     restore) require_root; cmd_restore "$@" ;;
     releases) ls -1t "${OL_RELEASES}"; info "ativa: $(basename "$(current_release)")" ;;
     setup-code) require_root; cat "${OL_ETC}/setup-code" ;;
+    renew-cert) require_root; cmd_renew_cert "$@" ;;
     esp32) require_root; cmd_esp32 "$@" ;;
     supabase-token) require_root; run_agent_cli supabase-token "$@" ;;
     telegram-chat-id) require_root; run_agent_cli telegram-chat-id ;;

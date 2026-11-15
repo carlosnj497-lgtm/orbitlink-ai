@@ -38,21 +38,28 @@ cd apps\esp32-firmware
 # Com sensores: ajuste include\config.h e use -e esp32dev_sensors
 ```
 
-Ambos os ambientes compilam neste repositório (verificado em 12/11/2026: `esp32dev` usa 80% da flash).
+Ambos os ambientes compilavam neste repositório em 12/11/2026 (`esp32dev` usava 80% da flash). O firmware 0.2.0 (pareamento v2) ainda não foi compilado: confira com `pio run` e o autoteste `-DOL_PAIR_SELFTEST=1`.
 
 ## Parear
 
 1. No `.env`, defina `ASTRYON_ESP32_ENABLED=true` e reinicie (`stop.ps1` + `start.ps1`). Libere a porta 8788 **só para a rede privada** (veja [WINDOWS_SETUP.md](WINDOWS_SETUP.md)).
 2. No painel, abra **Centro ESP32 → Gerar código de pareamento**. O código vale 10 minutos e uma única vez.
-3. Ligue o ESP32. Ele cria o Wi-Fi `ASTRYON-Setup-XXXX`. Conecte-se, escolha sua rede e informe:
+3. Ligue o ESP32 com o cabo USB e abra o monitor serial (`pio device monitor -b 115200`). Ele mostra a rede
+   `ASTRYON-Setup-XXXX` e a **senha** dela, que é própria deste aparelho (muda depois de um reset de fábrica).
+   Conecte-se, escolha sua rede e informe:
    - **IP do agente**: o IP deste PC na sua rede local (`SEU-IP`)
-   - **Porta**: 8788
-   - **Código** de 6 dígitos
+   - **Porta**: 8788 (1 a 65535)
+   - **Código** no formato `XXXX-XXXX-XXXX` (maiúsculas, espaços e hífens não importam)
 4. O nó aparece como **online** no painel em até 30 s.
 
-## Protocolo v1
+## Protocolo (pareamento v2, ingest v1)
 
-- `POST /esp32/v1/pair` `{code, device_id, firmware, sensors[]}` → `{secret, server_time}`
+- Pareamento v2: o código **não** trafega. `K = PBKDF2-HMAC-SHA256(código normalizado, "astryon-esp32-pair-v2", 20000, 32)`,
+  `K_auth = HMAC(K, "auth")`, `K_enc = HMAC(K, "enc")`.
+  `POST /esp32/v1/pair` `{v: 2, device_id, nonce (32 hex), proof = hex(HMAC(K_auth, "pair\n{device_id}\n{nonce}")), firmware, sensors[]}`
+  → `{protocol: 2, iv, secret_enc, server_time}`, em que `secret_enc = AES-256-GCM(K_enc, iv, segredo, aad="{device_id}\n{nonce}")`.
+  Firmware anterior (que mandava o código em claro) recebe **426**: grave o firmware 0.2.0 e gere um código novo.
+- Autoteste do pareamento no próprio ESP32: compile com `-DOL_PAIR_SELFTEST=1` e procure `selftest OK` no monitor serial.
 - `POST /esp32/v1/ingest` e `/heartbeat` com cabeçalhos `X-OL-Device`, `X-OL-Ts`, `X-OL-Nonce` e `X-OL-Sig = hex(HMAC_SHA256(secret, device\nts\nnonce\nsha256(body)))`
 - Corpo: `{"v":1,"readings":[{"seq","ts"|0,"age_ms"?,"sensor","value","quality":"ok|uncalibrated|fault"}],"status":{rssi,uptime_s,fw,heap,buffered,dropped}}`
 - Relógio: NTP quando há internet. Senão, o firmware usa o `server_time` do agente.
@@ -63,7 +70,7 @@ Ambos os ambientes compilam neste repositório (verificado em 12/11/2026: `esp32
 ## Testar sem placa (emulador)
 
 ```powershell
-apps\agent\.venv\Scripts\python.exe scripts\esp32_emulator.py pair --code 123456
+apps\agent\.venv\Scripts\python.exe scripts\esp32_emulator.py pair --code XXXX-XXXX-XXXX
 apps\agent\.venv\Scripts\python.exe scripts\esp32_emulator.py run --count 5 --power-loss
 apps\agent\.venv\Scripts\python.exe scripts\esp32_emulator.py replay     # deve responder 401
 ```

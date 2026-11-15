@@ -48,3 +48,6 @@ packaging/windows/.venv-build/
 packaging/windows/*.zip
 packaging/windows/portable/
 packaging/windows/astryon.ico
+
+# Script pessoal (IPs da LAN/Tailscale e usuário do servidor): nunca versionar
+ssh-vscode-windows.ps1

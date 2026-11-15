@@ -14,7 +14,7 @@
 | Next → agente | `Authorization: Bearer ASTRYON_API_TOKEN` (só no servidor) + `X-ASTRYON-Session` |
 | Usuário local | scrypt (N=2¹⁴, r=8, p=1), sessão de 12 h guardada como SHA-256, bloqueio após 5 senhas erradas em 5 min (login certo zera a contagem), setup inicial só via loopback |
 | Ações de controle | Admin, capacidade presente na matriz, `operation_id` + nonce de uso único (hash), TTL de 120 s, mesmo usuário, texto de confirmação e auditoria de cada etapa |
-| ESP32 | Código de 6 dígitos (TTL 10 min, uso único, 10 tentativas/min por IP), segredo por dispositivo protegido com **DPAPI**, HMAC-SHA256 sobre `device\nts\nnonce\nsha256(body)`, janela de ±300 s, nonce anti-replay e limite de 32 KB |
+| ESP32 | Portal de configuração com senha própria por aparelho; código de 12 caracteres (60 bits, TTL 10 min, uso único, 10 tentativas/min por IP) que **não trafega**: o ESP32 prova que o conhece (PBKDF2 + HMAC) e recebe o segredo cifrado (AES-256-GCM), segredo por dispositivo protegido com **DPAPI**, HMAC-SHA256 sobre `device\nts\nnonce\nsha256(body)`, janela de ±300 s, nonce anti-replay e limite de 32 KB |
 | Supabase | RLS deny-by-default (`force row level security`), isolamento por `workspace_members`, telemetria gravada só via `ingest_batch` (token do agente com hash), `anon` sem leitura de tabelas e **nenhuma** `service_role` no agente ou no navegador |
 
 ## Dados pessoais

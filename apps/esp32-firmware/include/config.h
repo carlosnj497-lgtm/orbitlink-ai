@@ -30,3 +30,10 @@
 // ---- Rede -------------------------------------------------------------------
 #define OL_DEFAULT_AGENT_PORT 8788
 #define OL_AP_PREFIX "ASTRYON-Setup-"
+
+// ---- Diagnóstico ------------------------------------------------------------
+// 1 = no boot, confere o pareamento v2 (PBKDF2, HMAC, AES-GCM) contra vetores fixos do agente e escreve o
+// resultado no monitor serial. Custa ~0,5 s a mais no boot; deixe 0 em produção.
+#ifndef OL_PAIR_SELFTEST
+#define OL_PAIR_SELFTEST 0
+#endif

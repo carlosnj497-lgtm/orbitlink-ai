@@ -2,8 +2,17 @@
 # - Manual (Actions → "Instalador Windows" → Run workflow): instalador como artefato para baixar.
 # - Tag v* (ex.: git tag v0.2.0 && git push origin v0.2.0): também anexa o instalador à release do GitHub e
 #   publica no repositório PÚBLICO de releases (este é privado). O ASTRYON instalado lê o latest.json de lá e se
-#   atualiza sozinho. Precisa do secret RELEASES_TOKEN (token com "Contents: read and write" no repo público).
-#   Repo público: variável ASTRYON_RELEASES_REPO (padrão carlosnj497-lgtm/astryon-releases).
+#   atualiza sozinho, mas SÓ se o latest.json estiver assinado pela chave de release.
+#
+# Configuração (Settings → Secrets and variables → Actions):
+#   secret   RELEASES_TOKEN          token com "Contents: read and write" só no repo público de releases
+#   secret   RELEASE_SIGNING_KEY     chave privada Ed25519 (python scripts/release-signing.py keygen)
+#   variável ASTRYON_UPDATE_PUBKEY   chave pública correspondente (vai embutida no instalador)
+#   variável ASTRYON_RELEASES_REPO   repo público (padrão carlosnj497-lgtm/astryon-releases)
+#
+# Segurança: o build (que roda npm ci, pip e PyInstaller) só tem leitura. A publicação roda num job separado,
+# sem instalar dependências do projeto, e é o único com escrita e com acesso aos secrets de release.
+# Actions fixadas por SHA (comentário = tag de origem); atualize com o Dependabot ou `git ls-remote`.
 name: Instalador Windows
 
 on:
@@ -12,7 +21,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   RELEASES_REPO: ${{ vars.ASTRYON_RELEASES_REPO || 'carlosnj497-lgtm/astryon-releases' }}
@@ -21,12 +30,16 @@ jobs:
   build:
     runs-on: windows-2022
     timeout-minutes: 60
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444  # v5
         with:
           node-version: "22"
           cache: npm
@@ -34,7 +47,7 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
-            if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+            if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup --version 6.7.1 -y --no-progress }
             "C:\Program Files (x86)\Inno Setup 6" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
           }
       - name: Versão
@@ -50,36 +63,65 @@ jobs:
           ASTRYON_CLOUD_SUPABASE_URL: ${{ vars.ASTRYON_CLOUD_SUPABASE_URL }}
           ASTRYON_CLOUD_SUPABASE_ANON_KEY: ${{ vars.ASTRYON_CLOUD_SUPABASE_ANON_KEY }}
           ASTRYON_UPDATE_MANIFEST: https://github.com/${{ env.RELEASES_REPO }}/releases/latest/download/latest.json
+          ASTRYON_UPDATE_PUBKEY: ${{ vars.ASTRYON_UPDATE_PUBKEY }}
         run: ./packaging/windows/build.ps1 -Version "${{ steps.ver.outputs.version }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: ASTRYON-Windows-${{ steps.ver.outputs.version }}
           path: packaging/windows/dist/*
           if-no-files-found: error
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/release-signing.py
+            packaging/windows/requirements-sign.txt
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: ASTRYON-Windows-${{ needs.build.outputs.version }}
+          path: dist
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
+        with:
+          python-version: "3.12"
+      - name: Ferramenta de assinatura (com hashes)
+        run: python -m pip install --quiet --require-hashes -r packaging/windows/requirements-sign.txt
       - name: Anexar à release
-        if: github.ref_type == 'tag'
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "${{ github.ref_name }}" 2>$null; if ($LASTEXITCODE -ne 0) { gh release create "${{ github.ref_name }}" --title "ASTRYON ${{ github.ref_name }}" --generate-notes }
-          gh release upload "${{ github.ref_name }}" (Get-ChildItem packaging/windows/dist/*).FullName --clobber
-      - name: Publicar a atualização (repo público de releases)
-        if: github.ref_type == 'tag'
-        shell: pwsh
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "ASTRYON $TAG" --generate-notes
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" dist/* --clobber
+      - name: Publicar a atualização assinada (repo público de releases)
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-          VERSION: ${{ steps.ver.outputs.version }}
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          PUBKEY: ${{ vars.ASTRYON_UPDATE_PUBKEY }}
         run: |
-          if (-not $env:GH_TOKEN) { Write-Host "::warning::Sem o secret RELEASES_TOKEN: atualização automática não publicada."; exit 0 }
-          $setup = Get-Item "packaging/windows/dist/ASTRYON-Setup-$env:VERSION.exe"
-          $sha = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower()
-          $tag = "${{ github.ref_name }}"
-          @{ version = $env:VERSION; sha256 = $sha
-             url = "https://github.com/$env:RELEASES_REPO/releases/download/$tag/$($setup.Name)" } |
-            ConvertTo-Json | Out-File -Encoding utf8 packaging/windows/dist/latest.json
-          gh release view $tag -R $env:RELEASES_REPO 2>$null
-          if ($LASTEXITCODE -ne 0) { gh release create $tag -R $env:RELEASES_REPO --title "ASTRYON $tag" --notes "Instalador do ASTRYON $tag para Windows 10/11 (64 bits)." }
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ] || [ -z "$RELEASE_SIGNING_KEY" ] || [ -z "$PUBKEY" ]; then
+            echo "::warning::Falta RELEASES_TOKEN, RELEASE_SIGNING_KEY ou ASTRYON_UPDATE_PUBKEY: atualização automática não publicada."
+            exit 0
+          fi
+          setup="dist/ASTRYON-Setup-$VERSION.exe"
+          url="https://github.com/$RELEASES_REPO/releases/download/$TAG/ASTRYON-Setup-$VERSION.exe"
+          python scripts/release-signing.py sign "$VERSION" "$url" "$setup" > dist/latest.json
+          python scripts/release-signing.py verify dist/latest.json "$PUBKEY"   # chave errada = não publica
+          gh release view "$TAG" -R "$RELEASES_REPO" >/dev/null 2>&1 \
+            || gh release create "$TAG" -R "$RELEASES_REPO" --title "ASTRYON $TAG" --notes "Instalador do ASTRYON $TAG para Windows 10/11 (64 bits)."
           # O instalador primeiro; o latest.json por último, para ninguém ver a versão nova antes do arquivo existir.
-          gh release upload $tag -R $env:RELEASES_REPO $setup.FullName (Get-Item "packaging/windows/dist/ASTRYON-Portatil-$env:VERSION.zip").FullName --clobber
-          gh release upload $tag -R $env:RELEASES_REPO packaging/windows/dist/latest.json --clobber
+          gh release upload "$TAG" -R "$RELEASES_REPO" "$setup" "dist/ASTRYON-Portatil-$VERSION.zip" --clobber
+          gh release upload "$TAG" -R "$RELEASES_REPO" dist/latest.json --clobber

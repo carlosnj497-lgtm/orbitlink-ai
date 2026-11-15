@@ -10,7 +10,7 @@ mkdir -p "${OL_ETC}"
 . "${HERE}/../lib.sh"
 
 # stubs para ambientes sem root (install -o/-g) e sem "python3" no PATH (Windows/Git Bash)
-install() { local src="" dst=""; while [[ $# -gt 0 ]]; do case "$1" in -m|-o|-g) shift 2 ;; *) if [[ -z "${src}" ]]; then src="$1"; else dst="$1"; fi; shift ;; esac; done; cp "${src}" "${dst}"; }
+install() { local src="" dst="" dir=0; while [[ $# -gt 0 ]]; do case "$1" in -m|-o|-g) shift 2 ;; -d) dir=1; shift ;; *) if [[ ${dir} -eq 1 ]]; then mkdir -p "$1"; shift; continue; fi; if [[ -z "${src}" ]]; then src="$1"; else dst="$1"; fi; shift ;; esac; done; [[ ${dir} -eq 1 ]] && return 0; cp "${src}" "${dst}"; }
 if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'pass' >/dev/null 2>&1; then python3() { python "$@"; }; fi
 
 fails=0
@@ -151,6 +151,79 @@ done
 for h in atacante.com 192.168.1.10.atacante.com ts.net orbit.tail1234.ts.net.atacante.com a.b.c.ts.net; do
   if host_matches "${h}"; then r=sim; else r=nao; fi; check "Host ${h} recusado (444)" "${r}" "nao"
 done
+
+# --- Nginx: cabeçalhos de segurança valem também nos locations com add_header próprio (o Nginx não herda)
+missing="$(python3 - "${CONF}" <<'PY' | tr -d '\r'
+import re, sys
+conf = re.sub(r"#[^\n]*", "", open(sys.argv[1], encoding="utf-8").read())
+bad = [m.group(1).strip() for m in re.finditer(r"location([^{]*)\{([^}]*)\}", conf)
+       if "add_header" in m.group(2) and "astryon-headers.conf" not in m.group(2)]
+print(" ".join(bad))
+PY
+)"
+check "location com add_header inclui astryon-headers.conf" "${missing}" ""
+check "server 443 inclui os cabeçalhos" "$(grep -c 'include /etc/nginx/snippets/astryon-headers.conf;' "${CONF}")" "2"
+check "snippet de cabeçalhos tem nosniff e DENY" \
+  "$(grep -cE 'X-Content-Type-Options "nosniff"|X-Frame-Options "DENY"' "${HERE}/../nginx/astryon-headers.conf")" "2"
+
+# --- env_lines: arquivo de ambiente lido como dado, nunca executado (astryonctl não faz mais "source")
+ENVF="${TMP}/full.env"
+# shellcheck disable=SC2016  # $(...) e crases literais: provam que nada é executado
+printf '%s\n' '# c' 'ASTRYON_MQTT_PASSWORD=$(touch '"${TMP}"'/pwned2)`id`' 'ASTRYON_NOME="Starlink Mini"' 'linha inválida' \
+  'NEXT_PUBLIC_A=1' > "${ENVF}"
+out="$(env_lines "${ENVF}")"
+# shellcheck disable=SC2016  # valor esperado literal
+check "env_lines preserva \$() e crases como texto" "$(grep '^ASTRYON_MQTT_PASSWORD=' <<<"${out}" | cut -d= -f2-)" \
+  '$(touch '"${TMP}"'/pwned2)`id`'
+check "env_lines tira aspas" "$(grep '^ASTRYON_NOME=' <<<"${out}")" "ASTRYON_NOME=Starlink Mini"
+check "env_lines ignora comentário e lixo" "$(wc -l <<<"${out}" | tr -d ' ')" "3"
+check "env_lines com prefixo" "$(env_lines "${ENVF}" NEXT_PUBLIC_)" "NEXT_PUBLIC_A=1"
+check "env_lines não executa nada" "$(test -e "${TMP}/pwned2" && echo executou || echo nao)" "nao"
+check "astryonctl não executa o arquivo de ambiente" \
+  "$(grep -cE '(^|[;[:space:]])(\.|source)[[:space:]]+"?\$(0|\{?OL_ENV_FILE)' "${HERE}/../astryonctl" || true)" "0"
+
+# --- código-fonte: cópia do root a partir do ÚLTIMO COMMIT do clone (sem alterações locais nem .git)
+# shellcheck disable=SC2329  # stub: no teste não há root; executa direto como o usuário atual
+runuser() { shift 2; [[ "$1" == "--" ]] && shift; "$@"; }
+if command -v git >/dev/null 2>&1; then
+  OL_PREFIX="${TMP}/opt"; OL_SRC="${OL_PREFIX}/src"; mkdir -p "${OL_PREFIX}"
+  REPO="${TMP}/clone"; mkdir -p "${REPO}/apps/agent"
+  echo '{}' > "${REPO}/package.json"; echo '[project]' > "${REPO}/apps/agent/pyproject.toml"; echo v1 > "${REPO}/arquivo"
+  git -C "${REPO}" init -q && git -C "${REPO}" -c user.email=t@t -c user.name=t add -A \
+    && git -C "${REPO}" -c user.email=t@t -c user.name=t commit -qm um
+  echo "não commitado" > "${REPO}/arquivo"; echo lixo > "${REPO}/novo-nao-rastreado"
+  (src_import_dir "${REPO}") >/dev/null 2>&1 || true
+  check "src: copia o conteúdo do commit" "$(cat "${OL_SRC}/arquivo")" "v1"
+  check "src: arquivo não rastreado fica de fora" "$(test -e "${OL_SRC}/novo-nao-rastreado" && echo sim || echo nao)" "nao"
+  check "src: sem .git na cópia" "$(test -e "${OL_SRC}/.git" && echo sim || echo nao)" "nao"
+  check "src: commit registrado" "$(src_commit)" "$(git -C "${REPO}" rev-parse HEAD)"
+  (printf 'x' | src_replace_from_tar) >/dev/null 2>&1 || true
+  check "src: tar inválido não destrói a cópia atual" "$(cat "${OL_SRC}/arquivo")" "v1"
+  mkdir -p "${TMP}/vazio"; tar -C "${TMP}/vazio" -cf "${TMP}/vazio.tar" .
+  (src_replace_from_tar < "${TMP}/vazio.tar") >/dev/null 2>&1 || true
+  check "src: conteúdo que não é o ASTRYON é recusado" "$(cat "${OL_SRC}/arquivo")" "v1"
+  # tar malicioso com caminho "../": o GNU tar recusa sair da pasta
+  printf 'fuga' > "${TMP}/fuga"; tar -C "${TMP}" -cf "${TMP}/mal.tar" --transform 's|^|../|' fuga 2>/dev/null
+  rm -f "${TMP}/fuga"
+  check "src: o tar malicioso de teste contém ../fuga" "$(tar -tf "${TMP}/mal.tar")" "../fuga"
+  (src_replace_from_tar < "${TMP}/mal.tar") >/dev/null 2>&1 || true
+  check "src: tar com ../ não escreve fora da pasta" "$(test -e "${OL_PREFIX}/fuga" && echo sim || echo nao)" "nao"
+else
+  echo "skip - git ausente: testes de src_import_dir"
+fi
+unset -f runuser
+
+# --- certificado autoassinado: geração atômica e dias restantes
+if command -v openssl >/dev/null 2>&1; then
+  OL_TLS="${TMP}/tls"
+  (cert_create srv "DNS:srv,IP:127.0.0.1") >/dev/null 2>&1 || true
+  check "cert: chave com permissão 600" "$(stat -c %a "${OL_TLS}/astryon.key")" "600"
+  left="$(cert_days_left "${OL_TLS}/astryon.crt")"
+  if (( left >= 823 && left <= 825 )); then r=sim; else r="nao(${left})"; fi
+  check "cert: validade de ~825 dias" "${r}" "sim"
+  check "cert: sem arquivos temporários" "$(find "${OL_TLS}" -name '.novo.*' | wc -l | tr -d ' ')" "0"
+  check "cert: arquivo ilegível -> vazio" "$(cert_days_left "${TMP}/nao-existe.crt")" ""
+fi
 
 echo
 if [[ ${fails} -eq 0 ]]; then echo "todos os testes passaram"; else echo "${fails} falha(s)"; exit 1; fi

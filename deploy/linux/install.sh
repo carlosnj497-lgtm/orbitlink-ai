@@ -137,20 +137,19 @@ if [[ ! -f "${OL_ETC}/secrets.key" ]]; then
 fi
 chown root:"${OL_USER}" "${OL_ETC}/secrets.key"; chmod 0640 "${OL_ETC}/secrets.key"
 
-if [[ ! -f "${OL_ETC}/tls/astryon.crt" ]]; then
-  ip_now="$(lan_ip)"
-  san="DNS:${SERVER_NAME},DNS:$(hostname),DNS:$(hostname).local,DNS:localhost,IP:127.0.0.1"
-  [[ -n "${ip_now}" ]] && san="${san},IP:${ip_now}"
-  openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 825 \
-    -subj "/CN=${SERVER_NAME}/O=ASTRYON (autoassinado)" -addext "subjectAltName=${san}" \
-    -keyout "${OL_ETC}/tls/astryon.key" -out "${OL_ETC}/tls/astryon.crt" 2>/dev/null
-  chmod 0600 "${OL_ETC}/tls/astryon.key"; chmod 0644 "${OL_ETC}/tls/astryon.crt"
-  ok "certificado TLS autoassinado (${san})"
+if [[ ! -f "${OL_TLS}/astryon.crt" ]]; then
+  san="$(cert_san "${SERVER_NAME}")"
+  cert_create "${SERVER_NAME}" "${san}" || die "não foi possível gerar o certificado TLS"
+  ok "certificado TLS autoassinado (${san}); renovação: sudo astryonctl renew-cert"
 fi
 
 # ================================================================= 5. build e release
-step "Construindo a release a partir de ${SRC}"
-NEW="$(build_release "${SRC}")"
+step "Copiando o código para ${OL_SRC} (cópia do root, usada por todas as releases)"
+install -d -o root -g root -m 0755 "${OL_PREFIX}"
+src_import_dir "${SRC}"
+src_record_remote "${SRC}"
+step "Construindo a release a partir de ${OL_SRC}"
+NEW="$(build_release "${OL_SRC}")"
 switch_release "${NEW}"
 ok "release ativa: ${NEW}"
 
@@ -159,10 +158,11 @@ step "Serviços systemd"
 for u in astryon-agent.service astryon-web.service astryon.target astryon-backup.service astryon-backup.timer; do
   render_unit "${SCRIPT_DIR}/systemd/${u}" "/etc/systemd/system/${u}"
 done
-install -m 0755 "${SCRIPT_DIR}/backup.sh" "${OL_LIBEXEC}/backup.sh"
-install -m 0644 "${SCRIPT_DIR}/lib.sh" "${OL_LIBEXEC}/lib.sh"
-install -m 0755 "${SCRIPT_DIR}/update.sh" "${OL_LIBEXEC}/update.sh"
-install -m 0755 "${SCRIPT_DIR}/astryonctl" /usr/local/bin/astryonctl
+D="${OL_SRC}/deploy/linux"
+install -m 0755 "${D}/backup.sh" "${OL_LIBEXEC}/backup.sh"
+install -m 0644 "${D}/lib.sh" "${OL_LIBEXEC}/lib.sh"
+install -m 0755 "${D}/update.sh" "${OL_LIBEXEC}/update.sh"
+install -m 0755 "${D}/astryonctl" /usr/local/bin/astryonctl
 printf '%s\n' "${SRC}" > "${OL_ETC}/source-dir"
 systemctl daemon-reload
 systemctl enable --now astryon.target astryon-agent.service astryon-web.service astryon-backup.timer >/dev/null
@@ -179,9 +179,11 @@ TAILNET=0
 if [[ ${WITH_TAILSCALE} -eq 1 ]] || tailscale_present; then TAILNET=1; fi
 nginx_acl "${LAN}" "${TAILNET}" > /etc/nginx/snippets/astryon-acl.conf
 install -m 0644 "${SCRIPT_DIR}/nginx/astryon-proxy.conf" /etc/nginx/snippets/astryon-proxy.conf
+install -m 0644 "${SCRIPT_DIR}/nginx/astryon-headers.conf" /etc/nginx/snippets/astryon-headers.conf
 # Só estes nomes (mais IPs literais e *.ts.net, já no modelo) são aceitos no "Host"; o resto recebe 444.
 NAMES="$(nginx_server_names "${SERVER_NAME}" "$(hostname)" "$(hostname).local")"
 sed "s|__SERVER_NAME__|${NAMES}|" "${SCRIPT_DIR}/nginx/astryon.conf" > /etc/nginx/sites-available/astryon
+printf '%s\n' "${NAMES}" > "${OL_ETC}/server-names"   # o update regenera o site com os mesmos nomes
 ln -sfn /etc/nginx/sites-available/astryon /etc/nginx/sites-enabled/astryon
 if [[ -L /etc/nginx/sites-enabled/default ]]; then
   rm -f /etc/nginx/sites-enabled/default

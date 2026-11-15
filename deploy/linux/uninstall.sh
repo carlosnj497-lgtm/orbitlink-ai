@@ -16,7 +16,8 @@ systemctl daemon-reload
 
 step "Removendo site do Nginx"
 rm -f /etc/nginx/sites-enabled/astryon /etc/nginx/sites-available/astryon \
-      /etc/nginx/snippets/astryon-acl.conf /etc/nginx/snippets/astryon-proxy.conf
+      /etc/nginx/snippets/astryon-acl.conf /etc/nginx/snippets/astryon-proxy.conf \
+      /etc/nginx/snippets/astryon-headers.conf
 if nginx -t >/dev/null 2>&1; then systemctl reload nginx || true; fi
 info "o site 'default' não é restaurado automaticamente (ln -s ../sites-available/default /etc/nginx/sites-enabled/ se quiser)"
 

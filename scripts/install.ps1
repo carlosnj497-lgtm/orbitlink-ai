@@ -46,8 +46,9 @@ if ($LASTEXITCODE -ne 0) { Fail "Falha ao instalar dependências Python." }
 if ($LASTEXITCODE -ne 0) { Fail "Falha ao instalar o agente." }
 
 Step "Instalando dependências do painel"
-& npm install --no-fund --no-audit
-if ($LASTEXITCODE -ne 0) { Fail "Falha no npm install." }
+# npm ci: instala exatamente o package-lock.json (com os hashes de integridade) e nunca o altera.
+& npm ci --no-fund --no-audit
+if ($LASTEXITCODE -ne 0) { Fail "Falha no npm ci." }
 
 Step "Configurando .env"
 $envFile = Join-Path $Root ".env"

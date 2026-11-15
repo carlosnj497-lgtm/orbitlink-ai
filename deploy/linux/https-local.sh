@@ -71,17 +71,13 @@ fi
 ok "Nginx $(nginx -v 2>&1 | sed 's/.*\///')"
 
 install -d -o root -g root -m 0755 /etc/astryon "${TLS_DIR}"
-if [[ ! -f "${TLS_DIR}/astryon.crt" ]]; then
-  ip_now="$(lan_ip)"
-  san="DNS:$(hostname),DNS:$(hostname).local,DNS:localhost,IP:127.0.0.1"
-  [[ -n "${ip_now}" ]] && san="${san},IP:${ip_now}"
-  openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 825 \
-    -subj "/CN=$(hostname)/O=ASTRYON (autoassinado)" -addext "subjectAltName=${san}" \
-    -keyout "${TLS_DIR}/astryon.key" -out "${TLS_DIR}/astryon.crt" 2>/dev/null
-  chmod 0600 "${TLS_DIR}/astryon.key"; chmod 0644 "${TLS_DIR}/astryon.crt"
-  ok "certificado autoassinado da LAN (${san})"
+left="$(cert_days_left "${TLS_DIR}/astryon.crt")"
+if [[ -z "${left}" || ${left} -lt 30 ]]; then
+  san="$(cert_san)"
+  OL_TLS="${TLS_DIR}" cert_create "$(hostname)" "${san}" || die "não foi possível gerar o certificado"
+  ok "certificado autoassinado da LAN (${san}); para renovar, rode este script de novo quando faltar < 30 dias"
 else
-  ok "certificado da LAN já existe"
+  ok "certificado da LAN já existe (válido por mais ${left} dias)"
 fi
 
 # ================================================================= 2. Certificado válido do Tailscale
@@ -133,6 +129,7 @@ if tailscale_present; then TAILNET=1; fi
 install -d -m 0755 /etc/nginx/snippets
 nginx_acl "${LAN}" "${TAILNET}" > /etc/nginx/snippets/astryon-acl.conf
 install -m 0644 "${SCRIPT_DIR}/nginx/astryon-proxy.conf" /etc/nginx/snippets/astryon-proxy.conf
+install -m 0644 "${SCRIPT_DIR}/nginx/astryon-headers.conf" /etc/nginx/snippets/astryon-headers.conf
 NAMES="$(nginx_server_names "$(hostname)" "$(hostname).local")"
 sed "s|__SERVER_NAME__|${NAMES}|" "${SCRIPT_DIR}/nginx/astryon.conf" > "${SITE}"
 if [[ -n "${TS_NAME}" ]]; then

@@ -105,7 +105,9 @@ Rodar o instalador de novo é seguro: ele preserva `.env`, chaves, certificado e
 | Logs do agente / painel / Nginx | `sudo astryonctl logs agent -f` · `logs web` · `logs nginx` · `logs all --since "1 hour ago"` |
 | Diagnóstico da antena (somente leitura) | `sudo astryonctl diagnose` (`--json`, `--share`, `--no-router`) |
 | Diagnóstico completo de falhas | `sudo astryonctl doctor` |
-| Atualizar | `sudo astryonctl update --git-pull` |
+| Atualizar | `git pull` no seu clone e `sudo astryonctl update` (copia o último commit para `/opt/astryon/src`), ou `sudo astryonctl update --git-pull` (busca o remoto direto, como root) |
+| Exigir commits assinados no `--git-pull` | crie `/etc/astryon/allowed-signers` (formato `ssh-keygen -Y`, ex.: `voce@exemplo.com ssh-ed25519 AAAA...`) |
+| Renovar o certificado HTTPS | `sudo astryonctl renew-cert` (automático no `update` quando faltam < 30 dias; `--force` renova já) |
 | Voltar para a versão anterior | `sudo astryonctl rollback` |
 | Backup agora / restaurar | `sudo astryonctl backup` · `sudo astryonctl restore /var/lib/astryon/backups/<arquivo>.sqlite3.gz` |
 | Releases instaladas | `sudo astryonctl releases` |

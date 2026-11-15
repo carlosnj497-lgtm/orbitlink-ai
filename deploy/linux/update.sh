@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # ASTRYON — atualização sem downtime longo e com rollback automático.
 #
-#   sudo astryonctl update              # usa o clone registrado na instalação
-#   sudo astryonctl update --git-pull   # faz "git pull --ff-only" no clone antes (como o dono do clone)
+#   sudo astryonctl update              # último commit do clone registrado na instalação
 #   sudo astryonctl update --source /caminho/do/clone
+#   sudo astryonctl update --git-pull   # busca o branch padrão do remoto direto, num espelho do root
 #
-# Passos: backup do SQLite -> build de uma NOVA release (venv + npm ci + next build) sem tocar na atual ->
-# troca atômica do link /opt/astryon/current -> reinício -> verificação de saúde -> rollback se falhar.
+# O código NUNCA é usado direto do clone do usuário: o último commit é copiado (git archive, executado como o
+# dono do clone) para /opt/astryon/src, de propriedade do root, e é de lá que saem a release e os scripts que
+# rodam como root. Com --git-pull o clone do usuário nem é consultado; crie /etc/astryon/allowed-signers
+# (formato do ssh-keygen) para só aceitar commits assinados.
+#
+# Passos: cópia do código -> backup do SQLite -> build de uma NOVA release (venv + npm ci + next build) sem tocar
+# na atual -> troca atômica do link /opt/astryon/current -> reinício -> verificação de saúde -> rollback se falhar.
 # Migrations do SQLite são aplicadas pelo próprio agente ao iniciar (são idempotentes e só adicionam).
 set -euo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,18 +25,23 @@ while [[ $# -gt 0 ]]; do
     --source) SRC="${2:?}"; shift 2 ;;
     --git-pull) GIT_PULL=1; shift ;;
     --no-restart) RESTART=0; shift ;;
-    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     *) die "opção desconhecida: $1" ;;
   esac
 done
 require_root
-[[ -n "${SRC}" && -d "${SRC}" ]] || die "clone de origem não encontrado; use --source /caminho"
+install -d -o root -g root -m 0755 "${OL_PREFIX}"
 
 if [[ ${GIT_PULL} -eq 1 ]]; then
-  step "Atualizando o clone ${SRC}"
-  owner="$(stat -c %U "${SRC}")"
-  runuser -u "${owner}" -- git -C "${SRC}" pull --ff-only
-  ok "commit $(runuser -u "${owner}" -- git -C "${SRC}" rev-parse --short HEAD)"
+  step "Buscando o remoto num espelho do root (${OL_SRC_GIT})"
+  # instalações antigas não registravam o remoto: pega o "origin" do clone conhecido
+  [[ -f "${OL_ETC}/git-remote" || -z "${SRC}" ]] || src_record_remote "${SRC}"
+  src_git_pull
+else
+  [[ -n "${SRC}" && -d "${SRC}" ]] || die "clone de origem não encontrado; use --source /caminho ou --git-pull"
+  step "Copiando o último commit de ${SRC} para ${OL_SRC}"
+  src_import_dir "${SRC}"
+  [[ -f "${OL_ETC}/git-remote" ]] || src_record_remote "${SRC}"
 fi
 
 PREV="$(current_release)"
@@ -43,18 +53,39 @@ else
 fi
 
 step "Construindo nova release (a atual continua no ar)"
-NEW="$(build_release "${SRC}")"
+NEW="$(build_release "${OL_SRC}")"
 ok "${NEW}"
 
-# Scripts de implantação também podem ter mudado
-install -m 0755 "${SRC}/deploy/linux/astryonctl" /usr/local/bin/astryonctl
-install -m 0644 "${SRC}/deploy/linux/lib.sh" "${OL_LIBEXEC}/lib.sh"
-install -m 0755 "${SRC}/deploy/linux/update.sh" "${OL_LIBEXEC}/update.sh"
-install -m 0755 "${SRC}/deploy/linux/backup.sh" "${OL_LIBEXEC}/backup.sh"
+# Scripts de implantação também podem ter mudado (sempre da cópia do root, nunca do clone do usuário)
+D="${OL_SRC}/deploy/linux"
+install -m 0755 "${D}/astryonctl" /usr/local/bin/astryonctl
+install -m 0644 "${D}/lib.sh" "${OL_LIBEXEC}/lib.sh"
+install -m 0755 "${D}/update.sh" "${OL_LIBEXEC}/update.sh"
+install -m 0755 "${D}/backup.sh" "${OL_LIBEXEC}/backup.sh"
+
+# Nginx: snippets e site com os nomes gravados na instalação (instalações antigas: só os snippets)
+if [[ -d /etc/nginx/snippets && -f /etc/nginx/sites-available/astryon ]]; then
+  nginx_backup="$(mktemp -d)"
+  cp -a /etc/nginx/sites-available/astryon /etc/nginx/snippets/astryon-proxy.conf "${nginx_backup}/" 2>/dev/null || true
+  install -m 0644 "${D}/nginx/astryon-proxy.conf" /etc/nginx/snippets/astryon-proxy.conf
+  install -m 0644 "${D}/nginx/astryon-headers.conf" /etc/nginx/snippets/astryon-headers.conf
+  if [[ -s "${OL_ETC}/server-names" ]]; then
+    sed "s|__SERVER_NAME__|$(cat "${OL_ETC}/server-names")|" "${D}/nginx/astryon.conf" > /etc/nginx/sites-available/astryon
+  fi
+  if nginx -t >/dev/null 2>&1; then
+    systemctl reload nginx && info "configuração do Nginx atualizada"
+  else
+    warn "nginx -t falhou com a configuração nova; restaurando a anterior"
+    cp -a "${nginx_backup}/astryon" /etc/nginx/sites-available/astryon
+    cp -a "${nginx_backup}/astryon-proxy.conf" /etc/nginx/snippets/astryon-proxy.conf 2>/dev/null || true
+  fi
+  rm -rf "${nginx_backup}"
+fi
+
 changed=0
 units_tmp="$(mktemp -d)"
 for u in astryon-agent.service astryon-web.service astryon.target astryon-backup.service astryon-backup.timer; do
-  render_unit "${SRC}/deploy/linux/systemd/${u}" "${units_tmp}/${u}"
+  render_unit "${D}/systemd/${u}" "${units_tmp}/${u}"
   if ! cmp -s "${units_tmp}/${u}" "/etc/systemd/system/${u}"; then
     install -m 0644 "${units_tmp}/${u}" "/etc/systemd/system/${u}"; changed=1
   fi
@@ -68,8 +99,9 @@ if [[ ${RESTART} -eq 0 ]]; then ok "release preparada; reinicie com: sudo astryo
 step "Reiniciando serviços"
 systemctl restart astryon-agent.service astryon-web.service
 if health_check 40; then
-  ok "atualização concluída: $(basename "${NEW}")"
+  ok "atualização concluída: $(basename "${NEW}") (commit $(src_commit | cut -c1-12))"
   prune_releases
+  /usr/local/bin/astryonctl renew-cert || warn "não foi possível conferir/renovar o certificado HTTPS"
 else
   warn "nova release não ficou saudável — revertendo para $(basename "${PREV:-nenhuma}")"
   if [[ -n "${PREV}" && -d "${PREV}" ]]; then

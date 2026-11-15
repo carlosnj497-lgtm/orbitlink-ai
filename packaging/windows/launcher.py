@@ -9,8 +9,10 @@
   Sair. "Conectar à conta" pede o código gerado no painel na nuvem e liga este computador à conta.
 * Uma única instância: abrir de novo só abre o navegador.
 * Atualização automática (só na versão instalada): de tempos em tempos lê o `latest.json` publicado no
-  repositório público de releases. Se houver versão mais nova, baixa o instalador, confere o SHA-256, roda em
-  modo silencioso e fecha; o próprio instalador abre o ASTRYON de novo no fim.
+  repositório público de releases. O manifesto precisa estar assinado (Ed25519) pela chave de release cuja
+  parte pública foi gravada no build (update.json); sem chave ou com assinatura inválida, nada é baixado. Se
+  houver versão mais nova, baixa o instalador (só do mesmo repositório de releases), confere o SHA-256 assinado,
+  roda em modo silencioso e fecha; o próprio instalador abre o ASTRYON de novo no fim.
 
 A pasta de dados fica fora da pasta do programa: atualizar ou reinstalar não apaga nada.
 
@@ -22,6 +24,7 @@ poupar o pendrive e a opção "Iniciar com o Windows" some do menu.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -43,8 +46,13 @@ AGENT_URL = "http://127.0.0.1:8787/v1/health"
 LOG_MAX = 5 * 1024 * 1024
 UPDATE_FIRST_CHECK_S = 2 * 60  # primeira verificação: alguns minutos depois de abrir
 UPDATE_INTERVAL_S = 6 * 60 * 60  # depois, a cada 6 horas
+# Destinos aceitos depois dos redirecionamentos do GitHub Releases.
 UPDATE_HOSTS = ("https://github.com/", "https://objects.githubusercontent.com/",
                 "https://release-assets.githubusercontent.com/")
+# Manifesto: https://github.com/<dono>/<repo>/releases/latest/download/latest.json (ou /download/<tag>/latest.json)
+MANIFEST_RE = re.compile(r"https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/releases/"
+                         r"(?:latest/download|download/[A-Za-z0-9_.+-]+)/latest\.json")
+SIGNATURE_DOMAIN = "astryon-update-v1"
 
 
 def app_dir() -> Path:
@@ -149,10 +157,11 @@ def child_env(root: Path, base: Path | None = None) -> dict[str, str]:
 
 # ------------------------------------------------------------------ atualização automática
 def update_config(base: Path) -> dict[str, str]:
-    """Versão instalada e endereço do latest.json, gravados no build (update.json). Vazio = sem atualização."""
+    """Versão instalada, endereço do latest.json e chave pública de release (base64, Ed25519), gravados no build
+    (update.json). Faltando qualquer um = sem atualização automática."""
     try:
         data = json.loads((base / "update.json").read_text(encoding="utf-8-sig"))
-        return {k: str(data[k]) for k in ("version", "manifest") if data.get(k)}
+        return {k: str(data[k]) for k in ("version", "manifest", "pubkey") if data.get(k)}
     except (OSError, ValueError):
         return {}
 
@@ -173,31 +182,63 @@ def is_newer(remote: str, local: str) -> bool:
 
 
 def trusted_url(url: str) -> bool:
+    """Destino final aceitável (depois de redirecionamentos) para o manifesto e o instalador."""
     return url.startswith(UPDATE_HOSTS)
+
+
+def release_prefix(manifest: str) -> str | None:
+    """Prefixo obrigatório do instalador: o mesmo repositório de releases do manifesto."""
+    m = MANIFEST_RE.fullmatch(manifest)
+    return f"https://github.com/{m.group(1)}/{m.group(2)}/releases/download/" if m else None
+
+
+def signed_message(version: str, url: str, sha256: str) -> bytes:
+    """Bytes assinados pelo workflow de release (mesmo formato em scripts/sign-update-manifest.py)."""
+    return f"{SIGNATURE_DOMAIN}\n{version}\n{url}\n{sha256}\n".encode()
+
+
+def verify_signature(pubkey_b64: str, signature_b64: str, message: bytes) -> bool:
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+        key = Ed25519PublicKey.from_public_bytes(base64.b64decode(pubkey_b64, validate=True))
+        key.verify(base64.b64decode(signature_b64, validate=True), message)
+        return True
+    except (InvalidSignature, ValueError, TypeError):
+        return False
 
 
 def fetch_json(url: str) -> dict[str, Any]:
     req = urllib.request.Request(url, headers={"User-Agent": "ASTRYON-updater"})  # noqa: S310 - trusted_url
     with urllib.request.urlopen(req, timeout=20) as r:  # noqa: S310 - só https do GitHub (trusted_url)
+        if not trusted_url(r.geturl()):
+            raise ValueError("redirecionamento para endereço não confiável")
         data = json.loads(r.read(256 * 1024).decode("utf-8-sig"))
     return data if isinstance(data, dict) else {}
 
 
 def check_update(base: Path) -> dict[str, str] | None:
-    """Devolve {'version', 'url', 'sha256'} se houver versão mais nova publicada; senão None."""
+    """Devolve {'version', 'url', 'sha256'} se houver versão mais nova publicada E assinada; senão None."""
     cfg = update_config(base)
-    if not cfg.get("manifest") or not cfg.get("version") or not trusted_url(cfg["manifest"]):
+    prefix = release_prefix(cfg.get("manifest", ""))
+    if not prefix or not cfg.get("version") or not cfg.get("pubkey"):
         return None
     info = fetch_json(cfg["manifest"])
     version, url, sha = str(info.get("version", "")), str(info.get("url", "")), str(info.get("sha256", "")).lower()
-    if not (is_newer(version, cfg["version"]) and trusted_url(url) and re.fullmatch(r"[0-9a-f]{64}", sha)):
+    if not (url.startswith(prefix) and ".." not in url and re.fullmatch(r"[0-9a-f]{64}", sha)):
+        return None
+    if not verify_signature(cfg["pubkey"], str(info.get("signature", "")), signed_message(version, url, sha)):
+        return None
+    if not is_newer(version, cfg["version"]):
         return None
     return {"version": version, "url": url, "sha256": sha}
 
 
 def download_installer(info: dict[str, str], dest_dir: Path | None = None) -> Path:
     """Baixa o instalador e confere o SHA-256. Arquivo corrompido ou adulterado é apagado e gera erro."""
-    dest_dir = dest_dir or Path(tempfile.gettempdir())
+    # pasta nova e exclusiva: ninguém deixa um .exe pronto com o mesmo nome esperando
+    dest_dir = dest_dir or Path(tempfile.mkdtemp(prefix="astryon-update-"))
     dest = dest_dir / f"ASTRYON-Setup-{re.sub(r'[^0-9A-Za-z.-]', '', info['version'])}.exe"
     h = hashlib.sha256()
     req = urllib.request.Request(info["url"], headers={"User-Agent": "ASTRYON-updater"})  # noqa: S310 - trusted_url
@@ -217,7 +258,7 @@ def run_installer(setup: Path) -> None:
     """Instala em silêncio; /atualizacao=1 faz o instalador abrir o ASTRYON de novo no fim."""
     flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     args = [str(setup), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/atualizacao=1"]
-    subprocess.Popen(args, creationflags=flags, close_fds=True)  # noqa: S603 - instalador conferido pelo SHA-256
+    subprocess.Popen(args, creationflags=flags, close_fds=True)  # noqa: S603 - SHA-256 assinado (Ed25519)
 
 
 def commands(base: Path) -> dict[str, list[str]]:

@@ -104,14 +104,21 @@ Como este repositório é privado, os instaladores são publicados num repositó
    **Contents: Read and write**. Salve o token neste repositório em **Settings → Secrets and variables →
    Actions → New repository secret**, com o nome `RELEASES_TOKEN`. Para usar outro nome de repositório, crie a
    variável `ASTRYON_RELEASES_REPO` (ex.: `seu-usuario/outro-nome`).
-2. **A cada versão:** `git tag v0.2.0 && git push origin v0.2.0`. O workflow monta o instalador e publica o
-   `.exe`, o `.zip` e o `latest.json` no repositório público. Os computadores com ASTRYON se atualizam em até 6 horas.
+2. **Chave de assinatura (uma vez):** `python scripts/release-signing.py keygen` (precisa de `cryptography`; o
+   venv do agente já tem). Nada é gravado em disco: copie a chave **privada** para o secret `RELEASE_SIGNING_KEY` e
+   a **pública** para a variável `ASTRYON_UPDATE_PUBKEY`. A pública vai embutida no instalador; o ASTRYON instalado
+   só aceita um `latest.json` assinado pela privada correspondente e só baixa instaladores do mesmo repositório de
+   releases. Sem a variável, o instalador sai sem atualização automática. Guarde uma cópia da privada fora do
+   GitHub: perdê-la obriga a reinstalar na mão em todos os computadores.
+3. **A cada versão:** `git tag v0.2.0 && git push origin v0.2.0`. O workflow monta o instalador (job só de leitura)
+   e, num job separado, assina e publica o `.exe`, o `.zip` e o `latest.json` no repositório público. Os computadores
+   com ASTRYON se atualizam em até 6 horas.
 
-Só instaladores gerados a partir desta mudança sabem se atualizar. Quem tem uma versão mais antiga precisa
-instalar uma vez na mão.
+Só instaladores gerados com a chave pública embutida sabem se atualizar. Quem tem uma versão mais antiga (sem
+assinatura) precisa instalar uma vez na mão.
 
 O build é feito por `packaging/windows/build.ps1` (PyInstaller para o agente, Next.js standalone + Node portátil
-conferido pelo SHA-256 oficial, iniciador com `pystray` e Inno Setup).
+com versão e SHA-256 fixados no script, iniciador com `pystray` e Inno Setup).
 
 
 ## Versão portátil (pendrive)

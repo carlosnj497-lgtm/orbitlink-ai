@@ -12,6 +12,11 @@ OL_DATA="${OL_DATA:-/var/lib/astryon}"
 OL_ETC="${OL_ETC:-/etc/astryon}"
 OL_ENV_FILE="${OL_ETC}/astryon.env"
 OL_LIBEXEC="/usr/local/lib/astryon"
+# Código-fonte das releases: cópia de propriedade do root (nunca o clone do usuário, que outro processo pode alterar
+# entre a checagem e o uso). src.git é um espelho "bare" usado por "update --git-pull".
+OL_SRC="${OL_PREFIX}/src"
+OL_SRC_GIT="${OL_PREFIX}/src.git"
+OL_TLS="${OL_TLS:-${OL_ETC}/tls}"
 OL_KEEP_RELEASES="${OL_KEEP_RELEASES:-3}"
 OL_AGENT_URL="http://127.0.0.1:8787"
 OL_WEB_URL="http://127.0.0.1:3000"
@@ -137,18 +142,25 @@ env_get() {
   sed -n "s/^$1=//p" "${OL_ENV_FILE}" | tail -n1
 }
 
-public_env() {
-  # public_env ARQUIVO -> linhas NEXT_PUBLIC_*=valor, lidas como o systemd lê o EnvironmentFile.
-  # Nunca faz "source": um valor com espaço (ASTRYON_TERMINAL_NAME=Starlink Mini) viraria comando no bash.
-  local line k v
+env_lines() {
+  # env_lines ARQUIVO [PREFIXO] -> linhas CHAVE=valor lidas como o systemd lê o EnvironmentFile (aspas externas
+  # removidas, CR do Windows removido, comentários ignorados). Nunca faz "source": um valor com espaço
+  # (ASTRYON_TERMINAL_NAME=Starlink Mini) ou com $(...) viraria comando no bash.
+  local prefix="${2:-}" line k v
   [[ -r "$1" ]] || return 0
   while IFS= read -r line || [[ -n "${line}" ]]; do
     line="${line%$'\r'}"
-    [[ "${line}" =~ ^[[:space:]]*(NEXT_PUBLIC_[A-Z0-9_]+)=(.*)$ ]] || continue
+    [[ "${line}" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]] || continue
     k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"
+    [[ -z "${prefix}" || "${k}" == "${prefix}"* ]] || continue
     if [[ "${v}" =~ ^\"(.*)\"$ ]] || [[ "${v}" =~ ^\'(.*)\'$ ]]; then v="${BASH_REMATCH[1]}"; fi
     printf '%s=%s\n' "${k}" "${v}"
   done < "$1"
+}
+
+public_env() {
+  # public_env ARQUIVO -> só as linhas NEXT_PUBLIC_*=valor (embutidas no build do painel)
+  env_lines "$1" NEXT_PUBLIC_
 }
 
 env_set() {
@@ -165,6 +177,124 @@ env_set() {
 }
 
 random_token() { openssl rand -base64 48 | tr '+/' '-_' | tr -d '=\n' | cut -c1-48; }
+
+# ---------------------------------------------------------------- código-fonte (cópia do root)
+src_replace_from_tar() {
+  # Lê um tar da entrada padrão e troca ${OL_SRC} de uma vez. Extrai como root numa pasta nova e vazia,
+  # sem donos/permissões do arquivo; o GNU tar recusa caminhos absolutos e "..".
+  local new="${OL_SRC}.new"
+  rm -rf --one-file-system "${new}" "${OL_SRC}.old"
+  install -d -o root -g root -m 0755 "${new}"
+  tar -x -C "${new}" --no-same-owner --no-same-permissions -f - || { rm -rf --one-file-system "${new}"; return 1; }
+  chmod -R go-w "${new}"
+  [[ -f "${new}/apps/agent/pyproject.toml" && -f "${new}/package.json" ]] \
+    || { rm -rf --one-file-system "${new}"; die "o código importado não parece o ASTRYON (falta package.json/pyproject.toml)"; }
+  if [[ -d "${OL_SRC}" ]]; then mv -T "${OL_SRC}" "${OL_SRC}.old"; fi
+  mv -T "${new}" "${OL_SRC}"
+  rm -rf --one-file-system "${OL_SRC}.old"
+}
+
+src_commit() { cat "${OL_SRC}/.astryon-commit" 2>/dev/null || true; }
+
+src_import_dir() {
+  # src_import_dir DIR -> copia o último COMMIT de DIR (um clone de usuário) para ${OL_SRC}.
+  # Todo comando dentro de DIR roda como o DONO de DIR, nunca como root: hooks e config do repositório (que o
+  # dono controla) não ganham privilégio. Alterações não commitadas ficam de fora.
+  local dir="$1" owner commit
+  [[ -d "${dir}" ]] || die "pasta de origem não encontrada: ${dir}"
+  owner="$(stat -c %U "${dir}")"
+  if commit="$(runuser -u "${owner}" -- git -C "${dir}" rev-parse --verify -q 'HEAD^{commit}' 2>/dev/null)"; then
+    if [[ -n "$(runuser -u "${owner}" -- git -C "${dir}" status --porcelain --untracked-files=no 2>/dev/null)" ]]; then
+      warn "há alterações não commitadas em ${dir}: elas NÃO entram na release (só o commit ${commit:0:12})"
+    fi
+    runuser -u "${owner}" -- git -C "${dir}" archive --format=tar "${commit}" | src_replace_from_tar \
+      || die "não foi possível copiar o commit ${commit:0:12} de ${dir}"
+  else
+    warn "${dir} não é um clone git: copiando os arquivos como estão (sem commit para auditar)"
+    commit="sem-git-$(date -u +%Y%m%d%H%M%S)"
+    runuser -u "${owner}" -- tar -C "${dir}" -c -f - --exclude-vcs --exclude=node_modules --exclude=.venv \
+      --exclude=.next --exclude=data --exclude=tools-venv --exclude=.pio --exclude='*.sqlite3*' --exclude=.env . \
+      | src_replace_from_tar || die "não foi possível copiar ${dir}"
+  fi
+  printf '%s\n' "${commit}" > "${OL_SRC}/.astryon-commit"
+  ok "código copiado para ${OL_SRC} (commit ${commit:0:12})"
+}
+
+src_record_remote() {
+  # src_record_remote DIR -> guarda o "origin" do clone do usuário para o "update --git-pull" buscar direto dele
+  local dir="$1" owner url
+  owner="$(stat -c %U "${dir}" 2>/dev/null)" || return 0
+  url="$(runuser -u "${owner}" -- git -C "${dir}" remote get-url origin 2>/dev/null || true)"
+  case "${url}" in
+    https://*|ssh://*|git@*) printf '%s\n' "${url}" > "${OL_ETC}/git-remote"; info "remoto registrado: ${url}" ;;
+    *) : ;;
+  esac
+}
+
+src_git_pull() {
+  # Atualiza ${OL_SRC} buscando o branch padrão do remoto num espelho bare de propriedade do root.
+  # Só avança (fast-forward) em relação ao commit instalado. Com ${OL_ETC}/allowed-signers presente, exige
+  # commit assinado (SSH) por uma das chaves listadas.
+  local url target prev signers="${OL_ETC}/allowed-signers"
+  url="$(cat "${OL_ETC}/git-remote" 2>/dev/null || true)"
+  [[ -n "${url}" ]] || die "nenhum remoto registrado em ${OL_ETC}/git-remote. Use: git pull no seu clone e depois sudo astryonctl update"
+  if [[ ! -d "${OL_SRC_GIT}" ]]; then
+    git clone --bare --quiet "${url}" "${OL_SRC_GIT}" \
+      || die "não foi possível clonar ${url} como root (repositório privado?). Use: git pull no seu clone e depois sudo astryonctl update"
+  else
+    git --git-dir="${OL_SRC_GIT}" fetch --quiet --prune --tags "${url}" '+refs/heads/*:refs/heads/*' \
+      || die "git fetch falhou (${url})"
+  fi
+  target="$(git --git-dir="${OL_SRC_GIT}" rev-parse --verify -q 'HEAD^{commit}')" || die "o remoto não tem branch padrão"
+  prev="$(src_commit)"
+  if [[ -n "${prev}" ]] && git --git-dir="${OL_SRC_GIT}" cat-file -e "${prev}^{commit}" 2>/dev/null; then
+    git --git-dir="${OL_SRC_GIT}" merge-base --is-ancestor "${prev}" "${target}" \
+      || die "o remoto não descende do commit instalado (${prev:0:12}): histórico reescrito? Recusando."
+  fi
+  if [[ -f "${signers}" ]]; then
+    git --git-dir="${OL_SRC_GIT}" -c gpg.ssh.allowedSignersFile="${signers}" verify-commit "${target}" >/dev/null 2>&1 \
+      || die "o commit ${target:0:12} não tem assinatura válida de ${signers}"
+    ok "assinatura do commit ${target:0:12} conferida"
+  else
+    warn "commit ${target:0:12} não verificado (crie ${signers} para exigir commits assinados)"
+  fi
+  git --git-dir="${OL_SRC_GIT}" archive --format=tar "${target}" | src_replace_from_tar || die "falha ao extrair ${target:0:12}"
+  printf '%s\n' "${target}" > "${OL_SRC}/.astryon-commit"
+  ok "código em ${OL_SRC}: commit ${target:0:12}"
+}
+
+# ---------------------------------------------------------------- certificado TLS autoassinado
+cert_create() {
+  # cert_create CN SAN -> (re)gera o certificado autoassinado em ${OL_TLS}, trocando os arquivos de uma vez
+  local cn="$1" san="$2" tmp
+  [[ -d "${OL_TLS}" ]] || install -d -o root -g root -m 0755 "${OL_TLS}"
+  tmp="$(mktemp -d "${OL_TLS}/.novo.XXXXXX")"
+  openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 825 \
+    -subj "/CN=${cn}/O=ASTRYON (autoassinado)" -addext "subjectAltName=${san}" \
+    -keyout "${tmp}/astryon.key" -out "${tmp}/astryon.crt" 2>/dev/null || { rm -rf "${tmp}"; return 1; }
+  chmod 0600 "${tmp}/astryon.key"; chmod 0644 "${tmp}/astryon.crt"
+  mv -f "${tmp}/astryon.key" "${OL_TLS}/astryon.key"
+  mv -f "${tmp}/astryon.crt" "${OL_TLS}/astryon.crt"
+  rmdir "${tmp}"
+}
+
+cert_san() {
+  # cert_san [NOME] -> SAN padrão: nome informado, hostname, hostname.local, localhost e os IPs (loopback e LAN)
+  local name="${1:-}" ip_now san
+  ip_now="$(lan_ip)"
+  san="$(nginx_server_names "${name}" "$(hostname)" "$(hostname).local" localhost | sed 's/\([^ ][^ ]*\)/DNS:\1/g; s/ /,/g')"
+  san="${san},IP:127.0.0.1"
+  [[ -n "${ip_now}" ]] && san="${san},IP:${ip_now}"
+  echo "${san}"
+}
+
+cert_days_left() {
+  # cert_days_left ARQUIVO -> dias até expirar (negativo se já expirou); vazio se ilegível
+  local end
+  end="$(openssl x509 -enddate -noout -in "$1" 2>/dev/null | cut -d= -f2)" || return 0
+  [[ -n "${end}" ]] || return 0
+  echo $(( ( $(date -d "${end}" +%s) - $(date +%s) ) / 86400 ))
+}
 
 # ---------------------------------------------------------------- releases
 current_release() { readlink -f "${OL_CURRENT}" 2>/dev/null || true; }

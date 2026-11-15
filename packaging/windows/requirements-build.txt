@@ -1,4 +1,6 @@
 # Só para montar o instalador do Windows (não entram no agente nem no painel).
+# Entrada do lock: depois de mudar, regenere requirements-build.lock (comando no topo dele).
+# pillow vem de apps/agent/requirements.lock (mesmo venv); não fixe outra versão aqui.
 pyinstaller==6.16.0
 pystray==0.19.5
-pillow==11.3.0
+pillow

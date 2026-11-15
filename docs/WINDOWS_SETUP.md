@@ -74,7 +74,8 @@ Nunca encaminhe 8787, 8788 ou 9200 no roteador para a internet. Para acesso remo
 
 ## Instalador `.exe` (sem Python nem Node)
 
-O GitHub Actions monta um instalador comum de Windows (`ASTRYON-Setup-<versão>.exe`) numa máquina Windows:
+O GitHub Actions monta um instalador comum de Windows (`ASTRYON-Setup-<versão>.exe`) numa máquina Windows, e
+também a [versão portátil para pendrive](#versão-portátil-pendrive):
 
 - **Gerar:** no GitHub, abra **Actions → Instalador Windows → Run workflow** e baixe o arquivo em "Artifacts".
   Ao criar uma tag `v*` (ex.: `v0.2.0`), o instalador também é anexado à release.
@@ -93,3 +94,27 @@ O GitHub Actions monta um instalador comum de Windows (`ASTRYON-Setup-<versão>.
 O build é feito por `packaging/windows/build.ps1` (PyInstaller para o agente, Next.js standalone + Node portátil
 conferido pelo SHA-256 oficial, iniciador com `pystray` e Inno Setup).
 
+
+## Versão portátil (pendrive)
+
+O mesmo workflow gera também `ASTRYON-Portatil-<versão>.zip`: o ASTRYON inteiro numa pasta, sem instalar nada.
+
+- **Preparar:** extraia o `.zip` e copie a pasta `ASTRYON` para o pendrive (ex.: `E:\ASTRYON`).
+- **Usar:** no computador ligado à rede da Starlink, abra `E:\ASTRYON\ASTRYON.exe`. O painel abre em
+  `http://127.0.0.1:3000` e o ícone fica ao lado do relógio, como na versão instalada.
+- **Tirar o pendrive:** ícone da bandeja → **Sair**. Espere o ícone sumir antes de remover, para não corromper o
+  banco de dados.
+- **Como funciona:** o arquivo `portable.txt` ao lado do `ASTRYON.exe` liga o modo portátil. Com ele:
+  - tudo fica em `ASTRYON\dados\` no próprio pendrive: configuração, banco, logs e ligação com a conta. Nada vai
+    para o `%LOCALAPPDATA%` do PC;
+  - o caminho é recalculado a cada início, então a letra da unidade pode mudar de um PC para outro (`E:`, `F:`…);
+  - a ligação com a conta na nuvem é protegida por uma chave guardada no pendrive, e não pelo DPAPI do Windows
+    (que só abre no mesmo PC e usuário). Por isso continua valendo em qualquer computador;
+  - para poupar o pendrive, a coleta grava com menos frequência (status a cada 30 s, histórico a cada 60 s) e
+    guarda 2 dias de amostras de 1 s. O resumo por minuto, os eventos e o consumo diário não mudam. Para ajustar,
+    edite `dados\astryon.env` (ex.: `ASTRYON_RETENTION_RAW_DAYS=7`);
+  - a opção "Iniciar com o Windows" não aparece no menu.
+- **Segurança:** quem tiver o pendrive tem acesso aos dados e à ligação com a conta. Se perder o pendrive, remova o
+  acesso em **Conta → Agentes conectados** no painel na nuvem.
+- **Limites:** só monitora enquanto o ASTRYON está aberto. Não rode a versão instalada e a portátil ao mesmo tempo,
+  porque as duas usam as portas 3000 e 8787.

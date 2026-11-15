@@ -46,4 +46,5 @@ packaging/windows/build/
 packaging/windows/node/
 packaging/windows/.venv-build/
 packaging/windows/*.zip
+packaging/windows/portable/
 packaging/windows/astryon.ico

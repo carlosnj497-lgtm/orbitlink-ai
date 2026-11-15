@@ -1,0 +1,23 @@
+ASTRYON portátil (pendrive)
+===========================
+
+Este arquivo liga o modo portátil: com ele aqui, o ASTRYON.exe guarda tudo na pasta "dados" ao lado
+dele (configuração, histórico, logs e a ligação com a sua conta). Apague este arquivo para usar como
+instalação normal (dados em %LOCALAPPDATA%\ASTRYON).
+
+Como usar
+1. Copie a pasta ASTRYON inteira para o pendrive (ex.: E:\ASTRYON).
+2. No computador ligado à rede da Starlink, abra E:\ASTRYON\ASTRYON.exe.
+   O Windows pode mostrar o aviso "O Windows protegeu o computador": clique em "Mais informações" e
+   "Executar assim mesmo".
+3. O painel abre no navegador em http://127.0.0.1:3000. O ícone fica ao lado do relógio.
+4. Para tirar o pendrive: ícone da bandeja -> Sair, espere o ícone sumir e só então remova.
+
+Bom saber
+* Funciona em qualquer letra de unidade (E:, F:, ...) e em qualquer PC com Windows 10/11 64 bits.
+* O histórico só é gravado enquanto o ASTRYON está aberto.
+* Para poupar o pendrive, a coleta grava com menos frequência e guarda 2 dias de amostras detalhadas
+  (o resumo por minuto e o consumo diário continuam). Dá para mudar em dados\astryon.env.
+* Quem tiver o pendrive tem acesso aos dados e à ligação com a conta. Se perder o pendrive, remova o
+  acesso em Conta -> Agentes conectados no painel na nuvem.
+* Não rode a versão instalada e a portátil ao mesmo tempo (usam as mesmas portas).

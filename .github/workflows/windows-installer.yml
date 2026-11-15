@@ -46,8 +46,8 @@ jobs:
         run: ./packaging/windows/build.ps1 -Version "${{ steps.ver.outputs.version }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: ASTRYON-Setup-${{ steps.ver.outputs.version }}
-          path: packaging/windows/dist/*.exe
+          name: ASTRYON-Windows-${{ steps.ver.outputs.version }}
+          path: packaging/windows/dist/*
           if-no-files-found: error
       - name: Anexar à release
         if: github.ref_type == 'tag'
@@ -56,4 +56,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view "${{ github.ref_name }}" 2>$null; if ($LASTEXITCODE -ne 0) { gh release create "${{ github.ref_name }}" --title "ASTRYON ${{ github.ref_name }}" --generate-notes }
-          gh release upload "${{ github.ref_name }}" (Get-ChildItem packaging/windows/dist/*.exe).FullName --clobber
+          gh release upload "${{ github.ref_name }}" (Get-ChildItem packaging/windows/dist/*).FullName --clobber

@@ -1,6 +1,7 @@
 """Proteção de segredos em repouso.
 
-* Windows: DPAPI (CryptProtectData, escopo do usuário) via ctypes.
+* Windows instalado: DPAPI (CryptProtectData, escopo do usuário) via ctypes. Windows portátil (pendrive,
+  `ASTRYON_PORTABLE=1`): Fernet com a chave no próprio pendrive, para abrir em qualquer PC.
 * Linux/macOS: Fernet (AES-128-CBC + HMAC-SHA256, pacote `cryptography`) com chave em arquivo SEPARADO dos dados
   (`ASTRYON_SECRETS_KEY_FILE`, padrão `/etc/astryon/secrets.key` no servidor; o instalador cria com 0640
   root:astryon). Assim um backup do diretório de dados não carrega a chave.
@@ -68,8 +69,14 @@ def _fernet() -> Fernet:
     return Fernet(path.read_bytes().strip())
 
 
+def _use_dpapi() -> bool:
+    """DPAPI só no Windows instalado. No modo portátil (pendrive) o segredo precisa abrir em qualquer PC,
+    então usa a chave Fernet guardada no próprio pendrive (ASTRYON_SECRETS_KEY_FILE)."""
+    return sys.platform == "win32" and os.environ.get("ASTRYON_PORTABLE") != "1"
+
+
 def protect(secret: str) -> str:
-    if sys.platform == "win32":
+    if _use_dpapi():
         return "dpapi:" + base64.b64encode(_dpapi(secret.encode("utf-8"), True)).decode()
     token = _fernet().encrypt(secret.encode("utf-8"))
     return "fernet:" + token.decode()

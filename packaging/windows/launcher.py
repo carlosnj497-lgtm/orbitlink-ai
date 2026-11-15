@@ -10,6 +10,11 @@
 * Uma única instância: abrir de novo só abre o navegador.
 
 A pasta de dados fica fora da pasta do programa: atualizar ou reinstalar não apaga nada.
+
+Modo portátil (pendrive): com um arquivo `portable.txt` ao lado do ASTRYON.exe, tudo fica na pasta `dados\\`
+do próprio pendrive. O caminho é recalculado a cada início (a letra da unidade muda de um PC para outro), a
+chave dos segredos fica no pendrive (o DPAPI só vale no mesmo PC/usuário), a coleta grava menos vezes para
+poupar o pendrive e a opção "Iniciar com o Windows" some do menu.
 """
 
 from __future__ import annotations
@@ -36,23 +41,43 @@ def app_dir() -> Path:
     return Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
 
 
-def data_root() -> Path:
-    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
-    return Path(base) / APP_NAME
+def portable(base: Path | None = None) -> bool:
+    """Modo pendrive: existe `portable.txt` ao lado do executável."""
+    return ((base or app_dir()) / "portable.txt").exists()
+
+
+def data_root(base: Path | None = None) -> Path:
+    base = base or app_dir()
+    if portable(base):
+        return base / "dados"
+    local = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+    return Path(local) / APP_NAME
+
+
+# Menos gravações no pendrive (memória flash barata gasta com escrita contínua). Valores só valem se a pessoa
+# não tiver definido outro no astryon.env.
+PORTABLE_DEFAULTS = {
+    "ASTRYON_STATUS_INTERVAL_S": "30",
+    "ASTRYON_HISTORY_INTERVAL_S": "60",
+    "ASTRYON_RETENTION_RAW_DAYS": "2",
+}
 
 
 # ------------------------------------------------------------------ configuração
-def ensure_env(root: Path) -> Path:
+def ensure_env(root: Path, is_portable: bool = False) -> Path:
     """Cria a pasta de dados e o astryon.env na primeira execução (token de serviço aleatório)."""
     (root / "data").mkdir(parents=True, exist_ok=True)
     (root / "logs").mkdir(parents=True, exist_ok=True)
     env = root / "astryon.env"
     if not env.exists():
+        # No pendrive a pasta de dados é calculada a cada início (a letra da unidade muda).
+        data_line = "# ASTRYON_DATA_DIR: automático (pasta dados\\data do pendrive)\n" if is_portable \
+            else f"ASTRYON_DATA_DIR={root / 'data'}\n"
         env.write_text(
             "# Configuração do ASTRYON. Depois de editar, use \"Reiniciar serviços\" no ícone da bandeja.\n"
             "# Telegram, IA (Groq), clima e franquia: veja o .env.example do projeto.\n"
             f"ASTRYON_API_TOKEN={secrets.token_urlsafe(36)}\n"
-            f"ASTRYON_DATA_DIR={root / 'data'}\n"
+            + data_line +
             "ASTRYON_HOST=127.0.0.1\n"
             "ASTRYON_COOKIE_SECURE=false\n"
             "ASTRYON_TIMEZONE=America/Sao_Paulo\n"
@@ -94,13 +119,21 @@ def read_env(path: Path) -> dict[str, str]:
     return out
 
 
-def child_env(root: Path) -> dict[str, str]:
-    env_file = ensure_env(root)
-    ensure_cloud(env_file, app_dir())
+def child_env(root: Path, base: Path | None = None) -> dict[str, str]:
+    base = base or app_dir()
+    is_portable = portable(base)
+    env_file = ensure_env(root, is_portable)
+    ensure_cloud(env_file, base)
     env = dict(os.environ)
+    if is_portable:
+        env.update(PORTABLE_DEFAULTS)
     env.update(read_env(env_file))
     env.update({"ASTRYON_ENV_FILE": str(env_file), "NODE_ENV": "production", "PORT": "3000",
                 "HOSTNAME": "127.0.0.1", "ASTRYON_AGENT_URL": "http://127.0.0.1:8787"})
+    if is_portable:
+        # Sempre por último: o caminho atual do pendrive vence qualquer letra antiga gravada no arquivo.
+        env.update({"ASTRYON_PORTABLE": "1", "ASTRYON_DATA_DIR": str(root / "data"),
+                    "ASTRYON_SECRETS_KEY_FILE": str(root / "data" / "secrets.key")})
     return env
 
 
@@ -131,7 +164,7 @@ class Supervisor:
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         cwd = str(Path(cmd[1]).parent) if name == "painel" else str(self.base / "agent")
         log = self._log(name)
-        self.procs[name] = subprocess.Popen(cmd, cwd=cwd, env=child_env(self.root), stdout=log, stderr=log,
+        self.procs[name] = subprocess.Popen(cmd, cwd=cwd, env=child_env(self.root, self.base), stdout=log, stderr=log,
                                             creationflags=flags)
 
     def start_all(self) -> None:
@@ -174,7 +207,7 @@ def pair_with_code(base: Path, root: Path, code: str) -> tuple[bool, str]:
     """Roda `astryon-agent pair CÓDIGO` com a configuração deste computador. Devolve (ok, mensagem)."""
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
-        r = subprocess.run([str(base / "agent" / "astryon-agent.exe"), "pair", code.strip()], env=child_env(root),
+        r = subprocess.run([str(base / "agent" / "astryon-agent.exe"), "pair", code.strip()], env=child_env(root, base),
                            capture_output=True, text=True, timeout=60, creationflags=flags)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return False, f"Não foi possível rodar o agente ({type(exc).__name__})."
@@ -248,7 +281,8 @@ def set_autostart(on: bool) -> None:
 
 
 def single_instance() -> bool:
-    """True se esta é a única instância (mutex nomeado do Windows)."""
+    """True se esta é a única instância (mutex nomeado do Windows). Instalado e portátil usam as mesmas
+    portas 3000/8787, então os dois compartilham o mesmo mutex: não dá para rodar ambos ao mesmo tempo."""
     import ctypes
 
     ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\ASTRYON-launcher")
@@ -269,7 +303,8 @@ def main() -> int:
     if sys.platform != "win32":
         print("O iniciador da bandeja é só para Windows.")
         return 1
-    root, base = data_root(), app_dir()
+    base = app_dir()
+    root, is_portable = data_root(base), portable(base)
     minimized = "--minimizado" in sys.argv
     if not single_instance():
         webbrowser.open(PANEL_URL)
@@ -311,18 +346,20 @@ def main() -> int:
         pystray.MenuItem("Reiniciar serviços", lambda *_: sup.restart_all()),
         pystray.MenuItem("Ver logs", lambda *_: os.startfile(root / "logs")),  # type: ignore[attr-defined]
         pystray.MenuItem("Editar configurações", lambda *_: os.startfile(root / "astryon.env")),  # type: ignore[attr-defined]
-        pystray.MenuItem("Iniciar com o Windows", toggle_autostart, checked=lambda _: autostart_enabled()),
+        pystray.MenuItem("Iniciar com o Windows", toggle_autostart, checked=lambda _: autostart_enabled(),
+                         visible=not is_portable),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Sair", quit_app),
     )
-    icon = pystray.Icon(APP_NAME, icon_image("fora"), "ASTRYON · iniciando", menu)
+    label = "ASTRYON portátil" if is_portable else "ASTRYON"
+    icon = pystray.Icon(APP_NAME, icon_image("fora"), f"{label} · iniciando", menu)
 
     def monitor() -> None:
         opened = minimized
         while not sup.stopping:
             st = health()
             icon.icon = icon_image(st)
-            icon.title = "ASTRYON · no ar" if st == "ok" else "ASTRYON · serviço fora do ar"
+            icon.title = f"{label} · no ar" if st == "ok" else f"{label} · serviço fora do ar"
             if st != "fora" and not opened:
                 open_panel()
                 opened = True

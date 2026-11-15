@@ -6,6 +6,7 @@
   2. Painel Next.js em modo standalone + node.exe portátil (versão fixa, conferida pelo SHA-256 oficial).
   3. Iniciador da bandeja -> ASTRYON.exe.
   4. Inno Setup -> dist\ASTRYON-Setup-<versão>.exe.
+  5. Versão portátil (pendrive) -> dist\ASTRYON-Portatil-<versão>.zip (mesmos arquivos + portable.txt).
   Requisitos: Python 3.12, Node 22 (para o build), Inno Setup 6 (iscc no PATH).
 #>
 [CmdletBinding()]
@@ -85,4 +86,13 @@ if ($LASTEXITCODE -ne 0) { throw "astryon-agent.exe não iniciou" }
 
 Write-Host "==> Instalador (Inno Setup)"
 iscc /DAppVersion=$Version /DStageDir=$Stage /DOutDir=$Dist (Join-Path $Here "astryon.iss")
+
+Write-Host "==> Versão portátil (pendrive)"
+$PortDir = Join-Path $Here "portable\ASTRYON"
+Remove-Item -Recurse -Force (Join-Path $Here "portable") -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force $PortDir | Out-Null
+Copy-Item -Recurse (Join-Path $Stage "*") $PortDir
+# O marcador faz o ASTRYON.exe guardar tudo na pasta dados\ ao lado dele, em vez de %LOCALAPPDATA%.
+Copy-Item (Join-Path $Here "portable.txt") (Join-Path $PortDir "portable.txt")
+Compress-Archive -Path $PortDir -DestinationPath (Join-Path $Dist "ASTRYON-Portatil-$Version.zip") -CompressionLevel Optimal
 Get-ChildItem $Dist

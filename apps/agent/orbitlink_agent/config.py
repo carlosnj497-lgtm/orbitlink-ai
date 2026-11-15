@@ -119,6 +119,18 @@ class Settings(BaseSettings):
     weather_longitude: float | None = Field(default=None, ge=-180, le=180)
     weather_interval_s: float = Field(default=1800, ge=600, le=21600)
 
+    # Saúde do servidor e vigias
+    downtime_notice_min: int = Field(default=10, ge=1, le=1440)  # avisa no Telegram se o agente ficou parado mais que isso
+    # Vigia externo (ex.: https://hc-ping.com/<uuid> do healthchecks.io): avisa se os sinais pararem, até com o
+    # servidor desligado. Só um GET periódico, sem dados.
+    healthcheck_url: str | None = Field(default=None, pattern=r"^https://")
+    healthcheck_interval_s: float = Field(default=300, ge=60, le=3600)
+    # Backup do banco: cópia diária em <data>/backups (mantém N) e cópia semanal no chat do Telegram.
+    backup_enabled: bool = True
+    backup_keep: int = Field(default=7, ge=1, le=90)
+    backup_telegram: bool = True
+    backup_telegram_every_days: int = Field(default=7, ge=1, le=90)
+
     # Exibição
     timezone: str = "America/Fortaleza"
     terminal_name: str = "Starlink Mini"

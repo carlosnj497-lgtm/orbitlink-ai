@@ -370,6 +370,19 @@ export interface GeocodeResult {
   longitude: number;
 }
 
+/** Saúde do próprio servidor (o que o sistema não informa vem null, nunca 0). */
+export interface ServerHealth {
+  disk: { free_bytes: number | null; total_bytes: number | null; free_pct: number | null };
+  db_size_bytes: number;
+  cpu_temp_c: number | null;
+  mem_available_pct: number | null;
+  load_1m: number | null;
+  cpus: number | null;
+  last_backup_at: number | null;
+  healthcheck_configured: boolean;
+  checked_at: number;
+}
+
 /** Payloads SSE validados no cliente. */
 export const sseAgentSchema = z.object({ version: z.string(), mode: z.string() }).passthrough();
 export const sseStatusSchema = z

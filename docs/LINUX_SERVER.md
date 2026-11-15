@@ -128,6 +128,25 @@ systemctl show -p NRestarts orbitlink-agent   # quantas vezes reiniciou sozinho
 
 **Atualização:** faz backup do SQLite, constrói a nova release **sem tocar na que está no ar**, troca o link, reinicia e verifica a saúde. Se a nova versão não responder em ~60 s, volta sozinha para a anterior.
 
+### Backup automático e vigia do servidor
+
+O próprio agente cuida disto, sem cron:
+
+- **Backup diário** do banco em `<pasta de dados>/backups/orbitlink-AAAAMMDD-HHMMSS.sqlite3.gz`. Mantém as
+  últimas `ORBITLINK_BACKUP_KEEP` cópias (padrão 7). Com o Telegram configurado, uma cópia por semana
+  (`ORBITLINK_BACKUP_TELEGRAM_EVERY_DAYS`) vai para o seu chat do bot, para sobreviver se o disco falhar.
+  O botão **Fazer backup agora** fica em Configurações → Servidor e backup.
+- **Restaurar:** pare o agente, descompacte a cópia como `orbitlink.sqlite3` na pasta de dados e inicie de novo:
+  `gunzip -c orbitlink-AAAAMMDD-HHMMSS.sqlite3.gz > orbitlink.sqlite3`.
+- **Saúde do servidor:** temperatura, disco livre, memória e tamanho do banco aparecem no Dashboard e nas
+  Configurações. As regras "pouco disco livre" (< 10%) e "temperatura alta" (> 85 °C) avisam pelo Telegram.
+- **Aviso de volta:** se o agente ficar parado mais que `ORBITLINK_DOWNTIME_NOTICE_MIN` minutos (padrão 10),
+  ao voltar ele avisa no Telegram por quanto tempo nada foi monitorado.
+- **Vigia externo (opcional):** o servidor não consegue avisar que ele mesmo desligou. Crie um check gratuito em
+  [healthchecks.io](https://healthchecks.io) com período de 5 minutos, ligue a integração com o Telegram de lá e
+  coloque a URL de ping em `ORBITLINK_HEALTHCHECK_URL` (só `https://`). Se os pings pararem, o healthchecks.io
+  avisa você.
+
 ## 5. Configuração
 
 Edite `/etc/orbitlink/orbitlink.env` e depois rode `sudo orbitlinkctl restart`. As mesmas variáveis do `.env.example` valem aqui.

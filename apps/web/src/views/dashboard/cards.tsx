@@ -1,7 +1,7 @@
 "use client";
 
-import type { AgentInfo, Capability, EventsResponse, ObstructionResponse, Quality, StatusResponse, UsagePlan, UsageSeries, UsageSummary } from "@orbitlink/shared";
-import { ArrowRight, Bell, CircleCheck, CircleX, Cpu, Database, Info, LayoutDashboard, PieChart, RadioTower, Radar, SatelliteDish, Server, ShieldCheck, Sparkles, TriangleAlert, Unplug } from "lucide-react";
+import type { AgentInfo, Capability, EventsResponse, ObstructionResponse, Quality, ServerHealth, StatusResponse, UsagePlan, UsageSeries, UsageSummary } from "@orbitlink/shared";
+import { ArrowRight, Bell, CircleCheck, CircleX, Cpu, Database, HardDrive, Info, LayoutDashboard, PieChart, RadioTower, Radar, SatelliteDish, Server, ShieldCheck, Sparkles, TriangleAlert, Unplug } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
 import { ObstructionGrid } from "@/components/charts";
@@ -641,17 +641,28 @@ export function ServicesCard({ agent, agentError, className }: { agent: AgentInf
   const agentSvc: [RowState, string] = agentError ? ["fail", "Offline"] : agent ? ["ok", "Online"] : ["unknown", "Verificando"];
   const supa: [RowState, string] = !agent ? off : !agent.supabase_configured ? ["unknown", "Não configurado"] : syncFail ? ["fail", "Erro de sincronização"] : agent.sync_pending > 0 ? ["warn", `${fmtNumber(agent.sync_pending, 0)} pendentes`] : ["ok", "Sincronizado"];
   const dish: [RowState, string] = !agent ? off : agent.dish_reachable ? ["ok", "Acessível"] : agent.dish_reachable === false ? ["fail", "Inacessível"] : ["unknown", "Verificando"];
+  const srv = useAgent<ServerHealth>("ops/health", { refetchInterval: 60_000 });
+  const sh = srv.data;
+  const srvSvc: [RowState, string] = !sh
+    ? off
+    : (sh.disk.free_pct !== null && sh.disk.free_pct < 10) || (sh.cpu_temp_c !== null && sh.cpu_temp_c >= 85)
+      ? ["warn", sh.disk.free_pct !== null && sh.disk.free_pct < 10 ? "Pouco disco livre" : "Temperatura alta"]
+      : ["ok", "Saudável"];
+  const srvDetail = sh
+    ? [sh.cpu_temp_c !== null ? `${fmtNumber(sh.cpu_temp_c, 0)} °C` : null, sh.disk.free_pct !== null ? `${fmtNumber(sh.disk.free_pct, 0)}% livre` : null, sh.last_backup_at ? `backup ${fmtAgo(sh.last_backup_at)}` : "sem backup ainda"].filter(Boolean).join(" · ")
+    : "Temperatura, disco e backup";
   const espSvc: [RowState, string] = !esp.data ? off : !esp.data.enabled ? ["unknown", "Não configurado"] : !nodes.length ? ["unknown", "Nenhum nó pareado"] : online ? ["ok", `${online} de ${nodes.length} online`] : ["warn", "Nós offline"];
   return (
     <Card className={cn("flex flex-col", className)}>
       <CardHeader title="Serviços e Integrações" icon={<Server />} />
       <CardBody className="flex flex-1 flex-col">
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 min-[105rem]:grid-cols-6">
           <Service icon={<Server />} name="Agente local" detail={agent ? `Python/FastAPI · v${agent.version}${agent.mode === "fixture" ? " · fixture" : ""}` : "Python/FastAPI"} state={agentSvc[0]} label={agentSvc[1]} />
           <Service icon={<LayoutDashboard />} name="Dashboard" detail="Next.js · esta página" state="ok" label="Online" />
           <Service icon={<SatelliteDish />} name="Comunicação com a Starlink" detail={agent?.dish_target ? `API local · ${agent.dish_target}` : "API local (gRPC)"} state={dish[0]} label={dish[1]} />
           <Service icon={<Database />} name="Supabase" detail="Sincronização opcional" state={supa[0]} label={supa[1]} />
           <Service icon={<Cpu />} name="ESP32" detail="Sensores opcionais" state={espSvc[0]} label={espSvc[1]} />
+          <Service icon={<HardDrive />} name="Servidor" detail={srvDetail} state={srvSvc[0]} label={srvSvc[1]} />
         </ul>
         {agent && (
           <p className="mt-auto pt-3 text-[11px] leading-snug text-fg-subtle">

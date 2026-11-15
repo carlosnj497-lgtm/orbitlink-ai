@@ -13,7 +13,7 @@ from .deps import Admin, Ctx, User
 router = APIRouter(prefix="/v1/settings", tags=["configuracoes"])
 
 SECRET_FIELDS = {"api_token", "supabase_anon_key", "supabase_agent_token", "groq_api_key", "setup_code",
-                 "telegram_bot_token", "telegram_chat_id"}
+                 "telegram_bot_token", "telegram_chat_id", "healthcheck_url"}
 RUNTIME_KEYS = {"terminal_name", "usage_monthly_limit_gb", "usage_cycle_start_day", "show_mac_addresses",
                 "weekly_digest_enabled", "weekly_digest_weekday", "weekly_digest_hour"}
 

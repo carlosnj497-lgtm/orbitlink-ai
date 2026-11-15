@@ -35,6 +35,7 @@ EXTRA_ROUTERS: list[str] = [
     "orbitlink_agent.api.routes_settings",
     "orbitlink_agent.api.routes_sync",
     "orbitlink_agent.api.routes_weather",
+    "orbitlink_agent.api.routes_ops",
 ]
 
 

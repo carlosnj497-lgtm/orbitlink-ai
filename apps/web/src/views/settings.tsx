@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentInfo, DigestStatus, NotificationStatus, UsagePlan } from "@orbitlink/shared";
+import type { AgentInfo, DigestStatus, NotificationStatus, ServerHealth, UsagePlan } from "@orbitlink/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -9,6 +9,7 @@ import {
   CloudSun,
   Database,
   Gauge,
+  HardDrive,
   Info,
   KeyRound,
   type LucideIcon,
@@ -62,6 +63,7 @@ const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "notificacoes", label: "Notificações", icon: BellRing },
   { id: "ia", label: "Central de IA", icon: Sparkles },
   { id: "coleta", label: "Coleta e dados", icon: Database },
+  { id: "servidor", label: "Servidor e backup", icon: HardDrive },
   { id: "integracoes", label: "Conexões", icon: Cable },
   { id: "credenciais", label: "Credenciais", icon: KeyRound },
   { id: "conta", label: "Conta", icon: UserRound },
@@ -468,6 +470,8 @@ function SettingsBody({ d }: { d: SettingsData }) {
           )}
         </Section>
 
+        <ServerSection d={d} />
+
         {/* ---------------------------------------------------------- Integrações */}
         <Section id="integracoes" title="Conexões e integrações" icon={Cable} description="Onde o agente encontra a antena e o roteador, quem pode acessar a API e as integrações opcionais.">
           <dl className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
@@ -525,5 +529,53 @@ function SettingsBody({ d }: { d: SettingsData }) {
         </Section>
       </div>
     </div>
+  );
+}
+
+/* ----------------------------------------------------------------- Servidor e backup */
+function ServerSection({ d }: { d: SettingsData }) {
+  const demo = useDemo();
+  const qc = useQueryClient();
+  const h = useAgent<ServerHealth>("ops/health", { refetchInterval: 60_000 });
+  const run = useMutation({
+    mutationFn: () => api<{ created: string | null; sent_telegram: boolean; backups: string[] }>("ops/backup", { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === "ops/health" }),
+  });
+  const s = h.data;
+  return (
+    <Section
+      id="servidor"
+      title="Servidor e backup"
+      icon={HardDrive}
+      description="A saúde do computador que roda o ASTRYON e as cópias de segurança do banco. Alertas avisam com pouco disco ou temperatura alta."
+      actions={
+        <Button size="sm" onClick={() => run.mutate()} loading={run.isPending} disabled={demo}>
+          <Database /> Fazer backup agora
+        </Button>
+      }
+    >
+      {h.error && <QueryError error={h.error} />}
+      {!s && !h.error ? (
+        <Skeleton className="h-28 w-full" />
+      ) : s ? (
+        <dl className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
+          <Row label="Temperatura do processador" value={s.cpu_temp_c === null ? "não informada" : `${fmtNumber(s.cpu_temp_c, 0)} °C`} />
+          <Row label="Disco livre (pasta de dados)" value={s.disk.free_pct === null ? "—" : `${fmtNumber(s.disk.free_pct, 0)}% · ${fmtBytesStr(s.disk.free_bytes ?? 0)}`} />
+          <Row label="Tamanho do banco" value={fmtBytesStr(s.db_size_bytes)} />
+          <Row label="Memória disponível" value={s.mem_available_pct === null ? "não informada" : `${fmtNumber(s.mem_available_pct, 0)}%`} />
+          <Row label="Último backup" env="pasta data/backups" value={s.last_backup_at ? `${fmtDateTime(s.last_backup_at)} (${fmtAgo(s.last_backup_at)})` : "ainda não feito"} />
+          <Row label="Cópias guardadas / envio ao Telegram" env={`${envName("backup_keep")} · _TELEGRAM_EVERY_DAYS`} value={`${fmtValue(d.backup_keep)} · ${d.backup_telegram ? `a cada ${fmtValue(d.backup_telegram_every_days, "d")}` : "desligado"}`} />
+          <Row label="Vigia externo (healthchecks.io)" env={envName("healthcheck_url")} value={<Badge tone={s.healthcheck_configured ? "accent" : "neutral"}>{s.healthcheck_configured ? "ativo" : "não configurado"}</Badge>} />
+          <Row label="Aviso quando o agente volta" env={envName("downtime_notice_min")} value={`após ${fmtValue(d.downtime_notice_min)} min fora do ar`} />
+        </dl>
+      ) : null}
+      {run.data && (
+        <Callout tone="ok" className="mt-3">
+          {run.data.created ? `Backup ${run.data.created} criado` : "Backup criado"}
+          {run.data.sent_telegram ? " e enviado ao seu chat do Telegram." : ". Ficou só na pasta local (Telegram não configurado ou arquivo grande demais)."}
+        </Callout>
+      )}
+      {run.error && <Callout tone="crit" className="mt-3">{(run.error as ApiError).message}</Callout>}
+    </Section>
   );
 }

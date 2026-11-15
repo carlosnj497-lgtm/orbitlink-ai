@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -14,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 from ..collector.bus import EventBus
 from ..collector.service import Collector
+from ..ops import health
 from ..storage import queries
 from ..storage.db import Database, now_ts
 from ..weather import service as weather
@@ -34,6 +36,8 @@ KINDS: dict[str, dict[str, Any]] = {
     "esp32_voltage_high": {"label": "Sobretensão (sensor ESP32)", "unit": "V", "operator": "gt"},
     "esp32_power_lost": {"label": "Alimentação interrompida (sensor ESP32)", "unit": "", "operator": "lt"},
     "esp32_temp_high": {"label": "Temperatura alta (sensor ESP32)", "unit": "°C", "operator": "gt"},
+    "server_disk_low": {"label": "Pouco espaço livre no disco do servidor", "unit": "%", "operator": "lt"},
+    "server_temp_high": {"label": "Temperatura alta no servidor", "unit": "°C", "operator": "gt"},
     "weather_rain_forecast": {"label": "Chuva forte prevista (clima estimado)", "unit": "mm/h", "operator": "gt"},
 }
 
@@ -56,6 +60,12 @@ USAGE_CAP_RULES = [
 # localização do clima definida e previsão recente; sem isso o valor é "sem dados" e nada dispara.
 WEATHER_RULES = [
     ("Chuva forte prevista nas próximas 3 h", "weather_rain_forecast", 7.6, 0, 10800, "warn"),
+]
+
+# Saúde do próprio servidor: o painel inteiro depende dele.
+SERVER_RULES = [
+    ("Servidor com menos de 10% de disco livre", "server_disk_low", 10, 0, 600, "warn"),
+    ("Servidor acima de 85 °C", "server_temp_high", 85, 300, 600, "crit"),
 ]
 
 
@@ -82,6 +92,11 @@ def seed_defaults(db: Database) -> None:
             for wrule in WEATHER_RULES:
                 _insert_rule(db, *wrule, ts)
         db.set_kv("alerts:seed:weather", "1")
+    if db.get_kv("alerts:seed:server") is None:
+        for srule in SERVER_RULES:
+            if not db.scalar("SELECT COUNT(*) FROM alert_rules WHERE kind = ?", (srule[1],)):
+                _insert_rule(db, *srule, ts)
+        db.set_kv("alerts:seed:server", "1")
 
 
 def measure(db: Database, collector: Collector | None, kind: str, window_s: int, tz: str,
@@ -113,6 +128,16 @@ def measure(db: Database, collector: Collector | None, kind: str, window_s: int,
             return None
         p = queries.usage_plan(db, None, tz, cap, getattr(settings, "usage_cycle_start_day", 1))
         return float(p["pct_used"]) if p["pct_used"] is not None else None
+    if kind == "server_disk_low":
+        if settings is None:
+            return None
+        try:
+            du = shutil.disk_usage(settings.data_dir)
+        except OSError:
+            return None
+        return du.free / du.total * 100
+    if kind == "server_temp_high":
+        return health.cpu_temp_c()
     if kind == "weather_rain_forecast":
         if settings is not None and not getattr(settings, "weather_enabled", True):
             return None

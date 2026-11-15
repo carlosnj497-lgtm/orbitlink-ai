@@ -38,3 +38,12 @@ tools-venv/
 
 # Claude Code (preferências locais)
 .claude/settings.local.json
+
+# Instalador Windows (gerados pelo packaging/windows/build.ps1)
+packaging/windows/stage/
+packaging/windows/dist/
+packaging/windows/build/
+packaging/windows/node/
+packaging/windows/.venv-build/
+packaging/windows/*.zip
+packaging/windows/astryon.ico

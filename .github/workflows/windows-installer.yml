@@ -1,0 +1,55 @@
+# Monta o ASTRYON-Setup.exe numa máquina Windows de verdade.
+# - Manual (Actions → "Instalador Windows" → Run workflow): instalador como artefato para baixar.
+# - Tag v* (ex.: git tag v0.2.0 && git push origin v0.2.0): também anexa o instalador à release do GitHub.
+name: Instalador Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+            "C:\Program Files (x86)\Inno Setup 6" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          }
+      - name: Versão
+        id: ver
+        shell: pwsh
+        run: |
+          $v = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}".TrimStart("v") } else { "0.1.0-dev.${{ github.run_number }}" }
+          "version=$v" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+      - name: Montar o instalador
+        shell: pwsh
+        run: ./packaging/windows/build.ps1 -Version "${{ steps.ver.outputs.version }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ASTRYON-Setup-${{ steps.ver.outputs.version }}
+          path: packaging/windows/dist/*.exe
+          if-no-files-found: error
+      - name: Anexar à release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ github.ref_name }}" 2>$null; if ($LASTEXITCODE -ne 0) { gh release create "${{ github.ref_name }}" --title "ASTRYON ${{ github.ref_name }}" --generate-notes }
+          gh release upload "${{ github.ref_name }}" (Get-ChildItem packaging/windows/dist/*.exe).FullName --clobber

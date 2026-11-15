@@ -231,7 +231,7 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - [ ] Validação numa Starlink Mini real
 - [ ] Nó ESP32 gravado e testado numa placa
 - [ ] Painel remoto lendo os dados sincronizados no Supabase
-- [ ] Instalador `.exe` para Windows com ícone na bandeja
+- [ ] Instalador `.exe` para Windows com ícone na bandeja: pronto para gerar no GitHub Actions, falta validar num Windows real
 
 ## Perguntas frequentes
 

@@ -71,3 +71,25 @@ New-NetFirewallRule -DisplayName "OrbitLink ESP32 (LAN)" -Direction Inbound -Pro
 ```
 
 Nunca encaminhe 8787, 8788 ou 9200 no roteador para a internet. Para acesso remoto, use uma VPN privada (ex.: Tailscale) e mantenha o painel atrás dela.
+
+## Instalador `.exe` (sem Python nem Node)
+
+O GitHub Actions monta um instalador comum de Windows (`ASTRYON-Setup-<versão>.exe`) numa máquina Windows:
+
+- **Gerar:** no GitHub, abra **Actions → Instalador Windows → Run workflow** e baixe o arquivo em "Artifacts".
+  Ao criar uma tag `v*` (ex.: `v0.2.0`), o instalador também é anexado à release.
+- **Instalar:** dois cliques, "Avançar" até o fim. Não precisa de administrador nem de Python/Node instalados.
+  Como o instalador não é assinado, o Windows pode mostrar "O Windows protegeu o computador": clique em
+  **Mais informações → Executar assim mesmo**.
+- **Usar:** o ícone do ASTRYON fica ao lado do relógio (verde = no ar, vermelho = serviço fora do ar). O menu tem
+  Abrir painel, Reiniciar serviços, Ver logs, Editar configurações e Iniciar com o Windows. O painel abre em
+  `http://localhost:3000`.
+- **Configurar:** "Editar configurações" abre `%LOCALAPPDATA%\ASTRYON\astryon.env` (Telegram, IA, clima...). Depois,
+  "Reiniciar serviços".
+- **Dados:** ficam em `%LOCALAPPDATA%\ASTRYON` (banco, backups, logs), separados do programa. Atualizar é rodar o
+  instalador novo por cima; desinstalar pergunta se os dados devem ser apagados.
+- **Limite:** o monitoramento só acontece com o computador ligado. Para 24 horas, use o servidor Linux.
+
+O build é feito por `packaging/windows/build.ps1` (PyInstaller para o agente, Next.js standalone + Node portátil
+conferido pelo SHA-256 oficial, iniciador com `pystray` e Inno Setup).
+

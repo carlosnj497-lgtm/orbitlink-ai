@@ -36,7 +36,7 @@ dev = [
 ]
 
 [project.scripts]
-orbitlink-agent = "orbitlink_agent.__main__:main"
+orbitlink-agent = "orbitlink_agent.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["orbitlink_agent*"]

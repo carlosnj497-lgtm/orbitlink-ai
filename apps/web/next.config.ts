@@ -39,6 +39,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Opcional: build de verificação em outra pasta, sem sobrescrever o ".next" que o serviço em execução usa.
   distDir: process.env.ORBITLINK_WEB_DIST_DIR || ".next",
+  // Instalador do Windows: servidor autossuficiente (server.js + node_modules mínimos) para rodar com node.exe
+  // portátil. O servidor Linux continua usando "next start".
+  ...(process.env.ORBITLINK_WEB_STANDALONE === "1" ? { output: "standalone" as const, outputFileTracingRoot: path.resolve(__dirname, "../..") } : {}),
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,

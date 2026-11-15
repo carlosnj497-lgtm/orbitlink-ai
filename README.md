@@ -2,7 +2,7 @@
 
 <img src="docs/screenshots/banner.webp" alt="ASTRYON">
 
-### Monitoramento local da Starlink Mini
+### Monitoramento local das antenas Starlink
 
 Painel em tempo real, alertas no Telegram, assistente de IA e controle seguro da antena.
 Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
@@ -36,6 +36,11 @@ Pronto: o agente passa a ler a sua antena. No Windows, veja [Instalação](#inst
 > `orbitlink-*` mantêm o nome técnico **OrbitLink**.
 > Projeto independente, sem afiliação com a Starlink ou a SpaceX. Usa apenas a API local gRPC que a
 > própria antena expõe na sua rede.
+>
+> Voltado aos diferentes modelos de antena Starlink: **Mini, Standard (incluindo gerações anteriores),
+> Standard Actuated, High Performance e Flat High Performance**. A compatibilidade e os recursos
+> disponíveis dependem da API local gRPC exposta por cada modelo e firmware. A validação em antenas
+> reais ainda está pendente.
 
 ---
 
@@ -183,7 +188,7 @@ Consultas por comando não gastam IA. Perguntas em texto ou voz usam a cota diá
                                   │  /api/auth/*   login → cookie httpOnly, SameSite=Strict
                                   │  /api/agent/*  proxy autenticado (+ SSE), token nunca vai ao navegador
                                   ▼
-                       Agente FastAPI (local, porta 8787) ──gRPC──▶ Starlink Mini (IP da antena, porta 9200)
+                       Agente FastAPI (local, porta 8787) ──gRPC──▶ Antena Starlink (IP da antena, porta 9200)
                          ├─ Coletor (status 10 s · histórico 30 s · obstrução 5 min)
                          ├─ SQLite WAL + migrações + retenção automática
                          ├─ Alertas · Diagnóstico por regras · Relatórios · Controle auditado
@@ -209,7 +214,7 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 
 | Componente | Situação |
 |---|---|
-| Conector gRPC | Testado contra servidor gRPC sintético com reflection. **Ainda não validado em antena real** (a Mini não chegou). |
+| Conector gRPC | Testado contra servidor gRPC sintético com reflection. **Ainda não validado em antenas reais**; a compatibilidade por modelo e firmware precisa ser confirmada. |
 | Agente | 169 testes pytest, ruff e mypy strict. Dependências travadas com hash. |
 | Painel | 56 testes Vitest e 9 E2E Playwright (incluindo acessibilidade com axe). |
 | Telegram e notificações | Comandos, fila de reenvio e resumo semanal testados com servidor simulado. |
@@ -228,7 +233,7 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - [x] Instalação no Ubuntu com systemd, Nginx e UFW, testada no CI
 - [x] Clima da cidade (Open-Meteo) cruzado com a qualidade e as quedas
 - [x] Aviso de chuva forte prevista no Telegram e comando `/clima`
-- [ ] Validação numa Starlink Mini real
+- [ ] Validação em antenas Starlink reais dos diferentes modelos e gerações
 - [ ] Nó ESP32 gravado e testado numa placa
 - [ ] Painel remoto lendo os dados sincronizados no Supabase
 - [ ] Instalador `.exe` para Windows com ícone na bandeja: pronto para gerar no GitHub Actions, falta validar num Windows real
@@ -236,11 +241,14 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 ## Perguntas frequentes
 
 <details>
-<summary><b>Funciona com outras antenas além da Mini?</b></summary>
+<summary><b>Quais modelos de antena Starlink posso usar?</b></summary>
 <br>
-O agente lê a API local gRPC que as antenas Starlink expõem na rede local (IP da antena, porta 9200) e descobre em tempo de
-execução quais chamadas o firmware oferece. O projeto foi feito e testado para a Mini; em outros modelos, o que o
-firmware não informar aparece como indisponível. Detalhes em <a href="docs/STARLINK_COMPATIBILITY.md">STARLINK_COMPATIBILITY.md</a>.
+O projeto é voltado aos modelos Starlink em geral, incluindo <b>Mini, Standard (e gerações anteriores),
+Standard Actuated, High Performance e Flat High Performance</b>, desde que exponham a API local gRPC
+acessível ao agente (IP da antena, porta 9200). O agente descobre em tempo de execução quais chamadas
+o firmware oferece; o que não for informado aparece como indisponível. A validação em hardware real
+ainda está pendente, portanto não há garantia de compatibilidade completa com todos os modelos e firmwares.
+Detalhes em <a href="docs/STARLINK_COMPATIBILITY.md">STARLINK_COMPATIBILITY.md</a>.
 </details>
 
 <details>

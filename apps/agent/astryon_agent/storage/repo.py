@@ -347,6 +347,15 @@ def apply_retention(db: Database, raw_days: int, minute_days: int, sensor_days: 
             "DELETE FROM connection_events WHERE end_ts IS NOT NULL AND end_ts < ?", (min_cut,)).rowcount
         out["observation_gaps"] = c.execute(
             "DELETE FROM observation_gaps WHERE end_ts IS NOT NULL AND end_ts < ?", (min_cut,)).rowcount
+        # Pedidos que ninguém confirmou viram 'expired'; os que ficaram 'executing' por um crash no meio viram
+        # 'failed'. Depois disso a retenção normal consegue apagá-los.
+        out["control_expired"] = c.execute(
+            "UPDATE control_requests SET status='expired', finished_at=? WHERE status='pending' AND expires_at < ?",
+            (now, now)).rowcount
+        out["control_stuck"] = c.execute(
+            "UPDATE control_requests SET status='failed', finished_at=?, "
+            "result_detail=COALESCE(result_detail, 'interrompido (agente reiniciou durante a execução)') "
+            "WHERE status='executing' AND confirmed_at < ?", (now, now - 3600)).rowcount
         out["control_requests"] = c.execute(
             "DELETE FROM control_requests WHERE status NOT IN ('pending', 'executing') AND created_at < ?",
             (min_cut,)).rowcount

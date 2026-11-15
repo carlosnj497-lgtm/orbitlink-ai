@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     # Telegram (opcional): token do @BotFather e chat que recebe os alertas
     telegram_bot_token: SecretStr | None = None
     telegram_chat_id: str | None = None
+    # Se telegram_chat_id for um grupo, só estas pessoas (user id do Telegram) usam o bot. Ex.: [123456789]
+    telegram_allowed_user_ids: list[int] = []
     # O bot responde perguntas (copiloto) vindas SÓ de telegram_chat_id. Long polling: nenhuma porta aberta.
     telegram_chat_enabled: bool = True
     telegram_chat_per_minute: int = Field(default=6, ge=1, le=60)
@@ -130,7 +132,9 @@ class Settings(BaseSettings):
     # Backup do banco: cópia diária em <data>/backups (mantém N) e cópia semanal no chat do Telegram.
     backup_enabled: bool = True
     backup_keep: int = Field(default=7, ge=1, le=90)
-    backup_telegram: bool = True
+    # Desligado por padrão: o arquivo vai para fora da máquina. Quando ligado, segue uma cópia sem sessões, hashes
+    # de senha nem segredos cifrados, e nunca para chat de grupo.
+    backup_telegram: bool = False
     backup_telegram_every_days: int = Field(default=7, ge=1, le=90)
 
     # Aparelho pronto (ex.: Raspberry Pi vendido já instalado): enquanto NÃO estiver pareado, a página

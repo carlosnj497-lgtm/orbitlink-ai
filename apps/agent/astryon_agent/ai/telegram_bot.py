@@ -75,6 +75,11 @@ HELP = (
 )
 
 
+def is_group_chat(chat: dict[str, Any]) -> bool:
+    """Grupos, supergrupos e canais (no Telegram o id deles é negativo)."""
+    return chat.get("type") in ("group", "supergroup", "channel") or str(chat.get("id", "")).startswith("-")
+
+
 def enabled(settings: Any) -> bool:
     tok = getattr(settings, "telegram_bot_token", None)
     return bool(getattr(settings, "telegram_chat_enabled", True) and tok and tok.get_secret_value()
@@ -200,17 +205,17 @@ class TelegramBot:
 
     async def _reset_offset(self, client: httpx.AsyncClient) -> None:
         """Recomeça a leitura do Telegram a partir da primeira update ainda na fila."""
-        self.db.set_kv(KV_OFFSET, "0")
+        await self.db.run(self.db.set_kv, KV_OFFSET, "0")
         self.state["offset_reset"] = True
 
     async def poll_once(self, client: httpx.AsyncClient) -> int:
-        stored = self.db.get_kv(KV_OFFSET)
+        stored = await self.db.run(self.db.get_kv, KV_OFFSET)
         if stored is None:
             # Primeira vez: o que já estava esperando no Telegram (ex.: o "oi" usado para descobrir o chat_id)
             # é descartado sem resposta. Dizer "o agente estava fora do ar" seria falso.
             old = await self._call(client, "getUpdates", {"offset": -1, "timeout": 0}) or []
             # Fica com o update_id mais alto da fila: assim tudo que já estava esperando é pulado de uma vez.
-            self.db.set_kv(KV_OFFSET, str(int(old[-1]["update_id"]) + 1) if old else "0")
+            await self.db.run(self.db.set_kv, KV_OFFSET, str(int(old[-1]["update_id"]) + 1) if old else "0")
             self.state["last_poll_ok"] = now_ts()
             return 0
         offset = int(stored)
@@ -225,7 +230,7 @@ class TelegramBot:
                                                              "allowed_updates": ["message", "callback_query"]}) or []
         for up in updates:
             # Avança o offset ANTES de responder: uma pergunta que derruba o agente não fica em loop após reiniciar.
-            self.db.set_kv(KV_OFFSET, str(int(up["update_id"]) + 1))
+            await self.db.run(self.db.set_kv, KV_OFFSET, str(int(up["update_id"]) + 1))
             msg = up.get("message")
             callback = up.get("callback_query")
             if msg or callback:
@@ -290,12 +295,28 @@ class TelegramBot:
                 await asyncio.sleep(wait)
 
     # ------------------------------------------------------------------ mensagens
-    def _authorized(self, msg: dict[str, Any]) -> bool:
-        return str((msg.get("chat") or {}).get("id")) == str(self.settings.telegram_chat_id).strip()
+    def _authorized(self, msg: dict[str, Any], sender: dict[str, Any] | None = None) -> bool:
+        """Autoriza o chat configurado e, em grupos, também a pessoa.
+
+        Num chat privado o chat é a própria pessoa. Num grupo, qualquer membro (inclusive alguém adicionado
+        depois) poderia usar a IA e os botões; lá só os `telegram_allowed_user_ids` são atendidos.
+        """
+        chat = msg.get("chat") or {}
+        if str(chat.get("id")) != str(self.settings.telegram_chat_id).strip():
+            return False
+        if not is_group_chat(chat):
+            return True
+        allowed = {int(u) for u in getattr(self.settings, "telegram_allowed_user_ids", []) or []}
+        sender = sender if sender is not None else msg.get("from")
+        uid = (sender or {}).get("id")
+        try:
+            return uid is not None and int(uid) in allowed
+        except (TypeError, ValueError):
+            return False
 
     async def handle_callback(self, client: httpx.AsyncClient, callback: dict[str, Any]) -> None:
         msg = callback.get("message") or {}
-        if not self._authorized(msg):
+        if not self._authorized(msg, callback.get("from")):
             self.state["ignored_chats"] += 1
             return
         data = str(callback.get("data") or "")
@@ -309,7 +330,8 @@ class TelegramBot:
         })
         if valid:
             # A data do cartão é antiga, mas o clique é uma interação nova.
-            await self.handle(client, {"chat": msg["chat"], "text": f"/{action}", "date": now_ts()})
+            await self.handle(client, {"chat": msg["chat"], "from": callback.get("from"), "text": f"/{action}",
+                                       "date": now_ts()})
 
     async def handle(self, client: httpx.AsyncClient, msg: dict[str, Any]) -> None:
         if not self._authorized(msg):
@@ -332,20 +354,20 @@ class TelegramBot:
         if cmd == "/audio":
             option = text.split()[1:]
             if option == ["ligar"]:
-                self.db.set_kv(KV_VOICE, "on")
+                await self.db.run(self.db.set_kv, KV_VOICE, "on")
             elif option == ["desligar"]:
-                self.db.set_kv(KV_VOICE, "off")
+                await self.db.run(self.db.set_kv, KV_VOICE, "off")
             elif option:
                 await self.send(client, chat_id, "Use /audio ligar ou /audio desligar.")
                 return
-            state = "ativadas" if self._voice_enabled() else "desativadas"
+            state = "ativadas" if await self.db.run(self._voice_enabled) else "desativadas"
             await self.send(client, chat_id, f"🔊 Respostas em áudio {state}.\n"
                             "O assistente envia texto e voz. Consultas por comando continuam em texto.\n"
                             "Use /audio ligar ou /audio desligar. Voz online: Microsoft Edge.",
                             section="audio")
             return
         if cmd == "/nova":
-            self.db.execute("DELETE FROM settings_kv WHERE key = ?", (KV_CONVERSATION,))
+            await self.db.run(self.db.execute, "DELETE FROM settings_kv WHERE key = ?", (KV_CONVERSATION,))
             await self.send(client, chat_id, "💬 Conversa nova. Pode perguntar.\n"
                             "O contexto anterior foi desvinculado; o histórico continua disponível no painel.", section="menu")
             return
@@ -509,7 +531,7 @@ class TelegramBot:
         return self.db.one("SELECT id, username, role FROM local_users WHERE role = 'admin' ORDER BY id LIMIT 1")
 
     async def _answer(self, client: httpx.AsyncClient, chat_id: int | str, question: str, origin: str = "texto") -> None:
-        user = self._user()
+        user = await self.db.run(self._user)
         if user is None:
             await self.send(client, chat_id, "Crie primeiro o administrador no painel do ASTRYON; depois pergunte aqui.")
             return
@@ -517,7 +539,7 @@ class TelegramBot:
             await self._call(client, "sendChatAction", {"chat_id": chat_id, "action": "typing"})
         except (httpx.HTTPError, PermanentError, RetryLater):
             pass  # só cosmético
-        conv = self.db.get_kv(KV_CONVERSATION)
+        conv = await self.db.run(self.db.get_kv, KV_CONVERSATION)
         try:
             try:
                 res = await self._ask(user, question, int(conv) if conv else None, origin)
@@ -534,7 +556,7 @@ class TelegramBot:
             await self.send(client, chat_id, f"Assistente indisponível agora ({type(exc).__name__}). "
                                              "Use /status para o diagnóstico por regras.")
             return
-        self.db.set_kv(KV_CONVERSATION, str(res["conversation_id"]))
+        await self.db.run(self.db.set_kv, KV_CONVERSATION, str(res["conversation_id"]))
         answer = res["answer"]
         proposal = res.get("proposal")
         if proposal:
@@ -543,7 +565,7 @@ class TelegramBot:
                        "Para confirmar, abra o painel em Controle da Starlink.")
         await self.send(client, chat_id, answer)
         self.state["answered"] += 1
-        if self._voice_enabled():
+        if await self.db.run(self._voice_enabled):
             await self._speak(client, chat_id, answer)
 
     def _voice_enabled(self) -> bool:

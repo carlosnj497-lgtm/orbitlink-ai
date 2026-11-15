@@ -1,4 +1,12 @@
-"""Protocolo ESP32 ↔ agente (v1): pareamento por código temporário e mensagens assinadas com HMAC-SHA256.
+"""Protocolo ESP32 ↔ agente: pareamento v2 por código temporário e mensagens assinadas com HMAC-SHA256.
+
+Pareamento v2 (o código NUNCA trafega pela rede; o listener é HTTP puro na LAN):
+  código    12 caracteres Crockford base32 (60 bits), exibido como XXXX-XXXX-XXXX; TTL 10 min, uso único.
+  K         PBKDF2-HMAC-SHA256(código normalizado, "astryon-esp32-pair-v2", 20000 iterações, 32 bytes)
+  K_auth    HMAC-SHA256(K, "auth")      K_enc = HMAC-SHA256(K, "enc")
+  pedido    {v: 2, device_id, nonce (32 hex), proof = hex(HMAC(K_auth, "pair\n{device_id}\n{nonce}")), ...}
+  resposta  {protocol: 2, iv, secret_enc = AES-256-GCM(K_enc, iv, segredo de 32 bytes, aad="{device_id}\n{nonce}")}
+Quem só escuta a rede não vê o código nem o segredo; quem não sabe o código não consegue a prova nem decifrar.
 
 Assinatura: hex(HMAC_SHA256(secret, f"{device_id}\\n{ts}\\n{nonce}\\n{sha256_hex(body)}"))
 Cabeçalhos: X-OL-Device, X-OL-Ts (epoch s), X-OL-Nonce (8–64 chars), X-OL-Sig.
@@ -22,6 +30,10 @@ from ..auth.secrets_store import protect, unprotect
 from ..storage.db import Database, now_ts
 
 PAIR_TTL_S = 600
+PAIR_KDF_SALT = b"astryon-esp32-pair-v2"
+PAIR_KDF_ITERATIONS = 20_000
+CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"  # Crockford base32 (sem I, L, O, U)
+CODE_LEN = 12
 MAX_BODY = 32 * 1024
 SENSOR_RE = re.compile(r"^[a-z0-9_]{2,20}\.[a-z0-9_]{2,24}$")
 NONCE_RE = re.compile(r"^[A-Za-z0-9_\-]{8,64}$")
@@ -67,8 +79,10 @@ class IngestBody(BaseModel):
 
 
 class PairBody(BaseModel):
-    code: str = Field(pattern=r"^\d{6}$")
+    v: int = Field(ge=2, le=2)
     device_id: str
+    nonce: str = Field(pattern=r"^[0-9a-f]{32}$")
+    proof: str = Field(pattern=r"^[0-9a-f]{64}$")
     firmware: str | None = Field(default=None, max_length=32)
     sensors: list[str] = Field(default_factory=list, max_length=20)
 
@@ -91,30 +105,77 @@ def _h(s: str) -> str:
     return hashlib.sha256(s.encode()).hexdigest()
 
 
+def normalize_code(code: str) -> str:
+    """Como o firmware normaliza: maiúsculas, só letras e dígitos, O->0 e I/L->1 (digitação sem ambiguidade)."""
+    return re.sub(r"[^0-9A-Z]", "", code.upper()).translate(str.maketrans("OIL", "011"))
+
+
+def pair_key(code: str) -> bytes:
+    return hashlib.pbkdf2_hmac("sha256", normalize_code(code).encode(), PAIR_KDF_SALT, PAIR_KDF_ITERATIONS, 32)
+
+
+def _subkey(key: bytes, label: bytes) -> bytes:
+    return hmac.new(key, label, hashlib.sha256).digest()
+
+
+def pair_proof(key: bytes, device_id: str, nonce: str) -> str:
+    return hmac.new(_subkey(key, b"auth"), f"pair\n{device_id}\n{nonce}".encode(), hashlib.sha256).hexdigest()
+
+
+def seal_secret(key: bytes, secret: bytes, device_id: str, nonce: str) -> tuple[str, str]:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    iv = secrets.token_bytes(12)
+    ct = AESGCM(_subkey(key, b"enc")).encrypt(iv, secret, f"{device_id}\n{nonce}".encode())
+    return base64.b64encode(iv).decode(), base64.b64encode(ct).decode()
+
+
+def open_secret(key: bytes, iv_b64: str, ct_b64: str, device_id: str, nonce: str) -> bytes:
+    """Lado do dispositivo (usado nos testes; o firmware faz o mesmo com mbedtls)."""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    return AESGCM(_subkey(key, b"enc")).decrypt(base64.b64decode(iv_b64), base64.b64decode(ct_b64),
+                                                f"{device_id}\n{nonce}".encode())
+
+
 def create_pairing_code(db: Database, name: str, user_id: int) -> tuple[str, int]:
-    code = f"{secrets.randbelow(1_000_000):06d}"
+    raw = "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LEN))
+    code = f"{raw[:4]}-{raw[4:8]}-{raw[8:]}"
     exp = now_ts() + PAIR_TTL_S
-    db.execute("INSERT INTO esp32_pairing_codes (code_hash, name, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-               (_h(code), name[:40], user_id, now_ts(), exp))
+    key_enc = protect(base64.b64encode(pair_key(raw)).decode())
+    db.execute("""INSERT INTO esp32_pairing_codes (code_hash, name, created_by, created_at, expires_at, key_enc)
+                  VALUES (?, ?, ?, ?, ?, ?)""", (_h(raw), name[:40], user_id, now_ts(), exp, key_enc))
     return code, exp
 
 
 def pair(db: Database, body: PairBody) -> dict[str, Any]:
     now = now_ts()
     with db.tx() as c:
-        row = c.execute("SELECT * FROM esp32_pairing_codes WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?",
-                        (_h(body.code), now)).fetchone()
+        rows = c.execute("""SELECT code_hash, name, key_enc FROM esp32_pairing_codes
+                            WHERE used_at IS NULL AND expires_at > ? AND key_enc IS NOT NULL""", (now,)).fetchall()
+        row, key = None, b""
+        for r in rows:  # poucos códigos ativos (TTL de 10 min): confere a prova contra cada um
+            k = base64.b64decode(unprotect(r["key_enc"]))
+            if hmac.compare_digest(pair_proof(k, body.device_id, body.nonce), body.proof):
+                row, key = r, k
+                break
         if row is None:
             raise AuthError(401, "Código de pareamento inválido ou expirado")
         if c.execute("SELECT 1 FROM esp32_nodes WHERE device_id = ?", (body.device_id,)).fetchone():
             raise AuthError(409, "Dispositivo já pareado. Remova-o no painel para parear novamente.")
-        secret = base64.b64encode(secrets.token_bytes(32)).decode()
+        raw_secret = secrets.token_bytes(32)
+        secret = base64.b64encode(raw_secret).decode()
         c.execute("UPDATE esp32_pairing_codes SET used_at = ? WHERE code_hash = ?", (now, row["code_hash"]))
         cur = c.execute("""INSERT INTO esp32_nodes (device_id, name, secret_enc, firmware, sensors_json, created_at)
                            VALUES (?, ?, ?, ?, ?, ?)""",
                         (body.device_id, row["name"], protect(secret), body.firmware,
                          ",".join(s for s in body.sensors if SENSOR_RE.match(s)), now))
-    return {"node_id": cur.lastrowid, "secret": secret, "server_time": now, "protocol": 1}
+    iv, sealed = seal_secret(key, raw_secret, body.device_id, body.nonce)
+    return {"node_id": cur.lastrowid, "iv": iv, "secret_enc": sealed, "server_time": now, "protocol": 2}
+
+
+# Mesma mensagem para dispositivo desconhecido e assinatura errada: a resposta não revela quais device_ids existem.
+AUTH_FAILED = "Dispositivo desconhecido ou assinatura inválida"
 
 
 def sign(secret_b64: str, device_id: str, ts: int, nonce: str, body: bytes) -> str:
@@ -133,14 +194,14 @@ def verify(db: Database, headers: dict[str, str], body: bytes, skew_s: int) -> d
         raise AuthError(401, "Cabeçalhos de autenticação ausentes ou inválidos")
     node = db.one("SELECT * FROM esp32_nodes WHERE device_id = ? AND enabled = 1", (dev,))
     if node is None:
-        raise AuthError(401, "Dispositivo desconhecido ou desabilitado")
+        raise AuthError(401, AUTH_FAILED)
     ts = int(ts_raw)
     now = now_ts()
     if abs(now - ts) > skew_s:
         raise AuthError(401, f"Relógio fora da janela permitida (servidor={now})")
     expected = sign(unprotect(node["secret_enc"]), dev, ts, nonce, body)
     if not hmac.compare_digest(expected, sig):
-        raise AuthError(401, "Assinatura inválida")
+        raise AuthError(401, AUTH_FAILED)
     cur = db.execute("INSERT OR IGNORE INTO esp32_nonces (device_id, nonce, ts) VALUES (?, ?, ?)", (dev, nonce, now))
     if cur.rowcount == 0:
         raise AuthError(401, "Nonce repetido (replay)")

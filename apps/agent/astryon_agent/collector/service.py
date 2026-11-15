@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -70,6 +71,9 @@ class Collector:
         self._tasks: list[asyncio.Task[None]] = []
         self._stop = asyncio.Event()
         self._force_caps = asyncio.Event()
+        # (terminal, relógio monotônico e contador do último poll de histórico): mede o tempo entre polls sem
+        # depender do relógio de parede, que pode saltar quando o NTP corrige a hora (Raspberry Pi sem RTC).
+        self._hist_mono: tuple[int, float, int] | None = None
 
     # ------------------------------------------------------------------ ciclo de vida
     async def start(self) -> None:
@@ -209,6 +213,7 @@ class Collector:
         if not self._cap_ok("dish.history"):
             return
         poll = datetime.now(UTC)
+        poll_mono = time.monotonic()
         raw = await asyncio.to_thread(self.client.get_history_raw)
         cursor = await self.db.run(repo.get_cursor, self.db, tid)
         uptime = None
@@ -219,7 +224,11 @@ class Collector:
         current = int(raw.get("current") or 0)
         rebooted = False
         if cursor is not None:
-            elapsed = poll.timestamp() - cursor["last_poll_at"]
+            mono = self._hist_mono
+            if mono is not None and mono[0] == tid and mono[2] == int(cursor["last_current"]):
+                elapsed = poll_mono - mono[1]  # mesmo processo: imune a saltos do relógio de parede
+            else:
+                elapsed = poll.timestamp() - cursor["last_poll_at"]  # primeiro poll após iniciar o agente
             if current < cursor["last_current"] or (uptime is not None and uptime < elapsed - 5):
                 rebooted = True
         use_cursor = None if (cursor is None or rebooted) else int(cursor["last_current"])
@@ -243,6 +252,7 @@ class Collector:
         if isinstance(outages, list) and outages:
             await self.db.run(repo.record_dish_outages, self.db, tid, outages)
         self.state.boot_id = boot_id
+        self._hist_mono = (tid, poll_mono, int(ex.new_cursor))
         self.state.history_inserted_total += result.inserted
         self.state.history_lost_total += result.lost
         self.bus.publish("history", {"inserted": result.inserted, "lost": result.lost, "boot_id": boot_id,

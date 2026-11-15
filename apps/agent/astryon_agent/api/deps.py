@@ -23,6 +23,8 @@ class AppContext:
     collector: Collector | None
     extras: dict[str, Any] = field(default_factory=dict)
     login_limiter: RateLimiter = field(default_factory=lambda: RateLimiter(5, 300))
+    # Limite global por nome de usuário, independente do IP: impede força bruta trocando o X-Forwarded-For.
+    user_login_limiter: RateLimiter = field(default_factory=lambda: RateLimiter(20, 900))
     api_limiter: RateLimiter = field(default_factory=lambda: RateLimiter(600, 60))
 
 

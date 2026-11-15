@@ -162,9 +162,20 @@ def usage_summary(db: Database, terminal_id: int | None, tz: str) -> dict[str, A
         "week": u(week, now),
         "month": month_usage,
         "previous_month": u(prev_month, prev_month_end),
+        # Mesmo trecho do mês anterior (dia 1 até o mesmo dia e hora): comparação justa com o mês em andamento.
+        "previous_month_to_date": u(prev_month, same_point_previous_month(now, prev_month, prev_month_end)),
         "projection_month": projection,
         "method": METHOD_USAGE,
     }
+
+
+def same_point_previous_month(now: datetime, prev_month: datetime, prev_month_end: datetime) -> datetime:
+    """O mesmo dia e hora de `now` no mês anterior. Se esse dia não existe lá (ex.: 31/03 → fevereiro), é o fim do
+    mês anterior inteiro."""
+    prev_days = (prev_month_end - prev_month).days
+    if now.day > prev_days:
+        return prev_month_end
+    return now.replace(year=prev_month.year, month=prev_month.month, day=now.day)
 
 
 def _project(db: Database, terminal_id: int | None, month: datetime, now: datetime, days_in_month: float,

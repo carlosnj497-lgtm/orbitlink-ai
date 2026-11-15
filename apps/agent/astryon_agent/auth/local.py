@@ -39,6 +39,11 @@ def verify_password(password: str, stored: str) -> bool:
         return False
 
 
+# Hash fictício calculado uma vez: o login de um usuário inexistente custa o mesmo único scrypt que o de um
+# usuário real com senha errada, e o tempo de resposta não revela quais nomes existem.
+_DUMMY_HASH = hash_password(secrets.token_urlsafe(16))
+
+
 def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
@@ -72,7 +77,7 @@ def change_password(db: Database, user_id: int, old: str, new: str) -> None:
 def login(db: Database, username: str, password: str, user_agent: str | None = None) -> tuple[str, int] | None:
     row = db.one("SELECT id, password_hash FROM local_users WHERE username = ?", (username,))
     if row is None:
-        verify_password(password, hash_password("x" * MIN_PASSWORD_LEN))  # tempo constante aproximado
+        verify_password(password, _DUMMY_HASH)
         return None
     if not verify_password(password, row["password_hash"]):
         return None
@@ -116,6 +121,16 @@ class RateLimiter:
             return False
         q.append(now)
         return True
+
+    def exceeded(self, key: str) -> bool:
+        """True se a chave já atingiu o limite na janela atual (sem contar um novo evento)."""
+        now = time.monotonic()
+        q = self._hits.get(key)
+        if not q:
+            return False
+        while q and now - q[0] > self.window:
+            q.popleft()
+        return len(q) >= self.max
 
     def _prune(self, now: float) -> None:
         for k in [k for k, q in self._hits.items() if not q or now - q[-1] > self.window]:

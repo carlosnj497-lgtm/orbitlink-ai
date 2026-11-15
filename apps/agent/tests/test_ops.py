@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import json
+import re
 import secrets
 from types import SimpleNamespace
 
 import pytest
+from cryptography.exceptions import InvalidTag
 from fastapi.testclient import TestClient
 
 from astryon_agent.ai import copilot
@@ -150,23 +153,46 @@ def _signed(client, path, secret, dev, body, ts=None, nonce=None):
                                                    "X-OL-Sig": sig, "Content-Type": "application/json"})
 
 
+def _pair_req(code: str, dev: str, **extra):
+    """Pedido de pareamento v2 como o firmware monta: prova derivada do código, sem o código."""
+    nonce = secrets.token_hex(16)
+    key = protocol.pair_key(code)
+    return {"v": 2, "device_id": dev, "nonce": nonce, "proof": protocol.pair_proof(key, dev, nonce), **extra}, key, nonce
+
+
 def test_esp32_pair_ingest_replay_and_power_event(env):
     from astryon_agent.api.deps import AppContext
 
     ctx = AppContext(settings=env.s, db=env.db, bus=EventBus(), collector=None)
     c = TestClient(build_ingest_app(ctx))
     code, _ = protocol.create_pairing_code(env.db, "Caixa", 1)
-    assert c.post("/esp32/v1/pair", json={"code": "000000" if code != "000000" else "111111",
-                                          "device_id": "esp32-aabbccddeeff"}).status_code == 401
-    r = c.post("/esp32/v1/pair", json={"code": code, "device_id": "esp32-aabbccddeeff", "firmware": "0.1.0",
-                                       "sensors": ["power.present"]})
-    assert r.status_code == 200
-    secret = r.json()["secret"]
-    assert "secret" not in env.db.one("SELECT secret_enc FROM esp32_nodes")["secret_enc"] or True
-    assert secret not in env.db.one("SELECT secret_enc FROM esp32_nodes")["secret_enc"] or env.db.one(
-        "SELECT secret_enc FROM esp32_nodes")["secret_enc"].startswith("plain:")
+    assert re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", code)
+    wrong, _, _ = _pair_req("0000-0000-0000", "esp32-aabbccddeeff")
+    assert c.post("/esp32/v1/pair", json=wrong).status_code == 401
+    req, key, nonce = _pair_req(code.lower().replace("-", " "), "esp32-aabbccddeeff", firmware="0.2.0",
+                                sensors=["power.present"])  # digitado de qualquer jeito
+    raw_body = json.dumps(req)
+    r = c.post("/esp32/v1/pair", content=raw_body, headers={"Content-Type": "application/json"})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["protocol"] == 2 and "secret" not in out
+    # Nada que trafega pela rede revela o código ou o segredo
+    plain = protocol.open_secret(key, out["iv"], out["secret_enc"], "esp32-aabbccddeeff", nonce)
+    secret = base64.b64encode(plain).decode()
+    norm = protocol.normalize_code(code)
+    assert norm not in raw_body and code not in raw_body and secret not in r.text
+    assert protocol.unprotect(env.db.one("SELECT secret_enc FROM esp32_nodes")["secret_enc"]) == secret
+    # sem o código certo não se decifra a resposta (outra chave / outro nonce)
+    with pytest.raises(InvalidTag):
+        protocol.open_secret(protocol.pair_key("0000-0000-0000"), out["iv"], out["secret_enc"], "esp32-aabbccddeeff", nonce)
+    with pytest.raises(InvalidTag):
+        protocol.open_secret(key, out["iv"], out["secret_enc"], "esp32-aabbccddeeff", "0" * 32)
     # código de uso único
-    assert c.post("/esp32/v1/pair", json={"code": code, "device_id": "esp32-112233445566"}).status_code == 401
+    again, _, _ = _pair_req(code, "esp32-112233445566")
+    assert c.post("/esp32/v1/pair", json=again).status_code == 401
+    # firmware antigo (código em texto claro) recebe aviso para atualizar
+    old = c.post("/esp32/v1/pair", json={"code": "123456", "device_id": "esp32-112233445566"})
+    assert old.status_code == 426 and "atualize o firmware" in old.json()["detail"]
 
     dev = "esp32-aabbccddeeff"
     body = {"v": 1, "readings": [{"seq": 1, "ts": now_ts() - 5, "sensor": "power.present", "value": 0},
@@ -377,13 +403,25 @@ def test_linux_route_parsing():
 def test_esp32_listener_rejects_huge_body_and_brute_force(env):
     ctx = AppContext(settings=env.s, db=env.db, bus=EventBus(), collector=env.col)
     c = TestClient(build_ingest_app(ctx))
-    code, _ = protocol.create_pairing_code(env.db, "sala", 1)
-    wrong = "000000" if code != "000000" else "111111"
+    protocol.create_pairing_code(env.db, "sala", 1)
     for _ in range(10):
-        r = c.post("/esp32/v1/pair", json={"code": wrong, "device_id": "esp32-aabbccddeeff", "firmware": "1.0"})
+        wrong, _, _ = _pair_req("0000-0000-0000", "esp32-aabbccddeeff", firmware="1.0")
+        r = c.post("/esp32/v1/pair", json=wrong)
         assert r.status_code == 401
     # Depois de 10 tentativas erradas, o código verdadeiro também deixa de valer.
     assert env.db.scalar("SELECT COUNT(*) FROM esp32_pairing_codes WHERE used_at IS NULL") == 0
 
     big = b"x" * (40 * 1024)
     assert c.post("/esp32/v1/ingest", content=big).status_code == 413
+
+
+def test_esp32_pair_v2_known_answer_vectors():
+    """Os mesmos valores estão em apps/esp32-firmware/src/main.cpp (pairSelfTest): firmware e agente concordam."""
+    assert protocol.normalize_code("k7qf 2m9x-ab3d") == "K7QF2M9XAB3D"
+    assert protocol.normalize_code("O1L-i") == "0111"
+    key = protocol.pair_key("K7QF-2M9X-AB3D")
+    assert key.hex() == "9824fc7bef20c96676f0d3f82461c8daafb84b48dd6ad8c5139362aa353fddae"
+    dev, nonce = "esp32-aabbccddeeff", "00112233445566778899aabbccddeeff"
+    assert protocol.pair_proof(key, dev, nonce) == "4087518af4e1eefc6bec8b7701c13b1ed226d3a58e708487dae5bc144308bf67"
+    sealed = "UqlDAcZUgNpCyN8RVuX0TrUQvFUKf2SEttFrhQBzRrq11OWeUUjLO5OcO9XO8NgI"
+    assert protocol.open_secret(key, base64.b64encode(bytes(12)).decode(), sealed, dev, nonce) == bytes(range(32))

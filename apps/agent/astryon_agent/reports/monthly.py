@@ -121,21 +121,21 @@ async def tick(db: Database, settings: Any, now: datetime | None = None,
     now = now or datetime.now(z)
     start, end = last_closed_cycle(now, settings.usage_cycle_start_day)
     s, e = int(start.timestamp()), int(end.timestamp())
-    last = db.get_kv(KV_LAST_END)
+    last = await db.run(db.get_kv, KV_LAST_END)
     if last is not None and int(last) >= e:
         return "ja_enviado"
     send_at = end.replace(hour=SEND_HOUR)
     if now < send_at:
         return "aguardando"
     if (now - send_at).total_seconds() > GRACE_S:
-        db.set_kv(KV_LAST_END, str(e))
+        await db.run(db.set_kv, KV_LAST_END, str(e))
         return "atrasado"
-    if not db.scalar("SELECT COUNT(*) FROM quality_minutes WHERE minute_ts >= ? AND minute_ts < ?", (s, e)):
-        db.set_kv(KV_LAST_END, str(e))
+    if not await db.run(db.scalar, "SELECT COUNT(*) FROM quality_minutes WHERE minute_ts >= ? AND minute_ts < ?", (s, e)):
+        await db.run(db.set_kv, KV_LAST_END, str(e))
         return "sem_dados"
     p_start, p_end = last_closed_cycle(start, settings.usage_cycle_start_day)
     pdf, caption = await asyncio.to_thread(build, db, settings, s, e, (int(p_start.timestamp()), int(p_end.timestamp())))
-    db.set_kv(KV_LAST_END, str(e))  # marca antes do envio: falha não vira reenvio a cada hora
+    await db.run(db.set_kv, KV_LAST_END, str(e))  # marca antes do envio: falha não vira reenvio a cada hora
     ok = await send_pdf(settings, pdf, caption, f"astryon-ciclo-{start:%Y%m%d}.pdf", transport)
     return "enviado" if ok else "falhou"
 

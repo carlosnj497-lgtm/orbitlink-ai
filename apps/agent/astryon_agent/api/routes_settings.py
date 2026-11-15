@@ -14,7 +14,8 @@ router = APIRouter(prefix="/v1/settings", tags=["configuracoes"])
 
 SECRET_FIELDS = {"api_token", "supabase_anon_key", "supabase_agent_token", "groq_api_key", "setup_code",
                  "telegram_bot_token", "telegram_chat_id", "healthcheck_url",
-                 "mqtt_password"}
+                 # URLs de webhook (Slack, Discord...) levam o próprio segredo no caminho.
+                 "alert_webhook_url", "mqtt_username", "mqtt_password", "telegram_allowed_user_ids"}
 RUNTIME_KEYS = {"terminal_name", "usage_monthly_limit_gb", "usage_cycle_start_day", "show_mac_addresses",
                 "weekly_digest_enabled", "weekly_digest_weekday", "weekly_digest_hour"}
 

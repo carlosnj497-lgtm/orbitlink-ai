@@ -94,7 +94,17 @@ def prepare(db: Database, cap: Any, action: str, user: dict[str, Any], target: s
     return Prepared(op, nonce, exp, action, spec["label"], target, spec["confirm_text"], spec["consequences"])
 
 
+def _expire_if_due(db: Database, operation_id: str) -> bool:
+    """Marca como 'expired' o pedido pendente cujo prazo já passou. Devolve True se marcou."""
+    cur = db.execute("UPDATE control_requests SET status='expired', finished_at=? "
+                     "WHERE operation_id=? AND status='pending' AND expires_at < ?", (now_ts(), operation_id, now_ts()))
+    return cur.rowcount > 0
+
+
 def _claim(db: Database, operation_id: str, nonce: str, confirm_text: str, user: dict[str, Any]) -> dict[str, Any]:
+    if _expire_if_due(db, operation_id):
+        # Marcado como expirado numa transação própria, já gravada: uma exceção dentro do tx() desfaria o UPDATE.
+        raise ControlError(410, "Confirmação expirada. Prepare a ação novamente.")
     with db.tx() as c:
         row = c.execute("SELECT * FROM control_requests WHERE operation_id = ?", (operation_id,)).fetchone()
         if row is None:
@@ -104,9 +114,7 @@ def _claim(db: Database, operation_id: str, nonce: str, confirm_text: str, user:
             raise ControlError(403, "A confirmação deve ser feita pelo mesmo usuário que preparou a ação.")
         if row["status"] != "pending":
             raise ControlError(409, f"Operação já está em estado '{row['status']}' (proteção contra repetição).")
-        if row["expires_at"] < now_ts():
-            c.execute("UPDATE control_requests SET status='expired', finished_at=? WHERE operation_id=?",
-                      (now_ts(), operation_id))
+        if row["expires_at"] < now_ts():  # venceu entre a checagem acima e esta transação
             raise ControlError(410, "Confirmação expirada. Prepare a ação novamente.")
         if not hmac.compare_digest(row["nonce_hash"], _hash(nonce)):
             raise ControlError(403, "Código de confirmação inválido.")

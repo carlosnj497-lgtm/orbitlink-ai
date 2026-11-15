@@ -8,6 +8,7 @@ tem prioridade (instalações antigas).
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -82,9 +83,15 @@ async def claim(db: Database, settings: Settings, code: str, agent_name: str | N
     token = str(data.get("agent_token") or "")
     if not token.startswith("olk_"):
         raise PairingError("Resposta inesperada da nuvem.")
+    info_json = json.dumps({"workspace_name": data.get("workspace_name"), "agent_name": agent_name or settings.terminal_name,
+                            "paired_at": now_ts()}, ensure_ascii=False)
+    # Cifrar o token e gravar no SQLite fora do event loop.
+    return await asyncio.to_thread(_store, db, settings, token, info_json)
+
+
+def _store(db: Database, settings: Settings, token: str, info_json: str) -> dict[str, Any]:
     db.set_kv(KV_TOKEN, secrets_store.protect(token))
-    db.set_kv(KV_INFO, json.dumps({"workspace_name": data.get("workspace_name"), "agent_name": agent_name or settings.terminal_name,
-                                   "paired_at": now_ts()}, ensure_ascii=False))
+    db.set_kv(KV_INFO, info_json)
     return info(db, settings)
 
 

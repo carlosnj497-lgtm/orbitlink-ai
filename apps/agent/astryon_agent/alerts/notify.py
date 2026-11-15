@@ -91,13 +91,17 @@ class Notifier:
             except httpx.HTTPError as exc:
                 return {"ok": False, "error": f"sem conexão ({type(exc).__name__})"}
 
+    async def _exec(self, sql: str, params: tuple[Any, ...]) -> None:
+        """Escrita no SQLite fora do event loop (uma transação longa em outra thread não congela o agente)."""
+        await self.db.run(self.db.execute, sql, params)
+
     async def deliver_due(self) -> int:
         """Tenta entregar o que está vencido. Devolve quantas mensagens saíram."""
         now = now_ts()
         max_age = int(getattr(self.settings, "notification_max_age_h", 24)) * 3600
-        self.db.execute("UPDATE notification_outbox SET failed_at=?, last_error=COALESCE(last_error, 'expirada') "
+        await self._exec("UPDATE notification_outbox SET failed_at=?, last_error=COALESCE(last_error, 'expirada') "
                         "WHERE sent_at IS NULL AND failed_at IS NULL AND created_at < ?", (now, now - max_age))
-        rows = self.db.query("SELECT * FROM notification_outbox WHERE sent_at IS NULL AND failed_at IS NULL "
+        rows = await self.db.run(self.db.query, "SELECT * FROM notification_outbox WHERE sent_at IS NULL AND failed_at IS NULL "
                              "AND next_attempt_at <= ? ORDER BY id LIMIT ?", (now, BATCH))
         if not rows:
             return 0
@@ -108,24 +112,24 @@ class Notifier:
                     payload = json.loads(r["payload_json"])
                     await self._send(client, r["channel"], payload)
                 except PermanentError as exc:
-                    self.db.execute("UPDATE notification_outbox SET attempts=attempts+1, failed_at=?, last_error=? WHERE id=?",
+                    await self._exec("UPDATE notification_outbox SET attempts=attempts+1, failed_at=?, last_error=? WHERE id=?",
                                     (now_ts(), str(exc)[:300], r["id"]))
                     log.warning("notificação %s descartada: %s", r["channel"], exc)
                 except (httpx.HTTPError, RetryLater) as exc:
                     attempts = r["attempts"] + 1
                     wait = exc.after if isinstance(exc, RetryLater) else min(3600, 30 * 2 ** min(attempts, 7))
                     err = str(exc) if isinstance(exc, RetryLater) else type(exc).__name__
-                    self.db.execute("UPDATE notification_outbox SET attempts=?, next_attempt_at=?, last_error=? WHERE id=?",
+                    await self._exec("UPDATE notification_outbox SET attempts=?, next_attempt_at=?, last_error=? WHERE id=?",
                                     (attempts, now_ts() + wait, err[:300], r["id"]))
                     if isinstance(exc, httpx.TransportError):
                         break  # sem conexão: não adianta tentar as demais agora
                 except Exception as exc:  # noqa: BLE001
                     # Mensagem com defeito (payload antigo, fuso inválido...): descarta só ela, sem travar a fila.
-                    self.db.execute("UPDATE notification_outbox SET attempts=attempts+1, failed_at=?, last_error=? WHERE id=?",
+                    await self._exec("UPDATE notification_outbox SET attempts=attempts+1, failed_at=?, last_error=? WHERE id=?",
                                     (now_ts(), f"erro inesperado: {type(exc).__name__}"[:300], r["id"]))
                     log.warning("notificação %s descartada por erro inesperado: %s", r["channel"], type(exc).__name__)
                 else:
-                    self.db.execute("UPDATE notification_outbox SET attempts=attempts+1, sent_at=?, last_error=NULL WHERE id=?",
+                    await self._exec("UPDATE notification_outbox SET attempts=attempts+1, sent_at=?, last_error=NULL WHERE id=?",
                                     (now_ts(), r["id"]))
                     sent += 1
         return sent

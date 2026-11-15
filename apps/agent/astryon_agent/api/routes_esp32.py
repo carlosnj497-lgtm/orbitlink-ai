@@ -49,7 +49,8 @@ def pairing_code(c: Ctx, user: Admin, body: CodeBody) -> dict[str, Any]:
     if not c.settings.esp32_enabled:
         raise HTTPException(409, "Habilite ASTRYON_ESP32_ENABLED=true e reinicie o agente antes de parear.")
     code, exp = protocol.create_pairing_code(c.db, body.name, user["id"])
-    return {"code": code, "expires_at": exp, "note": "Código de uso único; não é armazenado em texto claro."}
+    return {"code": code, "expires_at": exp,
+            "note": "Código de uso único; não é armazenado em texto claro nem enviado pela rede pelo ESP32."}
 
 
 @router.patch("/nodes/{node_id}")
@@ -91,6 +92,9 @@ PAIR_MAX_FAILURES = 10
 def build_ingest_app(ctx: AppContext) -> FastAPI:
     app = FastAPI(title="ASTRYON ESP32 ingest", docs_url=None, redoc_url=None, openapi_url=None)
     limiter = RateLimiter(10, 60)
+    # Ingest: teto generoso por IP (um ESP32 manda bem menos que isso) e bloqueio de quem erra a autenticação.
+    ingest_limiter = RateLimiter(240, 60)
+    auth_fail_limiter = RateLimiter(20, 60)
     skew = ctx.settings.esp32_clock_skew_s
 
     pair_failures = {"n": 0}
@@ -118,19 +122,23 @@ def build_ingest_app(ctx: AppContext) -> FastAPI:
     async def pair(req: Request) -> Any:
         if not limiter.allow(f"pair:{client_ip(req)}"):
             raise HTTPException(429, "Muitas tentativas")
+        raw = await read_limited(req)
         try:
-            body = protocol.PairBody.model_validate_json(await read_limited(req))
+            body = protocol.PairBody.model_validate_json(raw)
             res = await asyncio.to_thread(protocol.pair, ctx.db, body)
             pair_failures["n"] = 0
             return res
         except ValidationError as exc:
+            if b'"code"' in raw:  # firmware antigo (v1) mandava o código em texto claro
+                raise HTTPException(426, "Firmware antigo: atualize o firmware do ESP32 (pareamento v2) e gere um "
+                                         "código novo no painel.") from exc
             raise HTTPException(422, "Payload inválido") from exc
         except protocol.AuthError as exc:
             log.warning("pareamento recusado de %s: %s", _mask_ip_str(client_ip(req)), exc.message)
             pair_failures["n"] += 1
             if pair_failures["n"] >= PAIR_MAX_FAILURES:
-                # O código tem só 6 dígitos: depois de muitas tentativas erradas (de qualquer IP), invalida os
-                # códigos ativos. O administrador gera outro no painel.
+                # Defesa extra contra tentativa online: depois de muitas provas erradas (de qualquer IP), invalida
+                # os códigos ativos. O administrador gera outro no painel.
                 await asyncio.to_thread(ctx.db.execute, "UPDATE esp32_pairing_codes SET used_at = ? WHERE used_at IS NULL",
                                         (now_ts(),))
                 pair_failures["n"] = 0
@@ -138,11 +146,16 @@ def build_ingest_app(ctx: AppContext) -> FastAPI:
             raise HTTPException(exc.status, exc.message) from exc
 
     async def authed(req: Request) -> tuple[dict[str, Any], bytes]:
+        ip = client_ip(req)
+        if auth_fail_limiter.exceeded(f"fail:{ip}") or not ingest_limiter.allow(f"ingest:{ip}"):
+            raise HTTPException(429, "Muitas tentativas")
         raw = await read_limited(req)
         headers = {k.lower(): v for k, v in req.headers.items()}
         try:
             node = await asyncio.to_thread(protocol.verify, ctx.db, headers, raw, skew)
         except protocol.AuthError as exc:
+            if exc.status == 401:
+                auth_fail_limiter.allow(f"fail:{ip}")
             raise HTTPException(exc.status, exc.message) from exc
         return node, raw
 
@@ -202,7 +215,17 @@ def register(app: FastAPI) -> None:
                              log_config=None, access_log=False, lifespan="off")
         server = _EmbeddedServer(cfg)
         ctx.extras["esp32_server"] = server
-        ctx.extras["esp32_task"] = asyncio.create_task(server.serve(), name="esp32-ingest")
+
+        async def serve() -> None:
+            # Se a porta estiver ocupada, o uvicorn chama sys.exit(); dentro de uma task o SystemExit sobe pelo
+            # event loop e derrubaria o agente inteiro. Aqui ele vira só um erro no log: o resto continua no ar.
+            try:
+                await server.serve()
+            except (SystemExit, OSError) as exc:
+                log.error("listener ESP32 não iniciou em %s:%s (%s); porta ocupada?", ctx.settings.esp32_listen_host,
+                          ctx.settings.esp32_listen_port, exc)
+
+        ctx.extras["esp32_task"] = asyncio.create_task(serve(), name="esp32-ingest")
         log.info("listener ESP32 em %s:%s (somente rotas HMAC)", ctx.settings.esp32_listen_host, ctx.settings.esp32_listen_port)
 
     async def stop(ctx: AppContext) -> None:

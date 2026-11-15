@@ -1,10 +1,10 @@
-"""Emulador do nó ESP32 (protocolo v1) — para testar pareamento e ingestão sem hardware.
+"""Emulador do nó ESP32 (ingest v1, pareamento v2) — para testar pareamento e ingestão sem hardware.
 
 As leituras são SINTÉTICAS e enviadas com o nome de sensor real; use apenas para testes/demonstração e remova o
 nó emulado no painel depois (Centro ESP32 → remover). Nada aqui representa medição física.
 
 Uso (PowerShell, com o agente rodando e ASTRYON_ESP32_ENABLED=true):
-  apps\\agent\\.venv\\Scripts\\python.exe scripts\\esp32_emulator.py pair --code 123456
+  apps\\agent\\.venv\\Scripts\\python.exe scripts\\esp32_emulator.py pair --code XXXX-XXXX-XXXX
   apps\\agent\\.venv\\Scripts\\python.exe scripts\\esp32_emulator.py run --count 10
   apps\\agent\\.venv\\Scripts\\python.exe scripts\\esp32_emulator.py replay     # deve ser recusado (401)
 """
@@ -34,7 +34,7 @@ def sign(secret_b64: str, device: str, ts: int, nonce: str, body: bytes) -> str:
 
 def load() -> dict:
     if not STATE.exists():
-        sys.exit("Emulador não pareado. Rode: esp32_emulator.py pair --code XXXXXX")
+        sys.exit("Emulador não pareado. Rode: esp32_emulator.py pair --code XXXX-XXXX-XXXX")
     return json.loads(STATE.read_text(encoding="utf-8"))
 
 
@@ -62,12 +62,20 @@ def main() -> int:
     a = p.parse_args()
 
     if a.cmd == "pair":
-        r = httpx.post(a.agent + "/esp32/v1/pair", json={"code": a.code, "device_id": a.device_id, "firmware": "emulador-0.1",
-                                                         "sensors": ["env.temp_c", "power.present"]}, timeout=10)
+        # Pareamento v2, como o firmware: o código não é enviado; vai só a prova, e o segredo volta cifrado.
+        from astryon_agent.esp32 import protocol
+
+        key = protocol.pair_key(a.code)
+        nonce = secrets.token_hex(16)
+        r = httpx.post(a.agent + "/esp32/v1/pair", json={
+            "v": 2, "device_id": a.device_id, "nonce": nonce, "proof": protocol.pair_proof(key, a.device_id, nonce),
+            "firmware": "emulador-0.2", "sensors": ["env.temp_c", "power.present"]}, timeout=10)
         print(r.status_code, r.text if r.status_code != 200 else "pareado")
         if r.status_code == 200:
+            out = r.json()
+            secret = base64.b64encode(protocol.open_secret(key, out["iv"], out["secret_enc"], a.device_id, nonce)).decode()
             STATE.parent.mkdir(parents=True, exist_ok=True)
-            STATE.write_text(json.dumps({"device_id": a.device_id, "secret": r.json()["secret"], "seq": 0}), encoding="utf-8")
+            STATE.write_text(json.dumps({"device_id": a.device_id, "secret": secret, "seq": 0}), encoding="utf-8")
         return 0 if r.status_code == 200 else 1
 
     st = load()

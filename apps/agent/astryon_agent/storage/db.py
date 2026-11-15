@@ -23,6 +23,18 @@ def now_ts() -> int:
     return int(time.time())
 
 
+def local_day(tz_name: str | None) -> str:
+    """Data de hoje (AAAA-MM-DD) no fuso configurado: as cotas diárias viram o dia à meia-noite local, não em UTC."""
+    from datetime import UTC, datetime
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        tz: Any = ZoneInfo(tz_name) if tz_name else UTC
+    except (ZoneInfoNotFoundError, ValueError):
+        tz = UTC
+    return datetime.now(tz).strftime("%Y-%m-%d")
+
+
 class Database:
     def __init__(self, path: Path | str) -> None:
         self.path = str(path)

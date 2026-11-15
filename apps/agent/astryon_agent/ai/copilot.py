@@ -23,7 +23,7 @@ from ..config import Settings
 from ..control.service import ACTIONS, capability_allows
 from ..diagnostics import engine
 from ..storage import queries
-from ..storage.db import Database, now_ts
+from ..storage.db import Database, local_day, now_ts
 from ..weather import service as weather
 
 log = logging.getLogger("astryon.ai")
@@ -122,9 +122,14 @@ RANGES_S = {"1h": 3600, "6h": 21600, "24h": 86400, "7d": 7 * 86400, "30d": 30 * 
 CTRL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 
 
+UNTRUSTED_TAG = re.compile(r"<\s*/?\s*dados_nao_confiaveis[^>]*>", re.IGNORECASE)
+
+
 def _untrusted(obj: Any) -> str:
     text = CTRL.sub("", json.dumps(obj, ensure_ascii=False, default=str))
-    text = text.replace("</dados_nao_confiaveis>", "")
+    # Qualquer variação da marca (maiúsculas, espaços, abertura ou fechamento) sai: o dado não pode "fechar" a
+    # seção não confiável e se passar por instrução.
+    text = UNTRUSTED_TAG.sub("", text)
     if len(text) > MAX_TOOL_OUTPUT_CHARS:
         text = text[:MAX_TOOL_OUTPUT_CHARS] + '... [truncado]"'
     return f"<dados_nao_confiaveis>{text}</dados_nao_confiaveis>"
@@ -222,14 +227,14 @@ class Toolbox:
 
 
 def _check_quota(db: Database, settings: Settings) -> None:
-    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    day = local_day(settings.timezone)
     n = db.scalar("SELECT requests FROM ai_usage_daily WHERE day = ?", (day,)) or 0
     if n >= settings.ai_daily_request_limit:
         raise PermissionError(f"Limite diário de {settings.ai_daily_request_limit} perguntas ao assistente atingido.")
 
 
-def _record_usage(db: Database, inp: int, out: int) -> None:
-    day = datetime.now(UTC).strftime("%Y-%m-%d")
+def _record_usage(db: Database, settings: Settings, inp: int, out: int) -> None:
+    day = local_day(settings.timezone)
     db.execute("""INSERT INTO ai_usage_daily (day, requests, input_tokens, output_tokens) VALUES (?, 1, ?, ?)
                   ON CONFLICT(day) DO UPDATE SET requests = requests + 1, input_tokens = input_tokens + excluded.input_tokens,
                   output_tokens = output_tokens + excluded.output_tokens""", (day, inp, out))
@@ -335,27 +340,32 @@ async def ask(db: Database, settings: Settings, collector: Collector | None, use
               origin: str = "texto") -> dict[str, Any]:
     question = question.strip()[:2000]
     use_llm = bool(settings.groq_api_key) or client is not None
+    # Todo acesso ao SQLite sai do event loop (db.run): uma transação longa em outra thread (retenção, export)
+    # não pode congelar SSE, bot e listener ESP32 enquanto a pergunta espera o lock do banco.
     if conversation_id is not None:
-        owner = db.scalar("SELECT user_id FROM ai_conversations WHERE id = ?", (conversation_id,))
+        owner = await db.run(db.scalar, "SELECT user_id FROM ai_conversations WHERE id = ?", (conversation_id,))
         if owner != user["id"]:
             raise PermissionError("Conversa não encontrada.")
     if use_llm:
-        _check_quota(db, settings)  # antes de gravar: pergunta recusada não fica no histórico sem resposta
+        await db.run(_check_quota, db, settings)  # antes de gravar: pergunta recusada não fica no histórico
     new_conversation = conversation_id is None
     if conversation_id is None:
         title = (f"Telegram: {question}" if channel == "telegram" else question)[:60]
-        cur = db.execute("INSERT INTO ai_conversations (user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                         (user["id"], title, now_ts(), now_ts()))
+        cur = await db.run(db.execute,
+                           "INSERT INTO ai_conversations (user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                           (user["id"], title, now_ts(), now_ts()))
         conversation_id = int(cur.lastrowid or 0)
     # O histórico guarda o texto puro (a marca de origem só vai para o modelo, não para o painel).
-    cur = db.execute("INSERT INTO ai_messages (conversation_id, role, content, created_at) VALUES (?, 'user', ?, ?)",
-                     (conversation_id, question, now_ts()))
+    cur = await db.run(db.execute,
+                       "INSERT INTO ai_messages (conversation_id, role, content, created_at) VALUES (?, 'user', ?, ?)",
+                       (conversation_id, question, now_ts()))
     question_id = int(cur.lastrowid or 0)
 
     if not use_llm:
         answer = await asyncio.to_thread(rules_answer, db, settings, collector)
-        db.execute("INSERT INTO ai_messages (conversation_id, role, content, created_at) VALUES (?, 'assistant', ?, ?)",
-                   (conversation_id, answer, now_ts()))
+        await db.run(db.execute,
+                     "INSERT INTO ai_messages (conversation_id, role, content, created_at) VALUES (?, 'assistant', ?, ?)",
+                     (conversation_id, answer, now_ts()))
         return {"conversation_id": conversation_id, "answer": answer, "engine": "regras", "tools_used": [], "proposal": None}
 
     try:
@@ -373,8 +383,10 @@ async def _ask_llm(db: Database, settings: Settings, collector: Collector | None
     if client is None:
         client = GroqClient(settings.groq_api_key.get_secret_value())  # type: ignore[union-attr]
 
-    history = db.query("SELECT role, content FROM ai_messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 13",
-                       (conversation_id,))[::-1]
+    history = (await db.run(db.query,
+                            "SELECT role, content FROM ai_messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 13",
+                            (conversation_id,)))[::-1]
+    voice_ctx = await db.run(telegram_voice_context, db, settings) if channel == "telegram" else None
     local_now = datetime.now(ZoneInfo(settings.timezone))
     # A última mensagem do usuário é a pergunta atual: recebe a marca de origem (voz/texto).
     # As anteriores são histórico e vêm do banco como texto puro — a marca vale só para a pergunta corrente.
@@ -389,17 +401,48 @@ async def _ask_llm(db: Database, settings: Settings, collector: Collector | None
         {"role": "system", "content": f"Agora: {local_now:%d/%m/%Y %H:%M} ({settings.timezone})."},
         *([{"role": "system", "content": CHANNEL_STYLE[channel]}] if channel in CHANNEL_STYLE else []),
         *([{"role": "system", "content": VOICE_STYLE}] if origin == "voz" else []),
-        *([{"role": "system", "content": telegram_voice_context(db, settings)}] if channel == "telegram" else []),
+        *([{"role": "system", "content": voice_ctx}] if voice_ctx else []),
         *history_msgs,
     ]
     extra: dict[str, Any] = {"reasoning_effort": "medium"} if settings.ai_model.startswith("openai/gpt-oss") else {}
 
     toolbox = Toolbox(db, settings, collector)
     tools_used: list[str] = []
+    usage = _Usage()
+    try:
+        answer, proposal = await _tool_loop(client, settings, messages, extra, toolbox, tools_used, usage)
+    finally:
+        # Toda pergunta que chegou a chamar o modelo conta na cota, mesmo que falhe no meio: senão um erro
+        # recorrente da Groq queimaria tokens sem nunca bater no limite diário.
+        if usage.called:
+            await db.run(_record_usage, db, settings, usage.tok_in, usage.tok_out)
+    tok_in, tok_out = usage.tok_in, usage.tok_out
+    cost = estimate_cost(settings.ai_model, tok_in, tok_out)
+    await db.run(db.execute, """INSERT INTO ai_messages (conversation_id, role, content, tools_json, input_tokens,
+                  output_tokens, created_at) VALUES (?, 'assistant', ?, ?, ?, ?, ?)""",
+                 (conversation_id, answer, json.dumps(tools_used), tok_in, tok_out, now_ts()))
+    await db.run(db.execute, "UPDATE ai_conversations SET updated_at = ? WHERE id = ?", (now_ts(), conversation_id))
+    return {"conversation_id": conversation_id, "answer": answer, "engine": "groq", "model": settings.ai_model,
+            "tools_used": tools_used, "proposal": proposal,
+            "usage": {"input_tokens": tok_in, "output_tokens": tok_out, "estimated_cost_usd": cost}}
+
+
+class _Usage:
+    """Uso acumulado da Groq numa pergunta, atualizado a cada chamada (vale mesmo se o laço falhar no meio)."""
+
+    def __init__(self) -> None:
+        self.called = False
+        self.tok_in = 0
+        self.tok_out = 0
+
+
+async def _tool_loop(client: Any, settings: Settings, messages: list[dict[str, Any]], extra: dict[str, Any],
+                     toolbox: Toolbox, tools_used: list[str], usage_acc: _Usage) -> tuple[str, dict[str, Any] | None]:
+    """Laço modelo↔ferramentas."""
     proposal: dict[str, Any] | None = None
-    tok_in = tok_out = 0
     answer = ""
     for _ in range(MAX_TOOL_ITERATIONS):
+        usage_acc.called = True
         response = await client.create(
             model=settings.ai_model,
             max_completion_tokens=settings.ai_max_tokens,
@@ -409,8 +452,8 @@ async def _ask_llm(db: Database, settings: Settings, collector: Collector | None
             **extra,
         )
         usage = response.get("usage") or {}
-        tok_in += int(usage.get("prompt_tokens") or 0)
-        tok_out += int(usage.get("completion_tokens") or 0)
+        usage_acc.tok_in += int(usage.get("prompt_tokens") or 0)
+        usage_acc.tok_out += int(usage.get("completion_tokens") or 0)
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") or {}
         finish = choice.get("finish_reason")
@@ -437,16 +480,7 @@ async def _ask_llm(db: Database, settings: Settings, collector: Collector | None
             messages.append({"role": "tool", "tool_call_id": tc.get("id"), "content": content})
     else:
         answer = "Limite de consultas internas atingido para esta pergunta. Tente algo mais específico."
-
-    _record_usage(db, tok_in, tok_out)
-    cost = estimate_cost(settings.ai_model, tok_in, tok_out)
-    db.execute("""INSERT INTO ai_messages (conversation_id, role, content, tools_json, input_tokens, output_tokens, created_at)
-                  VALUES (?, 'assistant', ?, ?, ?, ?, ?)""",
-               (conversation_id, answer, json.dumps(tools_used), tok_in, tok_out, now_ts()))
-    db.execute("UPDATE ai_conversations SET updated_at = ? WHERE id = ?", (now_ts(), conversation_id))
-    return {"conversation_id": conversation_id, "answer": answer, "engine": "groq", "model": settings.ai_model,
-            "tools_used": tools_used, "proposal": proposal,
-            "usage": {"input_tokens": tok_in, "output_tokens": tok_out, "estimated_cost_usd": cost}}
+    return answer, proposal
 
 
 def purge_old(db: Database, days: int) -> int:

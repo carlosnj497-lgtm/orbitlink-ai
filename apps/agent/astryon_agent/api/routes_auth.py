@@ -5,7 +5,7 @@ from __future__ import annotations
 import hmac
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from ..auth import local
@@ -28,6 +28,16 @@ class PasswordChange(BaseModel):
     new_password: str = Field(min_length=local.MIN_PASSWORD_LEN, max_length=256)
 
 
+def client_ip(x_forwarded_for: str | None) -> str:
+    """IP do cliente segundo o último salto confiável.
+
+    O primeiro item do X-Forwarded-For é escolhido pelo próprio cliente; o último é o que o proxy à nossa
+    frente (Nginx/Next) acrescentou e não pode ser forjado por quem está do outro lado.
+    """
+    parts = [p.strip() for p in (x_forwarded_for or "").split(",") if p.strip()]
+    return parts[-1] if parts else ""
+
+
 @router.get("/state")
 def auth_state(c: Ctx) -> dict[str, object]:
     return {"setup_required": not local.has_users(c.db), "mode": "local",
@@ -36,11 +46,14 @@ def auth_state(c: Ctx) -> dict[str, object]:
 
 
 @router.post("/setup", status_code=201)
-def setup(c: Ctx, body: SetupBody, request: Request) -> dict[str, object]:
-    client = request.client.host if request.client else ""
-    if client not in ("127.0.0.1", "::1", "localhost", "testclient"):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "A configuração inicial só pode ser feita localmente.")
+def setup(c: Ctx, body: SetupBody) -> dict[str, object]:
+    # O agente só é chamado pelo servidor Next (sempre em loopback), então o IP do socket não diz nada sobre
+    # quem abriu o painel. Quando o painel pode ser acessado pela rede, o código de configuração é obrigatório.
     expected = c.settings.setup_code.get_secret_value() if c.settings.setup_code else None
+    if not expected and (c.settings.allow_lan or c.settings.appliance):
+        raise HTTPException(status.HTTP_403_FORBIDDEN,
+                            "Defina ASTRYON_SETUP_CODE para criar o administrador quando o painel é acessível "
+                            "pela rede.")
     if expected:
         if not c.login_limiter.allow("setup"):
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Muitas tentativas. Aguarde alguns minutos.")
@@ -59,13 +72,15 @@ def setup(c: Ctx, body: SetupBody, request: Request) -> dict[str, object]:
 @router.post("/login")
 def login(c: Ctx, body: Credentials, user_agent: Annotated[str | None, Header()] = None,
           x_forwarded_for: Annotated[str | None, Header()] = None) -> dict[str, object]:
-    key = f"login:{(x_forwarded_for or '').split(',')[0].strip()}:{body.username}"
-    if not c.login_limiter.allow(key):
+    key = f"login:{client_ip(x_forwarded_for)}:{body.username}"
+    user_key = f"login-user:{body.username}"
+    if not c.login_limiter.allow(key) or not c.user_login_limiter.allow(user_key):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Muitas tentativas. Aguarde alguns minutos.")
     res = local.login(c.db, body.username, body.password, user_agent)
     if res is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuário ou senha incorretos")
-    c.login_limiter.reset(key)  # só falhas contam: abrir o painel em vários aparelhos não bloqueia ninguém
+    c.login_limiter.reset(key)
+    c.user_login_limiter.reset(user_key)  # só falhas contam: abrir o painel em vários aparelhos não bloqueia ninguém
     token, expires = res
     return {"session": token, "expires_at": expires}
 

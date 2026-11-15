@@ -17,13 +17,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 
 from ..config import Settings
-from ..storage.db import Database
+from ..storage.db import Database, local_day
 
 log = logging.getLogger("astryon.transcribe")
 
@@ -85,13 +84,13 @@ def extension_from_path(file_path: str | None) -> str | None:
     return ext if ext in _EXT_MIME else None
 
 
-def _today() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%d")
+def _today(settings: Any = None) -> str:
+    return local_day(getattr(settings, "timezone", None))
 
 
 def check_audio_quota(db: Database, settings: Settings) -> None:
     """Recusa o áudio antes de gastar (e antes de baixar o arquivo) quando a cota do dia acabou."""
-    n = int(db.scalar("SELECT requests FROM ai_audio_usage_daily WHERE day = ?", (_today(),)) or 0)
+    n = int(db.scalar("SELECT requests FROM ai_audio_usage_daily WHERE day = ?", (_today(settings),)) or 0)
     limit = int(getattr(settings, "ai_audio_daily_request_limit", 50))
     if n >= limit:
         raise PermissionError(f"Limite diário de {limit} áudios ao assistente atingido.")
@@ -108,7 +107,7 @@ def record_audio_usage(db: Database, settings: Settings, seconds: int) -> float:
            ON CONFLICT(day) DO UPDATE SET requests = requests + 1,
              audio_seconds = audio_seconds + excluded.audio_seconds,
              estimated_cost_usd = estimated_cost_usd + excluded.estimated_cost_usd""",
-        (_today(), billed, cost),
+        (_today(settings), billed, cost),
     )
     return cost
 

@@ -33,8 +33,8 @@ def build_batch(db: Database, dish_reachable: bool, limit: int = BATCH) -> tuple
     return batch, [i for i, _ in sent]
 
 
-def build_batch_snapshot(db: Database, dish_reachable: bool,
-                         limit: int = BATCH) -> tuple[dict[str, Any], list[tuple[int, str]]]:
+def build_batch_snapshot(db: Database, dish_reachable: bool, limit: int = BATCH,
+                         with_extras: bool = True) -> tuple[dict[str, Any], list[tuple[int, str]]]:
     """Lote + (id, payload) de cada item enviado, para marcar como enviado SÓ o que não mudou durante o envio."""
     pending = db.query("SELECT id, payload_json FROM sync_queue WHERE synced_at IS NULL AND entity = 'usage_minute' "
                        "AND attempts < ? ORDER BY id LIMIT ?", (MAX_ATTEMPTS, limit))
@@ -49,9 +49,10 @@ def build_batch_snapshot(db: Database, dish_reachable: bool,
         if q:
             tel.append({**q, "terminal_local_id": str(u["terminal_id"])})
     since = now_ts() - 48 * 3600
-    events = db.query("""SELECT terminal_id, kind, cause, start_ts, end_ts, duration_s, confidence, evidence_json
+    events = [] if not with_extras else db.query("""SELECT terminal_id, kind, cause, start_ts, end_ts, duration_s, confidence, evidence_json
                          FROM connection_events WHERE start_ts >= ? OR end_ts IS NULL ORDER BY start_ts LIMIT 1000""", (since,))
-    caps = db.query("SELECT key, label, status, detail, checked_at FROM capabilities WHERE device = 'dish'")
+    caps = [] if not with_extras else db.query(
+        "SELECT key, label, status, detail, checked_at FROM capabilities WHERE device = 'dish'")
     first_tid = str(terminals[0]["id"]) if terminals else None
     batch = {
         "terminals": [{"local_id": str(t["id"]), **{k: t[k] for k in ("terminal_key", "name", "hardware_version",
@@ -101,18 +102,20 @@ def mark(db: Database, ids: list[int], error: str | None) -> None:
 class Rejected(RuntimeError):
     """O servidor recusou o lote (HTTP 4xx que não é de autenticação/limite): provável item defeituoso."""
 
-    def __init__(self, message: str, size: int) -> None:
+    def __init__(self, message: str, size: int, with_extras: bool = False) -> None:
         super().__init__(message)
         self.size = size
+        self.with_extras = with_extras  # o lote recusado levava eventos/capacidades (suspeitos antes do consumo)
 
 
 async def push_once(db: Database, settings: Settings, client: httpx.AsyncClient, dish_reachable: bool,
-                    limit: int = BATCH) -> dict[str, Any]:
+                    limit: int = BATCH, with_extras: bool = True) -> dict[str, Any]:
     token = await asyncio.to_thread(pairing.agent_token, db, settings)
     if not (settings.supabase_url and settings.supabase_anon_key and token):
         raise RuntimeError("Supabase não configurado")
-    batch, sent = await asyncio.to_thread(build_batch_snapshot, db, dish_reachable, limit)
+    batch, sent = await asyncio.to_thread(build_batch_snapshot, db, dish_reachable, limit, with_extras)
     ids = [i for i, _ in sent]
+    has_extras = bool(batch["events"] or batch["capabilities"])
     anon = settings.supabase_anon_key.get_secret_value()
     url = settings.supabase_url.rstrip("/") + "/rest/v1/rpc/ingest_batch"
     try:
@@ -124,13 +127,14 @@ async def push_once(db: Database, settings: Settings, client: httpx.AsyncClient,
     if r.status_code >= 400:
         detail = r.text[:200]
         rejected = 400 <= r.status_code < 500 and r.status_code not in (401, 403, 408, 429)
-        if rejected and len(ids) > 1:
-            # Lote recusado: ainda não se sabe qual item é o defeituoso; não conta tentativa para ninguém.
+        if rejected and (len(ids) > 1 or has_extras):
+            # Lote recusado: ainda não se sabe qual item é o defeituoso (pode ser um evento ou capacidade, não o
+            # consumo); não conta tentativa para ninguém.
             await asyncio.to_thread(mark_error_only, db, ids, f"HTTP {r.status_code}: {detail}")
-        else:
+        elif ids:
             await asyncio.to_thread(mark, db, ids, f"HTTP {r.status_code}: {detail}")
         if rejected:
-            raise Rejected(f"Supabase recusou o lote ({r.status_code})", len(ids))
+            raise Rejected(f"Supabase recusou o lote ({r.status_code})", len(ids), has_extras)
         raise RuntimeError(f"Supabase respondeu {r.status_code}")
     confirmed = await asyncio.to_thread(mark_sent, db, sent)
     result: dict[str, Any] = r.json() if r.content else {}
@@ -140,17 +144,30 @@ async def push_once(db: Database, settings: Settings, client: httpx.AsyncClient,
 async def run(db: Database, settings: Settings, state: dict[str, Any], reachable: Any) -> None:
     failures = 0
     limit = BATCH
+    extras_suspect = False  # o último lote recusado levava eventos/capacidades: reenviar só o consumo
+    extras_off_until = 0
     async with httpx.AsyncClient() as client:
         while True:
+            with_extras = not extras_suspect and now_ts() >= extras_off_until
             try:
-                res = await push_once(db, settings, client, bool(reachable()), limit)
+                res = await push_once(db, settings, client, bool(reachable()), limit, with_extras)
                 state.update(last_ok=now_ts(), last_error=None, last_result=res)
                 failures = 0
+                if extras_suspect:
+                    # O consumo passou sem os extras: o defeito está nos eventos/capacidades. Eles ficam de fora por
+                    # uma hora, e o consumo continua sincronizando em vez de ser descartado item a item.
+                    extras_off_until = now_ts() + 3600
+                    extras_suspect = False
+                    log.warning("Supabase recusa eventos/capacidades; enviando só o consumo pela próxima hora")
                 delay = settings.sync_interval_s if res["sent_usage"] < limit else 2.0
                 limit = BATCH
             except Rejected as exc:
-                # Divide o lote até isolar o item defeituoso; sozinho, ele sai da fila após MAX_ATTEMPTS recusas.
-                limit = max(1, exc.size // 2)
+                if exc.with_extras:
+                    # Primeiro descarta a hipótese dos extras: mesmo lote de consumo, sem eventos/capacidades.
+                    extras_suspect = True
+                else:
+                    # Divide o lote até isolar o item defeituoso; sozinho, ele sai da fila após MAX_ATTEMPTS recusas.
+                    limit = max(1, exc.size // 2)
                 state.update(last_error=str(exc), last_error_at=now_ts())
                 log.warning("Supabase recusou um lote; tentando com %d item(ns) por vez", limit)
                 delay = 2.0

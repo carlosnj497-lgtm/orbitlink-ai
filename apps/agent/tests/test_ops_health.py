@@ -151,7 +151,7 @@ def test_backup_is_restorable_and_rotates(tmp_path, db):
 
 
 async def test_run_once_daily_and_weekly_telegram(tmp_path, db):
-    s = _settings(tmp_path, telegram_bot_token=TOKEN, telegram_chat_id="99")
+    s = _settings(tmp_path, telegram_bot_token=TOKEN, telegram_chat_id="99", backup_telegram=True)
     sent = []
 
     def handler(req):
@@ -170,4 +170,50 @@ async def test_run_once_daily_and_weekly_telegram(tmp_path, db):
 
 async def test_backup_without_telegram_stays_local(tmp_path, db):
     r = await backup.run_once(db, _settings(tmp_path))
+    assert r["created"] and r["sent_telegram"] is False
+
+
+def test_backup_telegram_is_off_by_default(tmp_path):
+    assert _settings(tmp_path).backup_telegram is False
+
+
+async def test_telegram_backup_is_sanitized(tmp_path, db):
+    from astryon_agent.auth import local
+    uid = local.setup_admin(db, "admin", "senha-forte-123")
+    local.login(db, "admin", "senha-forte-123")
+    db.execute("INSERT INTO esp32_nodes (device_id, name, secret_enc, enabled, created_at) VALUES "
+               "('esp-1', 'x', 'fernet:SEGREDO', 1, 0)")
+    db.set_kv("sync:agent_token", "fernet:TOKEN-DA-NUVEM")
+    db.set_kv("marca", "fica")
+    s = _settings(tmp_path, telegram_bot_token=TOKEN, telegram_chat_id="99", backup_telegram=True)
+    docs = []
+
+    def handler(req):
+        docs.append(req.content)
+        return httpx.Response(200, json={"ok": True})
+
+    r = await backup.run_once(db, s, httpx.MockTransport(handler))
+    assert r["sent_telegram"] and len(docs) == 1
+    gz = docs[0].split(b"\r\n\r\n", 3)[-1].rsplit(b"\r\n--", 1)[0]
+    sent_db = tmp_path / "enviado.sqlite3"
+    sent_db.write_bytes(gzip.decompress(gz))
+    con = sqlite3.connect(sent_db)
+    assert con.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 0
+    assert con.execute("SELECT password_hash FROM local_users WHERE id = ?", (uid,)).fetchone()[0] == ""
+    assert con.execute("SELECT secret_enc FROM esp32_nodes").fetchone()[0] == ""
+    assert con.execute("SELECT COUNT(*) FROM settings_kv WHERE key = 'sync:agent_token'").fetchone()[0] == 0
+    assert con.execute("SELECT value FROM settings_kv WHERE key = 'marca'").fetchone()[0] == "fica"
+    con.close()
+    raw = gzip.decompress(gz)
+    assert b"SEGREDO" not in raw and b"TOKEN-DA-NUVEM" not in raw  # VACUUM: nada sobra em páginas livres
+    # a cópia local continua completa e a sanitizada não fica na pasta
+    assert all(".telegram." not in p.name for p in backup.backup_dir(s).iterdir())
+    local_copy = gzip.decompress(backup.list_backups(s)[-1].read_bytes())
+    assert b"TOKEN-DA-NUVEM" in local_copy
+
+
+async def test_telegram_backup_never_goes_to_group(tmp_path, db):
+    s = _settings(tmp_path, telegram_bot_token=TOKEN, telegram_chat_id="-100123", backup_telegram=True)
+    t = httpx.MockTransport(lambda req: pytest.fail("não deveria enviar para grupo"))
+    r = await backup.run_once(db, s, t)
     assert r["created"] and r["sent_telegram"] is False

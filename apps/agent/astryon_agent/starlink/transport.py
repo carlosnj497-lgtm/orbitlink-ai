@@ -13,6 +13,7 @@ e na rota de demonstração, e SEMPRE se identifica como tal.
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -20,6 +21,8 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .errors import ErrorKind, StarlinkError, from_grpc_error
+
+log = logging.getLogger("astryon.grpc")
 
 SERVICE_NAME = "SpaceX.API.Device.Device"
 METHOD_PATH = f"/{SERVICE_NAME}/Handle"
@@ -65,11 +68,17 @@ class GrpcTransport:
     _req_cls: Any = field(default=None, init=False, repr=False)
     _resp_cls: Any = field(default=None, init=False, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
+    # Lock só do canal: status, histórico, obstrução e reboot rodam em threads diferentes e compartilham o canal.
+    _chan_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     # -------------------------------------------------------------- canal/schema
     def _ensure_channel(self) -> Any:
         import grpc
 
+        with self._chan_lock:
+            return self._ensure_channel_locked(grpc)
+
+    def _ensure_channel_locked(self, grpc: Any) -> Any:
         if self._channel is None:
             options = [
                 ("grpc.enable_retries", 0),
@@ -121,12 +130,17 @@ class GrpcTransport:
             self._req_cls = message_factory.GetMessageClass(method.input_type)
             self._resp_cls = message_factory.GetMessageClass(method.output_type)
 
-    def _reset_channel(self) -> None:
-        if self._channel is not None:
-            try:
-                self._channel.close()
-            finally:
-                self._channel = None
+    def _reset_channel(self, failed: Any = None) -> None:
+        """Fecha o canal. Com `failed`, só fecha se ainda for aquele canal: outra thread pode já ter aberto um novo."""
+        with self._chan_lock:
+            ch = self._channel
+            if ch is None or (failed is not None and ch is not failed):
+                return
+            self._channel = None
+        try:
+            ch.close()
+        except Exception as exc:  # noqa: BLE001 - fechar um canal já quebrado não pode virar outro erro
+            log.debug("falha ao fechar canal gRPC: %s", type(exc).__name__)
 
     # -------------------------------------------------------------- API
     def request_fields(self) -> list[str]:
@@ -165,18 +179,23 @@ class GrpcTransport:
             json_format.ParseDict(dict(params), sub)
         else:
             sub.SetInParent()
-        stub = self._ensure_channel().unary_unary(
-            METHOD_PATH,
-            request_serializer=lambda m: m.SerializeToString(),
-            response_deserializer=self._resp_cls.FromString,
-        )
+        channel = self._ensure_channel()  # referência local: um reset em outra thread não troca o canal no meio
         try:
+            stub = channel.unary_unary(
+                METHOD_PATH,
+                request_serializer=lambda m: m.SerializeToString(),
+                response_deserializer=self._resp_cls.FromString,
+            )
             resp = stub(req, timeout=timeout)
         except grpc.RpcError as exc:
             err = from_grpc_error(exc)
             if err.kind == ErrorKind.UNREACHABLE:
-                self._reset_channel()
+                self._reset_channel(channel)
             raise err from exc
+        except (ValueError, AttributeError) as exc:
+            # "Cannot invoke RPC on closed channel": outra thread fechou o canal durante uma queda da antena.
+            self._reset_channel(channel)
+            raise StarlinkError(ErrorKind.UNREACHABLE, f"Canal gRPC com {self.target} foi fechado") from exc
         which = resp.WhichOneof("response")
         if which is None:
             return CallResult(request=request, response_field=None, data={}, origin=self.origin)

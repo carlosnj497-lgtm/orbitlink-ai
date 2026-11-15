@@ -59,7 +59,7 @@ async def unpair(c: Ctx, _a: Admin) -> dict[str, Any]:
     t = c.extras.pop("sync_task", None)
     if t:
         t.cancel()
-    return pairing.info(c.db, c.settings)
+    return await asyncio.to_thread(pairing.info, c.db, c.settings)
 
 
 # ------------------------------------------------------------------ aparelho pronto (sem login)
@@ -78,7 +78,7 @@ async def appliance_pair(c: Ctx, body: PairBody) -> dict[str, Any]:
     """Pareamento sem login, só em modo aparelho e só enquanto ainda não houver conta ligada."""
     if not c.settings.appliance:
         raise HTTPException(404, "Disponível só no modo aparelho.")
-    if pairing.info(c.db, c.settings)["paired"]:
+    if (await asyncio.to_thread(pairing.info, c.db, c.settings))["paired"]:  # Fernet + SQLite fora do event loop
         raise HTTPException(409, "Este aparelho já está ligado a uma conta. Para trocar, remova o acesso dele "
                                  "na sua conta e use o painel local.")
     try:

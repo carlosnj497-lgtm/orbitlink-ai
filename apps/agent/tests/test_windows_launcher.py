@@ -101,12 +101,37 @@ def test_comparacao_de_versoes(launcher):
     assert not launcher.is_newer("lixo", "0.1.0")
 
 
-def _instalado(tmp_path, version="0.1.0", manifest="https://github.com/x/astryon-releases/releases/latest/download/latest.json"):
+REPO_MANIFEST = "https://github.com/x/astryon-releases/releases/latest/download/latest.json"
+REPO_DL = "https://github.com/x/astryon-releases/releases/download/"
+
+
+def _keys():
+    import base64
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    key = Ed25519PrivateKey.generate()
+    pub = key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    return key, base64.b64encode(pub).decode()
+
+
+def _signed(launcher, key, version, url, sha):
+    import base64
+
+    sig = key.sign(launcher.signed_message(version, url, sha))
+    return {"version": version, "url": url, "sha256": sha, "signature": base64.b64encode(sig).decode()}
+
+
+def _instalado(tmp_path, version="0.1.0", manifest=REPO_MANIFEST, pubkey=None):
     import json
 
     base = tmp_path / "app"
     base.mkdir(exist_ok=True)
-    (base / "update.json").write_text(json.dumps({"version": version, "manifest": manifest}), encoding="utf-8-sig")
+    cfg = {"version": version, "manifest": manifest}
+    if pubkey:
+        cfg["pubkey"] = pubkey
+    (base / "update.json").write_text(json.dumps(cfg), encoding="utf-8-sig")
     return base
 
 
@@ -115,20 +140,71 @@ def test_sem_update_json_nao_procura_atualizacao(launcher, tmp_path, monkeypatch
     assert launcher.check_update(tmp_path) is None
 
 
-def test_encontra_versao_nova_e_recusa_enderecos_estranhos(launcher, tmp_path, monkeypatch):
-    sha = "a" * 64
-    remote = {"version": "0.2.0", "url": "https://github.com/x/astryon-releases/releases/download/v0.2.0/s.exe",
-              "sha256": sha}
-    monkeypatch.setattr(launcher, "fetch_json", lambda url: dict(remote))
-    base = _instalado(tmp_path)
-    assert launcher.check_update(base) == {"version": "0.2.0", "url": remote["url"], "sha256": sha}
+def test_sem_chave_publica_nao_procura_atualizacao(launcher, tmp_path, monkeypatch):
+    monkeypatch.setattr(launcher, "fetch_json", lambda url: pytest.fail("não deveria acessar a rede"))
+    assert launcher.check_update(_instalado(tmp_path)) is None
 
-    remote["url"] = "https://exemplo-malicioso.com/s.exe"
+
+def test_encontra_versao_nova_assinada_e_recusa_enderecos_estranhos(launcher, tmp_path, monkeypatch):
+    key, pub = _keys()
+    sha = "a" * 64
+    url = REPO_DL + "v0.2.0/s.exe"
+    remote = _signed(launcher, key, "0.2.0", url, sha)
+    monkeypatch.setattr(launcher, "fetch_json", lambda u: dict(remote))
+    base = _instalado(tmp_path, pubkey=pub)
+    assert launcher.check_update(base) == {"version": "0.2.0", "url": url, "sha256": sha}
+
+    # mesmo assinado, o instalador precisa vir do MESMO repositório de releases
+    for bad in ("https://exemplo-malicioso.com/s.exe", "https://github.com/x/s.exe",
+                "https://github.com/outro/astryon-releases/releases/download/v0.2.0/s.exe",
+                REPO_DL + "../../../outro/x/releases/download/v1/s.exe"):
+        remote.clear()
+        remote.update(_signed(launcher, key, "0.2.0", bad, sha))
+        assert launcher.check_update(base) is None, bad
+    remote.clear()
+    remote.update(_signed(launcher, key, "0.2.0", url, "curto"))
     assert launcher.check_update(base) is None
-    remote.update(url="https://github.com/x/s.exe", sha256="curto")
-    assert launcher.check_update(base) is None
-    assert launcher.check_update(_instalado(tmp_path, version="0.2.0")) is None  # já atualizado
-    assert launcher.check_update(_instalado(tmp_path, manifest="http://github.com/latest.json")) is None
+    assert launcher.check_update(_instalado(tmp_path, version="0.2.0", pubkey=pub)) is None  # já atualizado
+    assert launcher.check_update(_instalado(tmp_path, manifest="http://github.com/latest.json", pubkey=pub)) is None
+    assert launcher.check_update(_instalado(tmp_path, manifest="https://github.com/x/latest.json", pubkey=pub)) is None
+
+
+def test_manifesto_sem_assinatura_ou_adulterado_e_recusado(launcher, tmp_path, monkeypatch):
+    key, pub = _keys()
+    other, _ = _keys()
+    url = REPO_DL + "v0.2.0/s.exe"
+    base = _instalado(tmp_path, pubkey=pub)
+    cases = [
+        {"version": "0.2.0", "url": url, "sha256": "a" * 64},                                   # sem assinatura
+        _signed(launcher, other, "0.2.0", url, "a" * 64),                                        # outra chave
+        {**_signed(launcher, key, "0.2.0", url, "a" * 64), "sha256": "b" * 64},                  # hash trocado
+        {**_signed(launcher, key, "0.2.0", url, "a" * 64), "version": "9.9.9"},                  # versão trocada
+        {**_signed(launcher, key, "0.2.0", url, "a" * 64), "signature": "não-é-base64!"},
+    ]
+    for remote in cases:
+        monkeypatch.setattr(launcher, "fetch_json", lambda u, r=remote: dict(r))
+        assert launcher.check_update(base) is None, remote
+
+
+def test_assinatura_do_script_de_release_bate_com_o_launcher(launcher, tmp_path, monkeypatch, capsys):
+    import base64
+    import json
+    import runpy
+
+    from cryptography.hazmat.primitives import serialization
+
+    key, pub = _keys()
+    raw = key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())
+    setup = tmp_path / "s.exe"
+    setup.write_bytes(b"instalador")
+    url = REPO_DL + "v0.2.0/s.exe"
+    monkeypatch.setenv("RELEASE_SIGNING_KEY", base64.b64encode(raw).decode())
+    monkeypatch.setattr(sys, "argv", ["release-signing.py", "sign", "0.2.0", url, str(setup)])
+    runpy.run_path(str(LAUNCHER.parents[2] / "scripts" / "release-signing.py"), run_name="__main__")
+    remote = json.loads(capsys.readouterr().out)
+    monkeypatch.setattr(launcher, "fetch_json", lambda u: dict(remote))
+    info = launcher.check_update(_instalado(tmp_path, pubkey=pub))
+    assert info and info["sha256"] == __import__("hashlib").sha256(b"instalador").hexdigest()
 
 
 class _Resp:

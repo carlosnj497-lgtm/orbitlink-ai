@@ -56,17 +56,35 @@ def key_file() -> Path:
     return get_settings().data_dir / "secrets.key"
 
 
+_FERNET_CACHE: dict[tuple[str, int], Fernet] = {}
+
+
 def _fernet() -> Fernet:
+    """Chave Fernet em memória: reler o arquivo a cada segredo custava disco e CPU por requisição do ESP32.
+
+    O cache é indexado por caminho e mtime, então trocar ou recriar a chave continua valendo na hora.
+    """
     from cryptography.fernet import Fernet
 
     path = key_file()
+    try:
+        st = path.stat()
+        cached = _FERNET_CACHE.get((str(path), st.st_mtime_ns))
+        if cached is not None:
+            return cached
+    except OSError:
+        pass
     if not path.exists():
         # Desenvolvimento: cria a chave com permissão restrita. No servidor o instalador já a criou em /etc/astryon.
         path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "wb") as f:
             f.write(Fernet.generate_key())
-    return Fernet(path.read_bytes().strip())
+    f_obj = Fernet(path.read_bytes().strip())
+    if len(_FERNET_CACHE) > 8:
+        _FERNET_CACHE.clear()
+    _FERNET_CACHE[(str(path), path.stat().st_mtime_ns)] = f_obj
+    return f_obj
 
 
 def _use_dpapi() -> bool:

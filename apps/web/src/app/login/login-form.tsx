@@ -4,27 +4,31 @@ import { Eye, LogIn, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { type FormEvent, useState } from "react";
 import { Button, Callout, Card, Input, Label } from "@/components/ui/primitives";
+import { requestJson } from "@/lib/api";
 import { safeNext } from "@/lib/safe-next";
 
 type AuthState = { setup_required: boolean; setup_code_required?: boolean; supabase_configured: boolean } | { detail: string };
 
+const OFFLINE = "Agente ASTRYON offline. Inicie com scripts\\start.ps1.";
+
+async function loadAuthState(): Promise<AuthState> {
+  const r = await requestJson<AuthState>("/api/auth/state", { cache: "no-store" });
+  if (r.ok && r.data) return r.data;
+  return { detail: r.status ? (r.error ?? OFFLINE) : OFFLINE };
+}
+
 export function LoginForm() {
   const params = useSearchParams();
-  const [state, setState] = useState<AuthState | null>(null);
+  const { data: state = null } = useQuery({ queryKey: ["auth", "state"], queryFn: loadAuthState, retry: false });
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [setupCode, setSetupCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/state")
-      .then(async (r) => setState(await r.json()))
-      .catch(() => setState({ detail: "Agente ASTRYON offline. Inicie com scripts\\start.ps1." }));
-  }, []);
 
   const setup = state && "setup_required" in state && state.setup_required;
   const needCode = setup && "setup_code_required" in state && state.setup_code_required;
@@ -38,19 +42,10 @@ export function LoginForm() {
       return;
     }
     setBusy(true);
-    const r = await fetch(`/api/auth/${setup ? "setup" : "login"}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(setup && needCode ? { username, password, setup_code: setupCode } : { username, password }),
-    }).catch(() => null);
+    const r = await requestJson(`/api/auth/${setup ? "setup" : "login"}`, { json: setup && needCode ? { username, password, setup_code: setupCode } : { username, password } }, "Não foi possível falar com o painel.");
     setBusy(false);
-    if (!r) {
-      setError("Não foi possível falar com o painel.");
-      return;
-    }
     if (!r.ok) {
-      const body = await r.json().catch(() => ({}));
-      setError(typeof body.detail === "string" ? body.detail : "Falha na autenticação.");
+      setError(r.error ?? "Falha na autenticação.");
       return;
     }
     window.location.href = safeNext(params.get("next"), window.location.origin);

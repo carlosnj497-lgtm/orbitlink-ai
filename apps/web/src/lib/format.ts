@@ -1,5 +1,9 @@
-/** Formatação pt-BR com fuso America/Fortaleza (UTC-3, sem horário de verão). */
-export const TZ = "America/Fortaleza";
+/**
+ * Formatação pt-BR no fuso do agente (ASTRYON_TIMEZONE, informado em /agent). Até a primeira resposta do agente
+ * vale o último fuso visto neste navegador, ou America/Fortaleza. Os buckets de hora/dia são calculados no fuso do
+ * servidor; formatar em outro fuso deslocava os rótulos.
+ */
+export const DEFAULT_TZ = "America/Fortaleza";
 const LOCALE = "pt-BR";
 
 const nf = (min: number, max: number) =>
@@ -53,23 +57,87 @@ export function fmtDuration(seconds: number | null | undefined): string {
   return `${sec}s`;
 }
 
-const dtf = new Intl.DateTimeFormat(LOCALE, {
-  timeZone: TZ,
-  day: "2-digit",
-  month: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-const tf = new Intl.DateTimeFormat(LOCALE, { timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-const hm = new Intl.DateTimeFormat(LOCALE, { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
-const df = new Intl.DateTimeFormat(LOCALE, { timeZone: TZ, day: "2-digit", month: "short" });
-const full = new Intl.DateTimeFormat(LOCALE, { timeZone: TZ, dateStyle: "medium", timeStyle: "medium" });
+function buildFormatters(tz: string) {
+  return {
+    dtf: new Intl.DateTimeFormat(LOCALE, { timeZone: tz, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }),
+    tf: new Intl.DateTimeFormat(LOCALE, { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    hm: new Intl.DateTimeFormat(LOCALE, { timeZone: tz, hour: "2-digit", minute: "2-digit" }),
+    df: new Intl.DateTimeFormat(LOCALE, { timeZone: tz, day: "2-digit", month: "short" }),
+    full: new Intl.DateTimeFormat(LOCALE, { timeZone: tz, dateStyle: "medium", timeStyle: "medium" }),
+    day: new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }),
+    month: new Intl.DateTimeFormat(LOCALE, { timeZone: tz, month: "short", year: "2-digit" }),
+  };
+}
 
-export const fmtDateTime = (epoch: number) => dtf.format(epoch * 1000);
-export const fmtTime = (epoch: number) => tf.format(epoch * 1000);
-export const fmtHM = (epoch: number) => hm.format(epoch * 1000);
-export const fmtDay = (epoch: number) => df.format(epoch * 1000);
-export const fmtFull = (epoch: number) => full.format(epoch * 1000);
+const TZ_KEY = "astryon:timezone";
+let tz = DEFAULT_TZ;
+let f = buildFormatters(tz);
+const tzListeners = new Set<() => void>();
+
+function isValidTz(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Fuso usado na formatação (o do agente, quando já conhecido). */
+export function displayTimezone(): string {
+  return tz;
+}
+
+/** Troca o fuso de exibição (fuso inválido é ignorado). Devolve true se mudou. */
+export function setDisplayTimezone(value: string | null | undefined, persist = true): boolean {
+  if (!value || value === tz || !isValidTz(value)) return false;
+  tz = value;
+  f = buildFormatters(tz);
+  if (persist) {
+    try {
+      localStorage.setItem(TZ_KEY, tz);
+    } catch {
+      /* armazenamento indisponível: só vale nesta aba */
+    }
+  }
+  tzListeners.forEach((l) => l());
+  return true;
+}
+
+/** Recupera o último fuso visto neste navegador (chamar só no cliente). */
+export function restoreDisplayTimezone(): void {
+  try {
+    setDisplayTimezone(localStorage.getItem(TZ_KEY), false);
+  } catch {
+    /* sem armazenamento */
+  }
+}
+
+export function subscribeDisplayTimezone(l: () => void): () => void {
+  tzListeners.add(l);
+  return () => {
+    tzListeners.delete(l);
+  };
+}
+
+export const fmtDateTime = (epoch: number) => f.dtf.format(epoch * 1000);
+export const fmtTime = (epoch: number) => f.tf.format(epoch * 1000);
+export const fmtHM = (epoch: number) => f.hm.format(epoch * 1000);
+export const fmtDay = (epoch: number) => f.df.format(epoch * 1000);
+export const fmtFull = (epoch: number) => f.full.format(epoch * 1000);
+export const fmtMonth = (epoch: number) => f.month.format(epoch * 1000);
+/** Data local "AAAA-MM-DD" no fuso de exibição (a mesma chave de dia que o agente grava). */
+export const localDayKey = (epoch: number) => f.day.format(epoch * 1000);
+
+/**
+ * Linha de uso diário (IA, áudio) de HOJE no fuso do agente. A lista vem ordenada por dia decrescente e só tem dias
+ * com uso: o primeiro item pode ser de ontem. `now` = epoch s (ex.: de `useNow`); null enquanto não há relógio.
+ */
+export function usageForToday<T extends { day: string }>(rows: T[] | null | undefined, now: number | null): T | undefined {
+  if (!rows || now === null) return undefined;
+  const key = localDayKey(now);
+  return rows.find((r) => r.day === key);
+}
 
 /** Tempo relativo. Só é chamado com dados já carregados no cliente (nunca durante o prerender). */
 export function fmtAgo(epoch: number | null | undefined, now?: number): string {

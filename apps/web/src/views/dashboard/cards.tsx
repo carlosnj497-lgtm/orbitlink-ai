@@ -12,6 +12,7 @@ import { type ApiError, useAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useBasePath } from "@/lib/demo-context";
 import { fmtAgo, fmtBytes, fmtBytesStr, fmtDateTime, fmtDay, fmtDuration, fmtHM, fmtNumber, fmtPct } from "@/lib/format";
+import { DAY, summarizeOutages } from "@/lib/outages";
 import type { QualityPart, QualityScore } from "@/lib/quality-score";
 import { EVENT_META } from "../shared";
 import { num, Ring, type RowState, StateIcon, StatusRow } from "./parts";
@@ -228,23 +229,16 @@ export function AntennaCard({ status, agent, className }: { status: StatusRespon
 }
 
 /* ================================================================= Interrupções (24 h) */
-const DAY = 86400;
 const OUTAGE_TONE: Record<string, string> = { outage: "bg-crit", status_outage: "bg-crit", ping_drop: "bg-warn", unreachable: "bg-fg-subtle" };
 
 export function OutagesCard({ events, error, className }: { events: EventsResponse | undefined; error: ApiError | null; className?: string }) {
   const base = useBasePath();
   const end = events?.end ?? 0;
-  const from = end - DAY;
-  const dur = (e: EventsResponse["events"][number]) => e.duration_s ?? (e.open ? Math.max(0, end - e.start_ts) : 0);
-  const all = (events?.events ?? []).filter((e) => e.kind !== "boot");
-  const last = all.filter((e) => e.start_ts >= from);
-  const prev = all.filter((e) => e.start_ts >= from - DAY && e.start_ts < from);
-  const total = last.reduce((a, e) => a + dur(e), 0);
-  const longest = last.reduce((a, e) => Math.max(a, dur(e)), 0);
-  const latest = last.reduce((a, e) => Math.max(a, e.start_ts), 0);
-  const delta = last.length - prev.length;
+  // Quedas que começaram antes da janela (inclusive as ainda abertas) contam, com a duração cortada nas 24 h.
+  const { from, last, previousCount, total, longest, latest } = summarizeOutages(events?.events ?? [], end);
+  const delta = last.length - previousCount;
   const reasons = Object.entries(
-    last.reduce<Record<string, number>>((acc, e) => {
+    last.reduce<Record<string, number>>((acc, { event: e }) => {
       const label = e.cause && e.kind !== "ping_drop" ? `${EVENT_META[e.kind]?.label ?? e.kind} · ${e.cause}` : (EVENT_META[e.kind]?.label ?? e.kind);
       acc[label] = (acc[label] ?? 0) + 1;
       return acc;
@@ -288,12 +282,12 @@ export function OutagesCard({ events, error, className }: { events: EventsRespon
                 {[0.25, 0.5, 0.75].map((f) => (
                   <span key={f} className="absolute inset-y-0 w-px bg-border" style={{ left: `${f * 100}%` }} aria-hidden />
                 ))}
-                {last.map((e) => (
+                {last.map(({ event: e, start, duration }) => (
                   <span
                     key={e.id}
                     title={`${EVENT_META[e.kind]?.label ?? e.kind} · ${fmtDateTime(e.start_ts)} · ${e.open ? "em andamento" : fmtDuration(e.duration_s)}`}
                     className={cn("absolute inset-y-1 min-w-[4px] rounded-sm", OUTAGE_TONE[e.kind] ?? "bg-warn")}
-                    style={{ left: `${Math.max(0, Math.min(99, ((e.start_ts - from) / DAY) * 100))}%`, width: `${Math.min(100, (dur(e) / DAY) * 100)}%` }}
+                    style={{ left: `${Math.max(0, Math.min(99, ((start - from) / DAY) * 100))}%`, width: `${Math.min(100, (duration / DAY) * 100)}%` }}
                   />
                 ))}
               </div>
@@ -328,7 +322,7 @@ export function OutagesCard({ events, error, className }: { events: EventsRespon
               </dl>
             )}
             <p className={cn("pt-3 text-[11px] text-fg-subtle", last.length === 0 && "mt-auto")}>
-              24 h anteriores: <span className="tabular font-medium text-fg-muted">{prev.length}</span>
+              24 h anteriores: <span className="tabular font-medium text-fg-muted">{previousCount}</span>
               {delta !== 0 && <span className={delta > 0 ? "text-warn" : "text-ok"}> ({delta > 0 ? `+${delta}` : delta})</span>}
               {hadGaps && " · houve lacunas de observação: eventos nesses trechos não seriam vistos"}
             </p>

@@ -10,7 +10,8 @@ import { Badge, Button, Callout, Card, Dialog } from "@/components/ui/primitives
 import { api, ApiError, useAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
-import { fmtAgo } from "@/lib/format";
+import { fmtAgo, usageForToday } from "@/lib/format";
+import { useNow } from "@/lib/use-now";
 
 interface AiStatus {
   configured: boolean;
@@ -310,6 +311,7 @@ function Thinking() {
 /* ----------------------------------------------------------------- Tela */
 export default function AssistantView() {
   const demo = useDemo();
+  const clock = useNow(60_000);
   const base = useBasePath();
   const qc = useQueryClient();
   const status = useAgent<AiStatus>("ai/status");
@@ -430,9 +432,9 @@ export default function AssistantView() {
     }
   }
 
-  const today = status.data?.usage?.[0];
+  const today = usageForToday(status.data?.usage, clock);
   const audio = status.data?.audio;
-  const audioToday = audio?.usage?.[0];
+  const audioToday = usageForToday(audio?.usage, clock);
   const configured = status.data?.configured ?? false;
 
   const historyList = (

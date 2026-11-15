@@ -4,6 +4,7 @@ import type { CapStatus, ConnState, Source } from "@astryon/shared";
 import { AlertTriangle, CloudOff, Info, PlugZap, RefreshCw, ServerCrash } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ApiError } from "@/lib/api";
+import { CLOUD } from "@/lib/cloud-flag";
 import { cn } from "@/lib/cn";
 import { fmtPct } from "@/lib/format";
 import { Badge, Button, Callout, Card, Skeleton, Tip, type Tone } from "./ui/primitives";
@@ -160,7 +161,12 @@ export function QueryError({ error, onRetry }: { error: ApiError | Error | null;
   let title = "Falha ao carregar";
   let icon = <AlertTriangle />;
   let body: ReactNode = error?.message;
-  if (code === "agent_offline" || status === 502) {
+  if (CLOUD && status === 502) {
+    // Na nuvem não existe agente local: o 502 vem do Supabase.
+    title = "Nuvem indisponível";
+    icon = <CloudOff />;
+    body = "Não foi possível consultar os dados da sua conta agora. Tente de novo em instantes.";
+  } else if (code === "agent_offline" || status === 502) {
     title = "Agente ASTRYON offline";
     icon = <ServerCrash />;
     body = "O painel não conseguiu falar com o agente local. Inicie com scripts\\start.ps1 e verifique a porta 8787.";

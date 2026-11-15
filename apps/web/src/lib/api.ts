@@ -1,10 +1,12 @@
 "use client";
 
+import { sseAgentSchema, sseStatusSchema } from "@astryon/shared";
 import { type QueryClient, useQuery, type UseQueryOptions, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useSyncExternalStore } from "react";
 import { CLOUD } from "./cloud-flag";
 import { useDemo } from "./demo-context";
 import { demoFetch } from "./demo-data";
+import { reloadToLogin } from "./navigation";
 
 export class ApiError extends Error {
   constructor(
@@ -30,20 +32,107 @@ export function errorText(body: unknown, status: number): string {
   return `Erro ${status}`;
 }
 
+/*
+ * Relógio do servidor. Prazos curtos (confirmação de reboot, código de pareamento: ~2 min) vêm em epoch do
+ * servidor; comparar com o relógio do celular/computador (que pode estar adiantado ou atrasado) travava ou
+ * enganava a contagem. Cada resposta traz o cabeçalho `Date` (resolução de 1 s): a diferença vira o ajuste.
+ */
+let clockOffsetMs = 0;
+
+/** Atualiza o ajuste de relógio a partir do cabeçalho `Date` de uma resposta do painel. */
+export function noteServerDate(res: Response, receivedAt = Date.now()): void {
+  const header = res.headers?.get?.("date");
+  const server = header ? Date.parse(header) : NaN;
+  if (Number.isFinite(server)) clockOffsetMs = server + 500 - receivedAt; // +500 ms: meio do segundo truncado
+}
+
+/** Agora (epoch s) no relógio do servidor. */
+export function serverNow(): number {
+  return (Date.now() + clockOffsetMs) / 1000;
+}
+
+/** Só para testes. */
+export function __setClockOffsetMs(ms: number): void {
+  clockOffsetMs = ms;
+}
+
+function handleUnauthorized(status: number): void {
+  if (status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) reloadToLogin();
+}
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/agent/${path.replace(/^\//, "")}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
-  if (res.status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-    window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
-  }
+  noteServerDate(res);
+  handleUnauthorized(res.status);
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { detail?: unknown; code?: string };
     throw new ApiError(res.status, errorText(body, res.status), body.code);
   }
-  if (res.status === 204) return undefined as T;
+  if (res.status === 204 || res.status === 205) return undefined as T;
   return (await res.json()) as T;
+}
+
+export interface JsonResult<T> {
+  ok: boolean;
+  /** 0 = sem resposta (rede, servidor parado). */
+  status: number;
+  data: T | null;
+  /** Mensagem pronta para mostrar quando `ok` é falso. */
+  error: string | null;
+}
+
+/**
+ * `fetch` + JSON para as rotas do próprio painel (login, senha, aparelho...). Nunca lança: falha de rede,
+ * status de erro e corpo inválido viram `{ ok: false, error }` com uma mensagem legível.
+ */
+export async function requestJson<T = unknown>(url: string, init: RequestInit & { json?: unknown } = {}, offline = "Não foi possível falar com o servidor."): Promise<JsonResult<T>> {
+  const { json, ...rest } = init;
+  const req: RequestInit = json === undefined ? rest : { ...rest, method: rest.method ?? "POST", headers: { "Content-Type": "application/json", ...(rest.headers ?? {}) }, body: JSON.stringify(json) };
+  let res: Response;
+  try {
+    res = await fetch(url, req);
+  } catch {
+    return { ok: false, status: 0, data: null, error: offline };
+  }
+  noteServerDate(res);
+  const body: unknown = res.status === 204 || res.status === 205 ? null : await res.json().catch(() => null);
+  if (!res.ok) return { ok: false, status: res.status, data: null, error: errorText(body, res.status) };
+  return { ok: true, status: res.status, data: body as T, error: null };
+}
+
+/**
+ * Baixa um arquivo do painel. Erro (401, 502, rede) vira ApiError em vez de salvar a mensagem de erro como se
+ * fosse o arquivo. A URL temporária só é liberada depois que o navegador começou o download.
+ */
+export async function downloadFrom(url: string, fallbackName: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    throw new ApiError(0, "Não foi possível falar com o servidor. Verifique a conexão e tente de novo.");
+  }
+  handleUnauthorized(res.status);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, errorText(body, res.status));
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? fallbackName;
+  saveBlob(await res.blob(), name);
+}
+
+/** Salva um Blob como arquivo (o revoke imediato abortava o download no Firefox/Safari). */
+export function saveBlob(blob: Blob, filename: string): void {
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 30_000);
 }
 
 /** Hook de leitura: em /demo responde com fixtures identificadas; caso contrário consulta o agente. */
@@ -116,25 +205,31 @@ function openStream() {
     scheduleReopen();
   };
   src.addEventListener("status", (e: MessageEvent) => {
-    try {
-      const st = JSON.parse(e.data);
-      qc.setQueryData(["agent", "status"], { available: true, dish_reachable: true, age_s: 0, stale: false, status: st });
-      window.dispatchEvent(new CustomEvent("astryon:status", { detail: st }));
-    } catch {
-      /* payload inválido é ignorado */
-    }
+    const st = parseSse(e.data, sseStatusSchema);
+    if (!st) return; // payload inválido não entra no cache
+    qc.setQueryData(["agent", "status"], { available: true, dish_reachable: true, age_s: 0, stale: false, status: st });
+    window.dispatchEvent(new CustomEvent("astryon:status", { detail: st }));
   });
   src.addEventListener("agent", (e: MessageEvent) => {
-    try {
-      const a = JSON.parse(e.data);
-      qc.setQueryData(["agent", "agent"], (old: Record<string, unknown> | undefined) => ({ ...(old ?? {}), ...a }));
-      if (a.dish_reachable === false) qc.invalidateQueries({ queryKey: ["agent", "status"] });
-    } catch {
-      /* ignore */
-    }
+    const a = parseSse(e.data, sseAgentSchema);
+    if (!a) return;
+    qc.setQueryData(["agent", "agent"], (old: Record<string, unknown> | undefined) => ({ ...(old ?? {}), ...a }));
+    if (a.dish_reachable === false) qc.invalidateQueries({ queryKey: ["agent", "status"] });
   });
   src.addEventListener("history", () => qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "agent" && isHistoryKey(q.queryKey[1]) }));
   src.addEventListener("alert", () => qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "agent" && isAlertKey(q.queryKey[1]) }));
+}
+
+/** JSON do SSE validado pelo schema compartilhado; inválido → null (ignorado). */
+export function parseSse<T>(raw: string, schema: { safeParse: (v: unknown) => { success: true; data: T } | { success: false } }): T | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const r = schema.safeParse(value);
+  return r.success ? r.data : null;
 }
 
 function scheduleReopen() {

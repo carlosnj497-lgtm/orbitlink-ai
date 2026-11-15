@@ -8,8 +8,25 @@ loadEnvConfig(path.resolve(__dirname, "../.."), process.env.NODE_ENV !== "produc
 
 const isDev = process.env.NODE_ENV !== "production";
 
+// Modo nuvem: a interface decide o modo pela flag fixada no build (NEXT_PUBLIC_ASTRYON_CLOUD) e o servidor por
+// ASTRYON_CLOUD. Se divergirem, ou faltar o Supabase, o build/start falha aqui em vez de o painel cair em silêncio
+// no modo local (chamando 127.0.0.1 na Vercel) com a interface da nuvem. Em execução, cloudEnabled() repete a checagem.
+{
+  const server = process.env.ASTRYON_CLOUD === "1";
+  const client = process.env.NEXT_PUBLIC_ASTRYON_CLOUD === "1";
+  if (server || client) {
+    const missing = ["ASTRYON_SUPABASE_URL", "ASTRYON_SUPABASE_ANON_KEY"].filter((k) => !process.env[k]);
+    if (server !== client) throw new Error("Modo nuvem: defina ASTRYON_CLOUD=1 e NEXT_PUBLIC_ASTRYON_CLOUD=1 juntos (ou nenhum dos dois).");
+    if (missing.length) throw new Error(`Modo nuvem ligado sem ${missing.join(" e ")}.`);
+  }
+}
+
 // CSP: tudo do próprio painel. O Next injeta scripts inline de hidratação ('unsafe-inline'); em desenvolvimento
 // o HMR também precisa de 'unsafe-eval' e de websocket. Nada externo é carregado (fontes e imagens são locais).
+// Por que não nonce: com cacheComponents/partialPrefetching as páginas têm uma "casca" pré-renderizada no build,
+// e os scripts inline dela não teriam o nonce de cada requisição (seriam bloqueados). Nonce exigiria renderizar
+// tudo por requisição e abrir mão do cache. A defesa contra XSS continua sendo não injetar HTML (o Markdown da IA
+// vira elementos React, sem dangerouslySetInnerHTML) e script-src restrito a 'self'.
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,

@@ -160,24 +160,6 @@ function TelemetryChartImpl({
   );
 }
 
-function SparklineImpl({ data, dataKey, color, height = 36 }: { data: TelemetryPoint[]; dataKey: keyof TelemetryPoint; color: string; height?: number }) {
-  return (
-    <div style={{ height }} className="mt-2 w-full" aria-hidden>
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }} accessibilityLayer={false} tabIndex={-1}>
-          <defs>
-            <linearGradient id={`sp-${String(dataKey)}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor={color} stopOpacity={0.35} />
-              <stop offset="1" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <Area type="monotone" dataKey={dataKey as string} stroke={color} strokeWidth={1.4} fill={`url(#sp-${String(dataKey)})`} connectNulls={false} isAnimationActive={false} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
 function UsageBarChartImpl({
   data,
   height = 260,
@@ -260,6 +242,5 @@ function ObstructionGridImpl({ rows, cols, snr, className }: { rows: number; col
  * pontos SVG a cada atualização mesmo sem mudança nos dados.
  */
 export const TelemetryChart = memo(TelemetryChartImpl);
-export const Sparkline = memo(SparklineImpl);
 export const UsageBarChart = memo(UsageBarChartImpl);
 export const ObstructionGrid = memo(ObstructionGridImpl);

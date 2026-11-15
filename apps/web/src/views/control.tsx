@@ -6,7 +6,7 @@ import { Power, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CAP_META, PageHeader, QueryError } from "@/components/domain";
 import { Badge, Button, Callout, Card, CardBody, CardHeader, Dialog, EmptyState, Input, Label, Skeleton } from "@/components/ui/primitives";
-import { api, ApiError, useAgent } from "@/lib/api";
+import { api, ApiError, serverNow, useAgent } from "@/lib/api";
 import { useDemo } from "@/lib/demo-context";
 import { fmtDateTime } from "@/lib/format";
 
@@ -46,12 +46,17 @@ function ConfirmDialog({ prepared, onClose }: { prepared: Prepared | null; onClo
   });
   useEffect(() => {
     if (!prepared) return;
-    const tick = () => setLeft(Math.max(0, prepared.expires_at - Math.floor(Date.now() / 1000)));
+    // Relógio do servidor (ajustado pelo cabeçalho Date): o do aparelho pode estar adiantado ou atrasado.
+    const tick = () => setLeft(Math.max(0, prepared.expires_at - Math.floor(serverNow())));
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [prepared]);
+  // Com o comando já enviado, "cancelar" não teria efeito no agente (já está executando) e esconderia o
+  // resultado: a janela fica aberta até a resposta chegar.
+  const running = confirm.isPending;
   async function cancel() {
+    if (running) return;
     if (prepared && !confirm.data) await api(`control/cancel/${prepared.operation_id}`, { method: "POST" }).catch(() => undefined);
     setText("");
     confirm.reset();
@@ -69,7 +74,7 @@ function ConfirmDialog({ prepared, onClose }: { prepared: Prepared | null; onClo
           <Button onClick={cancel}>Fechar</Button>
         ) : (
           <>
-            <Button variant="ghost" onClick={cancel}>Cancelar</Button>
+            {!running && <Button variant="ghost" onClick={cancel}>Cancelar</Button>}
             <Button variant="danger" loading={confirm.isPending} disabled={!prepared || text.trim().toUpperCase() !== prepared.confirm_text || left === 0} onClick={() => confirm.mutate()}>
               <Power /> Executar agora
             </Button>
@@ -86,7 +91,9 @@ function ConfirmDialog({ prepared, onClose }: { prepared: Prepared | null; onClo
             <Label htmlFor="confirm-text">Digite <span className="font-mono text-fg">{prepared.confirm_text}</span> para confirmar</Label>
             <Input id="confirm-text" autoComplete="off" value={text} onChange={(e) => setText(e.target.value)} />
           </div>
-          <p className="text-xs text-fg-subtle tabular">Esta confirmação expira em {left}s e só pode ser usada uma vez.</p>
+          <p className="text-xs text-fg-subtle tabular">
+            {running ? "Comando enviado à antena. Aguarde a resposta; não é mais possível cancelar." : `Esta confirmação expira em ${left}s e só pode ser usada uma vez.`}
+          </p>
           {confirm.error && <Callout tone="crit">{(confirm.error as ApiError).message}</Callout>}
         </div>
       )}

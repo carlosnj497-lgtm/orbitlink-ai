@@ -238,6 +238,11 @@ export interface UsageSummary {
   week: UsageWindow;
   month: UsageWindow;
   previous_month: UsageWindow;
+  /**
+   * Mês anterior só até o mesmo ponto do mês atual (mesmo tempo decorrido). Opcional: agentes antigos não mandam,
+   * e aí a comparação mês a mês não é mostrada.
+   */
+  previous_month_to_date?: UsageWindow | null;
   projection_month: UsageProjection | null;
   method: string;
 }

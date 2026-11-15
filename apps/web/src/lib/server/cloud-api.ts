@@ -14,10 +14,37 @@ type Json = Record<string, unknown>;
 const now = () => Math.floor(Date.now() / 1000);
 const num = (v: unknown): number | null => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
 
-function range(q: URLSearchParams, def: string): [number, number] {
-  const e = Number(q.get("end")) || now();
-  const s = Number(q.get("start")) || e - (RANGES[q.get("range") ?? def] ?? RANGES[def]);
+/** Maior janela aceita numa consulta (protege o Supabase de RPCs sobre anos de dados). */
+export const MAX_SPAN_S = 400 * 86400;
+
+/**
+ * Período pedido (`start`/`end` em epoch s, ou `range`). Valores inválidos viram 422; janelas maiores que
+ * MAX_SPAN_S são recusadas para não disparar consultas caras.
+ */
+export function range(q: URLSearchParams, def: string): [number, number] {
+  const int = (k: string) => {
+    const raw = q.get(k);
+    if (raw === null || raw === "") return null;
+    const v = Number(raw);
+    if (!Number.isInteger(v) || v <= 0) throw new CloudError(422, `Parâmetro "${k}" inválido.`);
+    return v;
+  };
+  const e = Math.min(int("end") ?? now(), now() + 86400);
+  const r = q.get("range");
+  if (r !== null && !(r in RANGES)) throw new CloudError(422, 'Parâmetro "range" inválido.');
+  const s = int("start") ?? e - (RANGES[r ?? def] ?? RANGES[def]);
+  if (s >= e) throw new CloudError(422, "O início do período precisa ser antes do fim.");
+  if (e - s > MAX_SPAN_S) throw new CloudError(422, "Período longo demais (máximo de 400 dias).");
   return [s, e];
+}
+
+/** Limite de linhas entre 1 e `max` (padrão `def`). */
+export function limitParam(q: URLSearchParams, def: number, max: number): number {
+  const raw = q.get("limit");
+  if (raw === null || raw === "") return def;
+  const v = Number(raw);
+  if (!Number.isInteger(v) || v < 1) throw new CloudError(422, 'Parâmetro "limit" inválido.');
+  return Math.min(v, max);
 }
 
 function niceBucket(span: number, maxPoints = 720): number {
@@ -37,10 +64,31 @@ export function localMidnight(ts: number, tz: string, days = 0): number {
   return Date.UTC(+parts.year, +parts.month - 1, +parts.day + days) / 1000 - offset;
 }
 
-function localMonthStart(ts: number, tz: string, monthsBack = 0): number {
+/** Epoch da 0h local do 1º dia do mês que contém `ts`, deslocado `monthsBack` meses para trás (negativo = à frente). */
+export function localMonthStart(ts: number, tz: string, monthsBack = 0): number {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit" }).formatToParts(new Date(ts * 1000)).map((x) => [x.type, x.value]));
   const guess = Date.UTC(+p.year, +p.month - 1 - monthsBack, 1, 12) / 1000; // meio-dia evita ambiguidade de fuso
   return localMidnight(guess, tz);
+}
+
+/**
+ * Limites do resumo de consumo, iguais aos do agente local: semana a partir de segunda-feira (0h local) e
+ * "mês anterior até agora" com o mesmo tempo decorrido do mês atual (limitado ao fim do mês anterior).
+ */
+export function summaryBounds(t: number, tz: string) {
+  const today = localMidnight(t, tz);
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(new Date(t * 1000));
+  const weekdayMon0 = Math.max(0, ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(weekday));
+  const month = localMonthStart(t, tz);
+  const previousMonth = localMonthStart(t, tz, 1);
+  return {
+    today,
+    yesterday: localMidnight(t, tz, -1),
+    week: localMidnight(t, tz, -weekdayMon0),
+    month,
+    previousMonth,
+    previousMonthToDate: Math.min(month, previousMonth + (t - month)),
+  };
 }
 
 async function window(token: string, start: number, end: number) {
@@ -128,34 +176,38 @@ export async function cloudGet(token: string, path: string, q: URLSearchParams):
     }
     case "usage/summary": {
       const t = now();
-      const today = localMidnight(t, TZ);
-      const [d, y, w, m, pm] = await Promise.all([
-        window(token, today, t),
-        window(token, localMidnight(t, TZ, -1), today),
-        window(token, localMidnight(t, TZ, -6), t),
-        window(token, localMonthStart(t, TZ), t),
-        window(token, localMonthStart(t, TZ, 1), localMonthStart(t, TZ)),
+      const b = summaryBounds(t, TZ);
+      const [d, y, w, m, pm, pmtd] = await Promise.all([
+        window(token, b.today, t),
+        window(token, b.yesterday, b.today),
+        window(token, b.week, t),
+        window(token, b.month, t),
+        window(token, b.previousMonth, b.month),
+        window(token, b.previousMonth, b.previousMonthToDate),
       ]);
-      return { timezone: TZ, today: d, yesterday: y, week: w, month: m, previous_month: pm, projection_month: { available: false, reason: "A projeção do mês fica no painel local." }, method: "Soma do consumo estimado pelos agentes (tráfego reportado pela antena a cada segundo, agregado por minuto). Não é o valor oficial da fatura." };
+      return { timezone: TZ, today: d, yesterday: y, week: w, month: m, previous_month: pm, previous_month_to_date: pmtd, projection_month: { available: false, reason: "A projeção do mês fica no painel local." }, method: "Soma do consumo estimado pelos agentes (tráfego reportado pela antena a cada segundo, agregado por minuto). Não é o valor oficial da fatura." };
     }
     case "usage/plan": {
       const t = now();
       const cs = localMonthStart(t, TZ);
-      const ce = localMonthStart(t + 32 * 86400, TZ);
+      const ce = localMonthStart(t, TZ, -1);
       return { configured: false, cap_bytes: null, cycle_start_day: 1, cycle_start: cs, cycle_end: ce, days_remaining: Math.max(0, Math.ceil((ce - t) / 86400)), used: await window(token, cs, t), pct_used: null, remaining_bytes: null, lower_bound: true, projection: null, projected_pct: null, source: "calculada", method: "A franquia é configurada no painel local do ASTRYON." };
     }
     case "usage/series": {
       const [s, e] = range(q, "30d");
-      const bucket = q.get("bucket") === "hour" ? "hour" : "day";
-      const size = bucket === "hour" ? 3600 : 86400;
+      const want = q.get("bucket");
+      const bucket = want === "hour" || want === "month" ? want : "day";
+      // Mesma granularidade do agente local: "month" agrupa por mês do calendário no fuso (date_trunc no banco).
+      const size = (t: number) => (bucket === "hour" ? 3600 : bucket === "day" ? 86400 : localMonthStart(t + 43200, TZ, -1) - t);
       const rows = await rpc<Json[]>(token, "cloud_usage_series", { p_start: s, p_end: e, p_tz: TZ, p_bucket: bucket });
-      const fmt = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, ...(bucket === "hour" ? { hour: "2-digit" } : { day: "2-digit", month: "2-digit" }) });
+      const fmt = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, ...(bucket === "hour" ? { hour: "2-digit" } : bucket === "day" ? { day: "2-digit", month: "2-digit" } : { month: "short", year: "2-digit" }) });
       return {
         bucket, timezone: TZ, imported: [], peak_hour: null, gaps: [], method: "Consumo estimado pelos agentes, agregado no fuso " + TZ + ".",
         points: rows.map((r) => {
           const d = num(r.bytes_download) ?? 0;
           const u = num(r.bytes_upload) ?? 0;
-          return { t: num(r.t), label: fmt.format(new Date((num(r.t) ?? 0) * 1000)), bytes_download: d, bytes_upload: u, bytes_total: d + u, coverage: Math.min(1, (num(r.observed) ?? 0) / size), source: "calculada" };
+          const t = num(r.t) ?? 0;
+          return { t, label: fmt.format(new Date(t * 1000)), bytes_download: d, bytes_upload: u, bytes_total: d + u, coverage: Math.min(1, (num(r.observed) ?? 0) / size(t)), source: "calculada" };
         }),
       };
     }
@@ -173,9 +225,13 @@ export async function cloudGet(token: string, path: string, q: URLSearchParams):
     }
     case "events": {
       const [s, e] = range(q, "7d");
-      const limit = Math.min(Number(q.get("limit")) || 200, 1000);
+      const limit = limitParam(q, 200, 1000);
       const kind = q.get("kind");
-      const filter = `start_ts=gte.${new Date(s * 1000).toISOString()}&start_ts=lt.${new Date(e * 1000).toISOString()}${kind ? `&kind=eq.${encodeURIComponent(kind)}` : ""}`;
+      if (kind !== null && !/^[a-z_]{1,40}$/.test(kind)) throw new CloudError(422, 'Parâmetro "kind" inválido.');
+      // Eventos que se sobrepõem à janela: começaram antes do fim e não tinham terminado antes do início
+      // (uma queda longa ainda em andamento também conta).
+      const iso = (v: number) => new Date(v * 1000).toISOString();
+      const filter = `start_ts=lt.${iso(e)}&or=(end_ts.is.null,end_ts.gt.${iso(s)})${kind ? `&kind=eq.${kind}` : ""}`;
       const rows = await rest<Json[]>(token, `connection_events?select=id,kind,cause,start_ts,end_ts,duration_s,confidence,evidence&${filter}&order=start_ts.desc&limit=${limit}`);
       const ts = (v: unknown) => (v ? Math.floor(new Date(String(v)).getTime() / 1000) : null);
       return {

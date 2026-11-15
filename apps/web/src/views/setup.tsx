@@ -6,6 +6,7 @@ import { CAP_META, PageHeader } from "@/components/domain";
 import { Badge, Button, Callout, Card, CardBody, CardHeader } from "@/components/ui/primitives";
 import { api, ApiError, useAgent } from "@/lib/api";
 import { useDemo } from "@/lib/demo-context";
+import { fmtFull } from "@/lib/format";
 import type { AgentInfo, CapStatus } from "@astryon/shared";
 
 interface Probe { target: string; reachable: boolean; latency_ms: number | null; error: string | null }
@@ -67,7 +68,7 @@ export default function SetupView() {
           {r && (
             <>
               <Callout tone={r.summary.verdict === "antena acessível" ? "ok" : "warn"} title={`Resultado: ${r.summary.verdict}`}>
-                Diagnóstico em {new Date(r.generated_at).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}
+                Diagnóstico em {fmtFull(Date.parse(r.generated_at) / 1000)}
                 {r.dish.status && ` · hardware ${r.dish.status.device.hardware_version ?? "?"} · firmware ${r.dish.status.device.software_version ?? "?"}`}
               </Callout>
               {r.network && r.network.guidance.length > 0 && (

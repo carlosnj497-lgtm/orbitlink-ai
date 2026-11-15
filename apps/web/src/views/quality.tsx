@@ -10,6 +10,7 @@ import { CLOUD } from "@/lib/cloud-flag";
 import { Card, CardBody, CardHeader, EmptyState, Skeleton, Tip } from "@/components/ui/primitives";
 import { useAgent } from "@/lib/api";
 import { fmtDuration, fmtNumber, fmtPct } from "@/lib/format";
+import { useDisplayTimezone } from "@/lib/timezone";
 import { rainBands } from "@/lib/weather";
 import { GapNote, RangeTabs } from "./shared";
 
@@ -29,6 +30,7 @@ export default function QualityView() {
   const tel = useAgent<Telemetry>(`telemetry?range=${range}`, { refetchInterval: 60_000 });
   const wx = useAgent<WeatherHourly>(`weather/hourly?range=${range}`, { refetchInterval: 15 * 60_000 });
   const d = q.data;
+  const tz = useDisplayTimezone();
   const rain = useMemo(() => (tel.data && wx.data ? rainBands(wx.data.hours, tel.data.start, tel.data.end) : []), [tel.data, wx.data]);
 
   return (
@@ -84,7 +86,7 @@ export default function QualityView() {
       )}
 
       <Card className="mt-4">
-        <CardHeader title="Perda e latência por hora do dia" subtitle="Responde: quais horários têm mais perda? (America/Fortaleza)" icon={<Info />} />
+        <CardHeader title="Perda e latência por hora do dia" subtitle={`Responde: quais horários têm mais perda? (${d?.timezone ?? tz})`} icon={<Info />} />
         <CardBody>
           {!d && <Skeleton className="h-24 w-full" />}
           {d && d.observed_seconds === 0 && <EmptyState title="Ainda não há observações suficientes" />}

@@ -1,13 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { agentFetch, cookieOptions, sameOrigin, SESSION_COOKIE } from "@/lib/server/agent";
-import { accessToken, clearSessionCookies, CloudError, cloudEnabled, jwtEmail, recover, setSessionCookies, signIn, signUp } from "@/lib/server/cloud";
+import { accessToken, clearSessionCookies, CloudError, cloudEnabled, jwtEmail, recover, setSessionCookies, signIn, signUp, updatePassword, verifyRecovery } from "@/lib/server/cloud";
+import { clientIp } from "@/lib/server/client-ip";
+import { relay } from "@/lib/server/relay";
 
 const cloudCreds = z.object({ email: z.string().email().max(200), password: z.string().min(1).max(256) });
 
 function origin(request: NextRequest): string {
   const proto = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
-  return `${proto}://${request.headers.get("host")}`;
+  return `${proto}://${request.headers.get("host") ?? request.nextUrl.host}`;
 }
 
 async function cloudGetAction(request: NextRequest, action: string) {
@@ -33,9 +35,10 @@ async function cloudPostAction(request: NextRequest, action: string) {
     if (action === "recover") {
       const email = z.string().email().max(200).safeParse(body?.email);
       if (!email.success) return NextResponse.json({ detail: "Informe um e-mail válido." }, { status: 422 });
-      await recover(email.data, `${origin(request)}/login`);
+      await recover(email.data, `${origin(request)}/login/redefinir`);
       return NextResponse.json({ ok: true });  // mesma resposta exista ou não a conta
     }
+    if (action === "reset") return await cloudReset(body);
     const parsed = cloudCreds.safeParse(body);
     if (!parsed.success) return NextResponse.json({ detail: "Informe e-mail e senha." }, { status: 422 });
     const { email, password } = parsed.data;
@@ -60,23 +63,50 @@ async function cloudPostAction(request: NextRequest, action: string) {
   return NextResponse.json({ detail: "não encontrado" }, { status: 404 });
 }
 
+const resetBody = z.object({
+  password: z.string().min(10, "A senha precisa de pelo menos 10 caracteres.").max(256),
+  access_token: z.string().min(20).max(4096).optional(),
+  refresh_token: z.string().min(1).max(4096).optional(),
+  token_hash: z.string().min(6).max(512).optional(),
+});
+
+/**
+ * Senha nova a partir do link de recuperação do e-mail: o link traz uma sessão (`#access_token=…&refresh_token=…`)
+ * ou um `token_hash` (trocado aqui por uma sessão). Com ela, PUT /auth/v1/user grava a senha e a pessoa já entra.
+ */
+async function cloudReset(body: Record<string, unknown> | null) {
+  const parsed = resetBody.safeParse(body);
+  if (!parsed.success) {
+    const tooShort = parsed.error.issues.some((i) => i.path[0] === "password");
+    return NextResponse.json({ detail: tooShort ? "A senha precisa de pelo menos 10 caracteres." : "Link de recuperação inválido. Peça outro." }, { status: 422 });
+  }
+  const { password, access_token, refresh_token, token_hash } = parsed.data;
+  let session: { access_token: string; refresh_token: string } | null = null;
+  if (token_hash) {
+    const s = await verifyRecovery(token_hash);
+    session = { access_token: s.access_token, refresh_token: s.refresh_token };
+  } else if (access_token && refresh_token) {
+    session = { access_token, refresh_token };
+  }
+  if (!session) return NextResponse.json({ detail: "Link de recuperação inválido ou incompleto. Peça outro." }, { status: 422 });
+  await updatePassword(session.access_token, password);
+  const res = NextResponse.json({ ok: true });
+  setSessionCookies(res, session);
+  return res;
+}
+
 const credentials = z.object({
   username: z.string().min(3).max(64).regex(/^[A-Za-z0-9_.-]+$/),
   password: z.string().min(1).max(256),
   setup_code: z.string().max(64).optional(),
 });
 
-async function passthrough(res: Response) {
-  const data = await res.json().catch(() => ({}));
-  return NextResponse.json(data, { status: res.status });
-}
-
 export async function GET(request: NextRequest, ctx: { params: Promise<{ action: string }> }) {
   const { action } = await ctx.params;
   if (cloudEnabled()) return cloudGetAction(request, action);
   const session = request.cookies.get(SESSION_COOKIE)?.value ?? null;
-  if (action === "state") return passthrough(await agentFetch("/v1/auth/state"));
-  if (action === "me") return passthrough(await agentFetch("/v1/auth/me", { session }));
+  if (action === "state") return relay(await agentFetch("/v1/auth/state"));
+  if (action === "me") return relay(await agentFetch("/v1/auth/me", { session }));
   return NextResponse.json({ detail: "não encontrado" }, { status: 404 });
 }
 
@@ -95,7 +125,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
 
   if (action === "password") {
     const body = await request.text();
-    return passthrough(
+    return relay(
       await agentFetch("/v1/auth/password", {
         method: "POST",
         body,
@@ -112,14 +142,14 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
   if (!parsed.success) {
     return NextResponse.json({ detail: "Dados inválidos", issues: parsed.error.issues }, { status: 422 });
   }
-  const forwarded = request.headers.get("x-forwarded-for") ?? "local";
+  const forwarded = clientIp(request.headers);
   if (action === "setup") {
     const r = await agentFetch("/v1/auth/setup", {
       method: "POST",
       body: JSON.stringify(parsed.data),
       headers: { "Content-Type": "application/json" },
     });
-    if (!r.ok) return passthrough(r);
+    if (!r.ok) return relay(r);
   }
   const { username, password } = parsed.data;
   const r = await agentFetch("/v1/auth/login", {
@@ -127,7 +157,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
     body: JSON.stringify({ username, password }),
     headers: { "Content-Type": "application/json", "User-Agent": request.headers.get("user-agent") ?? "", "X-Forwarded-For": forwarded },
   });
-  if (!r.ok) return passthrough(r);
+  if (!r.ok) return relay(r);
   const { session: token, expires_at } = (await r.json()) as { session: string; expires_at: number };
   const res = NextResponse.json({ ok: true, expires_at });
   res.cookies.set(SESSION_COOKIE, token, cookieOptions(expires_at));

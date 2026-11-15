@@ -1,39 +1,41 @@
 "use client";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, Link2 } from "lucide-react";
 import Image from "next/image";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Button, Callout, Card, Input, Label, Skeleton } from "@/components/ui/primitives";
+import { requestJson } from "@/lib/api";
 
 type State = { appliance: boolean; cloud_configured: boolean; paired: boolean; workspace_name: string | null; terminal_name: string } | { detail: string };
 
+const STARTING = "O aparelho ainda está iniciando. Aguarde um minuto e recarregue.";
+
+async function loadState(): Promise<State> {
+  const r = await requestJson<State>("/api/appliance/state", { cache: "no-store" });
+  if (r.ok && r.data) return r.data;
+  return { detail: r.status ? (r.error ?? STARTING) : STARTING };
+}
+
 /** Primeira configuração do aparelho ASTRYON: digitar o código da conta e pronto. */
 export function ApplianceSetup() {
-  const [st, setSt] = useState<State | null>(null);
+  const qc = useQueryClient();
+  const { data: st } = useQuery({ queryKey: ["appliance", "state"], queryFn: loadState, retry: false });
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  async function load() {
-    const r = await fetch("/api/appliance/state").catch(() => null);
-    setSt(r ? await r.json().catch(() => ({ detail: "erro" })) : { detail: "O aparelho ainda está iniciando. Aguarde um minuto e recarregue." });
-  }
-  useEffect(() => {
-    void load();
-  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const r = await fetch("/api/appliance/pair", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) }).catch(() => null);
+    const r = await requestJson("/api/appliance/pair", { json: { code } }, "Não foi possível falar com o aparelho.");
     setBusy(false);
-    const body = r ? ((await r.json().catch(() => ({}))) as { detail?: string }) : null;
-    if (!r || !r.ok) {
-      setError(typeof body?.detail === "string" ? body.detail : "Não foi possível falar com o aparelho.");
+    if (!r.ok) {
+      setError(r.error);
       return;
     }
-    await load();
+    await qc.invalidateQueries({ queryKey: ["appliance", "state"] });
   }
 
   const ok = st && "paired" in st;

@@ -9,6 +9,7 @@ import { type CSSProperties, type ReactNode, useCallback, useEffect, useState } 
 import { useAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
+import { TimezoneSync, useDisplayTimezone } from "@/lib/timezone";
 import { usePersistentFlag } from "@/lib/use-persistent-flag";
 import { DemoBanner } from "../domain";
 import { Header } from "./Header";
@@ -129,10 +130,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const closeMenu = useCallback(() => setOpen(false), []);
   const [collapsed, setCollapsed] = usePersistentFlag("astryon:sidebar-collapsed");
+  // Datas formatadas no fuso do agente: se ele for diferente do padrão, o conteúdo é remontado uma vez.
+  const tz = useDisplayTimezone();
 
   return (
     // --banner-h: altura da faixa de demonstração, para a barra lateral e o cabeçalho fixos ficarem abaixo dela.
     <div className="min-h-dvh" style={{ "--banner-h": demo ? "1.75rem" : "0px" } as CSSProperties}>
+      <TimezoneSync />
       {demo && <DemoBanner />}
       <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-accent focus:px-3 focus:py-2 focus:text-black">
         Pular para o conteúdo
@@ -151,7 +155,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Header onOpenMenu={() => setOpen(true)} menuOpen={open} />
           <main id="conteudo" className="mx-auto w-full max-w-[1800px] flex-1 px-4 pb-24 pt-5 lg:px-6 lg:pb-6">
             {section && section.pages.length > 1 && <SectionTabs section={section} slug={slug} />}
-            <div key={slug} className="animate-rise">
+            <div key={`${slug}|${tz}`} className="animate-rise">
               {children}
             </div>
           </main>

@@ -89,6 +89,7 @@ function usageSummary(): UsageSummary {
     week: win(day - 3 * 86400, e, 6.5e9),
     month: win(month, e, 6.4e9),
     previous_month: win(month - 30 * 86400, month, 5.9e9),
+    previous_month_to_date: win(month - 30 * 86400, month - 30 * 86400 + (e - month), 5.9e9),
     projection_month: { available: true, bytes_total: 1.95e11, low: 1.78e11, high: 2.12e11, days_used: 11, source: "estimada", method: "Demonstração" },
     method: "DEMONSTRAÇÃO — valores fictícios.",
   };
@@ -313,6 +314,10 @@ export async function demoFetch(path: string): Promise<unknown> {
     case "weather/hourly": return demoWeatherHourly(q);
     case "esp32/nodes": return { nodes: [] };
     case "devices": return { source: "indisponivel", reason: "Demonstração: nenhuma fonte de dispositivos.", devices: [] };
+    case "cloud/account": {
+      const iso = (ts: number) => new Date(ts * 1000).toISOString();
+      return { workspace_id: null, workspace_name: "Conta de demonstração", agents: [{ id: "demo", name: "Starlink Mini (demonstração)", created_at: iso(now() - 30 * 86400), last_seen: iso(now() - 90), revoked: false }] };
+    }
     default: return {};
   }
 }

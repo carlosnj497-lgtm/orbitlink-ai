@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Button, Callout, Card, Input, Label } from "@/components/ui/primitives";
+import { requestJson } from "@/lib/api";
 import { safeNext } from "@/lib/safe-next";
 
 type Mode = "login" | "signup" | "recover";
@@ -32,17 +33,13 @@ export function CloudLoginForm() {
       return;
     }
     setBusy(true);
-    const r = await fetch(`/api/auth/${mode}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(mode === "recover" ? { email } : { email, password }),
-    }).catch(() => null);
+    const r = await requestJson<{ confirm_email?: boolean }>(`/api/auth/${mode}`, { json: mode === "recover" ? { email } : { email, password } });
     setBusy(false);
-    const body = r ? ((await r.json().catch(() => ({}))) as { detail?: string; confirm_email?: boolean }) : null;
-    if (!r || !r.ok) {
-      setError(body?.detail && typeof body.detail === "string" ? body.detail : "Não foi possível falar com o servidor.");
+    if (!r.ok) {
+      setError(r.error);
       return;
     }
+    const body = r.data;
     if (mode === "recover") {
       setInfo("Se existir uma conta com esse e-mail, enviamos um link para criar uma senha nova.");
       return;

@@ -11,6 +11,7 @@ import { CLOUD } from "@/lib/cloud-flag";
 import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
 import { fmtAgo, fmtTime } from "@/lib/format";
+import { reloadTo } from "@/lib/navigation";
 import { useNow } from "@/lib/use-now";
 import { TAGLINES, TITLES } from "@/views/slugs";
 import { Badge, Tip } from "../ui/primitives";
@@ -242,8 +243,9 @@ function Notifications() {
 }
 
 async function logout() {
-  await fetch("/api/auth/logout", { method: "POST" });
-  window.location.href = "/login";
+  // Mesmo sem resposta (rede, agente parado) a tela de login é aberta; a sessão expira sozinha no agente.
+  await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+  reloadTo("/login");
 }
 
 const ITEM = "flex cursor-pointer items-center gap-2.5 rounded-[4px] px-2.5 py-2 text-sm text-fg-muted outline-none data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg [&>svg]:size-4";

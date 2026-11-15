@@ -10,7 +10,18 @@ import { CoverageBar, PageHeader, QueryError, SourceBadge } from "@/components/d
 import { Badge, Button, Callout, Card, CardBody, CardHeader, EmptyState, Label, Select, Skeleton, Tabs } from "@/components/ui/primitives";
 import { api, useAgent } from "@/lib/api";
 import { useBasePath, useDemo } from "@/lib/demo-context";
-import { fmtBytes, fmtBytesStr, fmtDateTime, fmtDay, fmtHM, fmtNumber } from "@/lib/format";
+import { fmtBytes, fmtBytesStr, fmtDateTime, fmtDay, fmtHM, fmtMonth, fmtNumber } from "@/lib/format";
+import { useDisplayTimezone } from "@/lib/timezone";
+
+/**
+ * Variação do mês atual contra o MESMO trecho do mês anterior (dia 1 até o mesmo tempo decorrido). Comparar com
+ * o mês anterior inteiro dava "−85%" no dia 5. Sem esse dado (agente antigo) ou sem consumo base, não compara.
+ */
+export function monthComparison(s: Pick<UsageSummary, "month" | "previous_month_to_date"> | undefined): number | null {
+  const base = s?.previous_month_to_date?.bytes_total;
+  if (!s || !base) return null;
+  return ((s.month.bytes_total - base) / base) * 100;
+}
 
 export function PlanCard({ p }: { p: UsagePlan | undefined }) {
   const base = useBasePath();
@@ -217,8 +228,9 @@ export default function UsageView() {
   const s = summary.data;
   const proj = s?.projection_month;
   const maxProfile = Math.max(1, ...(profile.data?.map((p) => p.bytes_total) ?? [1]));
-  const tick = useCallback((t: number) => (bucket === "hour" ? fmtHM(t) : fmtDay(t)), [bucket]);
-  const delta = s && s.previous_month.bytes_total ? ((s.month.bytes_total - s.previous_month.bytes_total) / s.previous_month.bytes_total) * 100 : null;
+  const tz = useDisplayTimezone();
+  const tick = useCallback((t: number) => (bucket === "hour" ? fmtHM(t) : bucket === "month" ? fmtMonth(t) : fmtDay(t)), [bucket]);
+  const delta = monthComparison(s);
 
   return (
     <>
@@ -256,10 +268,12 @@ export default function UsageView() {
           )}
         </Card>
       </div>
-      {delta !== null && (
+      {delta !== null ? (
         <p className="mt-2 text-xs text-fg-subtle">
-          Mês atual vs. mês anterior (até agora): <Badge tone={delta > 0 ? "warn" : "ok"}>{delta > 0 ? "+" : ""}{delta.toFixed(1)}%</Badge> — comparação de valores estimados com coberturas possivelmente diferentes.
+          Mês atual vs. o mesmo trecho do mês anterior: <Badge tone={delta > 0 ? "warn" : "ok"}>{delta > 0 ? "+" : ""}{fmtNumber(delta, 1)}%</Badge> — comparação de valores estimados com coberturas possivelmente diferentes.
         </p>
+      ) : (
+        s && <p className="mt-2 text-xs text-fg-subtle">Sem comparação justa com o mês anterior: falta o consumo do mesmo trecho do mês passado.</p>
       )}
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -293,7 +307,7 @@ export default function UsageView() {
           </CardBody>
         </Card>
         <Card>
-          <CardHeader title="Perfil por hora do dia (30 d)" subtitle="Horário de America/Fortaleza" />
+          <CardHeader title="Perfil por hora do dia (30 d)" subtitle={`Horário de ${s?.timezone ?? tz}`} />
           <CardBody>
             {profile.isLoading && <Skeleton className="h-64 w-full" />}
             {profile.data && (

@@ -8,7 +8,7 @@ import { TelemetryChart } from "@/components/charts";
 import { CoverageBar, SourceBadge, STATE_META } from "@/components/domain";
 import { hrefOf } from "@/components/shell/nav";
 import { Badge, Button, Callout, Card, CardBody, CardHeader, Skeleton, Tip } from "@/components/ui/primitives";
-import { useAgent, useAgentStream, useStatusInterval } from "@/lib/api";
+import { saveBlob, useAgent, useAgentStream, useStatusInterval } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
 import { fmtAgo, fmtDateTime, fmtDuration, fmtMbps, fmtNumber, fmtPct, fmtTime } from "@/lib/format";
@@ -20,12 +20,7 @@ import { EVENT_META, GapNote } from "./shared";
 export function downloadCsv(filename: string, header: string[], rows: (string | number | null)[][]) {
   const esc = (v: string | number | null) => (v === null ? "" : /[",;\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
   const csv = [header.join(";"), ...rows.map((r) => r.map(esc).join(";"))].join("\n");
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  saveBlob(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }), filename);
 }
 
 const RANGES = [

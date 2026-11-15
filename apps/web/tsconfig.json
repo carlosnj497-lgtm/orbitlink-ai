@@ -38,7 +38,15 @@
     ".next-verify/types/**/*.ts",
     ".next-verify/dev/types/**/*.ts",
     ".next-dev/types/**/*.ts",
-    ".next-dev/dev/types/**/*.ts"
+    ".next-dev/dev/types/**/*.ts",
+    ".next-antenna/types/**/*.ts",
+    ".next-antenna/dev/types/**/*.ts",
+    ".next-standalone/types/**/*.ts",
+    ".next-standalone/dev/types/**/*.ts",
+    ".next-astryon/types/**/*.ts",
+    ".next-astryon/dev/types/**/*.ts",
+    ".next-cloudtest/types/**/*.ts",
+    ".next-cloudtest/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

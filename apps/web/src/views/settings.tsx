@@ -26,10 +26,12 @@ import { PageHeader, QueryError } from "@/components/domain";
 import { WeatherLocationForm } from "@/components/weather";
 import { hrefOf } from "@/components/shell/nav";
 import { Badge, Button, Callout, Card, Input, Label, Skeleton, Switch } from "@/components/ui/primitives";
-import { api, ApiError, errorText, useAgent } from "@/lib/api";
+import { api, ApiError, requestJson, useAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
-import { fmtAgo, fmtBytesStr, fmtDateTime, fmtDay, fmtNumber, fmtPct } from "@/lib/format";
+import { fmtAgo, fmtBytesStr, fmtDateTime, fmtDay, fmtNumber, fmtPct, usageForToday } from "@/lib/format";
+import { reloadTo } from "@/lib/navigation";
+import { useNow } from "@/lib/use-now";
 
 type SettingsData = Record<string, unknown> & {
   secrets_configured: Record<string, boolean>;
@@ -182,17 +184,13 @@ function AccountSection() {
     e.preventDefault();
     if (mismatch) return;
     setBusy(true);
-    try {
-      const r = await fetch("/api/auth/password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ old_password: old, new_password: nw }) });
-      if (r.ok || r.status === 204) {
-        setMsg({ ok: true, text: "Senha alterada. Todas as sessões foram encerradas; entre novamente." });
-        setTimeout(() => (window.location.href = "/login"), 1500);
-      } else {
-        const body = await r.json().catch(() => ({}));
-        setMsg({ ok: false, text: body && "detail" in body ? errorText(body, r.status) : "Falha ao alterar a senha." });
-      }
-    } finally {
-      setBusy(false);
+    const r = await requestJson("/api/auth/password", { json: { old_password: old, new_password: nw } });
+    setBusy(false);
+    if (r.ok) {
+      setMsg({ ok: true, text: "Senha alterada. Todas as sessões foram encerradas; entre novamente." });
+      setTimeout(() => reloadTo("/login"), 1500);
+    } else {
+      setMsg({ ok: false, text: r.status ? (r.error ?? "Falha ao alterar a senha.") : "Não foi possível falar com o painel. A senha não foi alterada." });
     }
   }
   return (
@@ -249,6 +247,7 @@ export default function SettingsView() {
 
 function SettingsBody({ d }: { d: SettingsData }) {
   const demo = useDemo();
+  const clock = useNow(60_000);
   const qc = useQueryClient();
   const plan = useAgent<UsagePlan>("usage/plan");
   const notif = useAgent<NotificationStatus>("alerts/notifications", { refetchInterval: 60_000 });
@@ -289,7 +288,7 @@ function SettingsBody({ d }: { d: SettingsData }) {
     save.reset();
   }
 
-  const today = ai.data?.usage?.[0];
+  const today = usageForToday(ai.data?.usage, clock);
   const p = plan.data;
   const n = notif.data;
   const dg = digest.data;

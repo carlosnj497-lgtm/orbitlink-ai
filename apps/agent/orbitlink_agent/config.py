@@ -133,6 +133,16 @@ class Settings(BaseSettings):
     backup_telegram: bool = True
     backup_telegram_every_days: int = Field(default=7, ge=1, le=90)
 
+    # MQTT (opcional, ex.: Home Assistant). Sem host, nada é publicado.
+    mqtt_host: str | None = None
+    mqtt_port: int = Field(default=1883, ge=1, le=65535)
+    mqtt_username: str | None = None
+    mqtt_password: SecretStr | None = None
+    mqtt_tls: bool = False
+    mqtt_topic_prefix: str = Field(default="astryon", pattern=r"^[A-Za-z0-9_\-/]{1,40}$")
+    mqtt_discovery: bool = True  # descoberta automática do Home Assistant
+    mqtt_interval_s: float = Field(default=30, ge=5, le=3600)
+
     # Exibição
     timezone: str = "America/Fortaleza"
     terminal_name: str = "Starlink Mini"

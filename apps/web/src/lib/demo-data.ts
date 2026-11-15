@@ -306,6 +306,7 @@ export async function demoFetch(path: string): Promise<unknown> {
       const base = Math.floor(now() / 3600) * 3600;
       return { days: 14, hours, best: ranked.slice(0, 3), worst: ranked.slice(-3).reverse(), next_good: [1, 2, 3].map((i) => ({ ts: base + i * 3600 * 4, hour: 0 })), enough_data: true, note: "Demonstração: horários fictícios." };
     }
+    case "integrations/mqtt": return { configured: false, host: null, port: 1883, connected: false, last_publish: null, last_error: null };
     case "ops/health":
       return { disk: { free_bytes: 92e9, total_bytes: 120e9, free_pct: 76.7 }, db_size_bytes: 48e6, cpu_temp_c: 52, mem_available_pct: 61, load_1m: 0.4, cpus: 2, last_backup_at: now() - 5 * 3600, healthcheck_configured: false, checked_at: now() };
     case "weather": return demoWeather();

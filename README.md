@@ -88,6 +88,7 @@ segundo a segundo, e transforma isso em histórico, alertas e respostas.
 | 🔁 | **Controle seguro** | Reiniciar a antena exige administrador, código de uso único e fica auditado. A IA só sugere. |
 | 🌦️ | **Clima (opcional)** | Clima da sua cidade pela Open-Meteo (gratuita): cartão no Dashboard, faixas de chuva nos gráficos e o tempo de cada queda em Eventos. |
 | 🔌 | **ESP32 (opcional)** | Sensores de tensão, falta de energia e temperatura, autenticados por HMAC. |
+| 🏠 | **Home Assistant (opcional)** | Sensores da Starlink no Home Assistant via MQTT, com descoberta automática. Veja [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md). |
 | ☁️ | **Supabase (opcional)** | Sincronização com RLS. O painel continua lendo só o agente local. |
 
 ## Telas
@@ -318,6 +319,7 @@ O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, paine
 | [SECURITY.md](docs/SECURITY.md) | Modelo de segurança |
 | [ESP32_SETUP.md](docs/ESP32_SETUP.md) | Montagem e pareamento do ESP32 |
 | [SUPABASE.md](docs/SUPABASE.md) | Sincronização opcional com a nuvem |
+| [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md) | Sensores no Home Assistant via MQTT |
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Solução de problemas |
 | [ACCEPTANCE_TESTS.md](docs/ACCEPTANCE_TESTS.md) | Testes de aceitação |
 

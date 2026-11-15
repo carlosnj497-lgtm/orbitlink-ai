@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
  * Portão de navegação: sem cookie de sessão, redireciona para /login.
  * A validação real da sessão acontece no agente a cada chamada (via /api/agent).
  */
-const PUBLIC = ["/login", "/demo", "/api/auth", "/favicon.ico"];
+const PUBLIC = ["/login", "/demo", "/api/auth", "/favicon.ico", "/sw.js", "/offline.html", "/manifest.webmanifest"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

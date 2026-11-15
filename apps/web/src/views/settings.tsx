@@ -253,6 +253,7 @@ function SettingsBody({ d }: { d: SettingsData }) {
   const ai = useAgent<AiStatus>("ai/status");
   const agent = useAgent<AgentInfo>("agent", { refetchInterval: 30_000 });
   const sync = useAgent<SyncState>(demo ? null : "sync", { refetchInterval: 60_000 });
+  const mqtt = useAgent<{ configured: boolean; host: string | null; port: number; connected: boolean; last_publish: number | null; last_error: string | null }>("integrations/mqtt", { refetchInterval: 60_000 });
 
   const initial = {
     name: d.terminal_name,
@@ -486,6 +487,11 @@ function SettingsBody({ d }: { d: SettingsData }) {
             <Row label="Acesso pela LAN" env={envName("allow_lan")} value={fmtValue(d.allow_lan)} />
             <Row label="Listener ESP32" env={envName("esp32_enabled")} value={fmtValue(d.esp32_enabled)} />
             <Row label="Supabase" env={envName("supabase_url")} value={fmtValue(d.supabase_url)} />
+            <Row
+              label="MQTT / Home Assistant"
+              env={`${envName("mqtt_host")} · _PORT`}
+              value={!mqtt.data ? "—" : !mqtt.data.configured ? "não configurado" : mqtt.data.connected ? <Badge tone="accent">{`conectado · ${mqtt.data.host}:${mqtt.data.port}`}</Badge> : <span className="text-warn">{`desconectado${mqtt.data.last_error ? ` (${mqtt.data.last_error})` : ""}`}</span>}
+            />
             <Row
               label="Sincronização"
               env={envName("sync_interval_s")}

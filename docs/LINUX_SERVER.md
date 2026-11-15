@@ -216,6 +216,24 @@ Se você instalou o Tailscale depois do OrbitLink, rode o instalador de novo. El
 sudo bash deploy/linux/install.sh
 ```
 
+### HTTPS para uma instalação feita a partir da pasta do projeto
+
+Se os serviços `orbitlink-agent` e `orbitlink-web` rodam direto do checkout (sem o `/opt` do `install.sh`),
+use o script menor, que não muda nada de lugar:
+
+```bash
+sudo bash deploy/linux/https-local.sh
+```
+
+Ele instala o Nginx com HTTPS para a rede de casa, usa o certificado válido do Tailscale para o endereço
+`https://<servidor>.<sua-tailnet>.ts.net/` (renovado toda semana), deixa o painel só em `127.0.0.1:3000`,
+ativa o cookie de sessão "Secure" e liga o UFW sem derrubar as sessões SSH abertas.
+
+- Antes, ligue **HTTPS Certificates** em https://login.tailscale.com/admin/dns (uma vez).
+- Depois, o endereço `http://<servidor>:3000` deixa de funcionar: use os endereços `https://` que o script mostra.
+- Pelo endereço `*.ts.net`, o navegador do celular oferece **instalar o ASTRYON como app**.
+- Para desfazer: `sudo bash deploy/linux/https-local.sh --undo`.
+
 ## 8. ESP32
 
 ```bash

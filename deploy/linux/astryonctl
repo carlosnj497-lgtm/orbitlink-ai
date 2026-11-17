@@ -26,6 +26,7 @@ Manutenção
   rollback                                 Volta para a release anterior
   backup                                   Backup online do SQLite agora
   restore ARQUIVO.sqlite3.gz               Restaura um backup (para o agente durante a troca)
+  recover-admin --username USUARIO        Recupera administrador sem senha de backup sanitizado
   releases                                 Lista releases instaladas
   setup-code                               Mostra o código para criar o primeiro administrador
   renew-cert [--force]                     Renova o certificado HTTPS autoassinado (automático com < 30 dias)
@@ -198,6 +199,7 @@ main() {
     rollback) require_root; cmd_rollback ;;
     backup) require_root; runuser -u "${OL_USER}" -- env ASTRYON_DATA_DIR="${OL_DATA}" "${OL_LIBEXEC}/backup.sh" ;;
     restore) require_root; cmd_restore "$@" ;;
+    recover-admin) require_root; run_agent_cli recover-admin "$@" ;;
     releases) ls -1t "${OL_RELEASES}"; info "ativa: $(basename "$(current_release)")" ;;
     setup-code) require_root; cat "${OL_ETC}/setup-code" ;;
     renew-cert) require_root; cmd_renew_cert "$@" ;;

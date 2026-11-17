@@ -400,7 +400,7 @@ def test_linux_route_parsing():
     assert gws == ["192.168.1.1"]
 
 
-def test_esp32_listener_rejects_huge_body_and_brute_force(env):
+def test_esp32_listener_rejects_huge_body_and_preserves_pairing_code_after_brute_force(env):
     ctx = AppContext(settings=env.s, db=env.db, bus=EventBus(), collector=env.col)
     c = TestClient(build_ingest_app(ctx))
     protocol.create_pairing_code(env.db, "sala", 1)
@@ -408,8 +408,7 @@ def test_esp32_listener_rejects_huge_body_and_brute_force(env):
         wrong, _, _ = _pair_req("0000-0000-0000", "esp32-aabbccddeeff", firmware="1.0")
         r = c.post("/esp32/v1/pair", json=wrong)
         assert r.status_code == 401
-    # Depois de 10 tentativas erradas, o código verdadeiro também deixa de valer.
-    assert env.db.scalar("SELECT COUNT(*) FROM esp32_pairing_codes WHERE used_at IS NULL") == 0
+    assert env.db.scalar("SELECT COUNT(*) FROM esp32_pairing_codes WHERE used_at IS NULL") == 1
 
     big = b"x" * (40 * 1024)
     assert c.post("/esp32/v1/ingest", content=big).status_code == 413

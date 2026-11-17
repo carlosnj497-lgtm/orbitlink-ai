@@ -10,7 +10,7 @@ import { useAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useBasePath } from "@/lib/demo-context";
 import { fmtDateTime, fmtDuration } from "@/lib/format";
-import { EVENT_META } from "../shared";
+import { causeText, EVENT_META } from "../shared";
 import { type RowState, StateIcon } from "./parts";
 
 /* ================================================================= Alertas e eventos */
@@ -58,7 +58,7 @@ export function EventsCard({ events, className }: { events: EventsResponse | und
       ts: e.start_ts,
       state: e.open ? (KIND_STATE[e.kind] ?? "warn") : KIND_STATE[e.kind] === "unknown" ? "unknown" : "warn",
       title: EVENT_META[e.kind]?.label ?? e.kind,
-      detail: e.cause && e.kind !== "ping_drop" ? e.cause : "",
+      detail: e.cause && e.kind !== "ping_drop" ? (causeText(e.cause) ?? "") : "",
       badge: e.open ? { tone: "crit", label: "em andamento" } : { tone: "neutral", label: fmtDuration(e.duration_s) },
       past: !e.open,
     })),

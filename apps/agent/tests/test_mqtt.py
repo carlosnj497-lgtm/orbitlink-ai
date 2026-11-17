@@ -66,7 +66,7 @@ def test_discovery_has_units_and_unknown_not_zero(tmp_path):
 
     db = Database(tmp_path / "m.sqlite3")
     values = mqtt.state_payload(db, s, None)
-    assert values["download_mbps"] is None and values["dish_reachable"] == "OFF"  # sem coletor: desconhecido
+    assert values["download_mbps"] is None and values["dish_reachable"] is None
 
 
 class Broker:

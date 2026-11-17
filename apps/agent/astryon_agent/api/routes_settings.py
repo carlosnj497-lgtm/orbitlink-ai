@@ -17,7 +17,12 @@ SECRET_FIELDS = {"api_token", "supabase_anon_key", "supabase_agent_token", "groq
                  # URLs de webhook (Slack, Discord...) levam o próprio segredo no caminho.
                  "alert_webhook_url", "mqtt_username", "mqtt_password", "telegram_allowed_user_ids"}
 RUNTIME_KEYS = {"terminal_name", "usage_monthly_limit_gb", "usage_cycle_start_day", "show_mac_addresses",
-                "weekly_digest_enabled", "weekly_digest_weekday", "weekly_digest_hour"}
+                "weekly_digest_enabled", "weekly_digest_weekday", "weekly_digest_hour",
+                "ai_daily_request_limit", "ai_conversation_retention_days", "ai_audio_daily_request_limit",
+                "ai_transcribe_enabled"}
+# Ajustes da Central de IA que valem na hora: (mínimo, máximo) dos inteiros. Chave e modelo continuam no .env.
+AI_INT_LIMITS = {"ai_daily_request_limit": (1, 10000), "ai_conversation_retention_days": (1, 3650),
+                 "ai_audio_daily_request_limit": (0, 500)}
 
 
 def public_settings(c: Any) -> dict[str, Any]:
@@ -43,6 +48,10 @@ class RuntimeSettings(BaseModel):
     weekly_digest_enabled: bool | None = None
     weekly_digest_weekday: int | None = Field(default=None, ge=0, le=6)
     weekly_digest_hour: int | None = Field(default=None, ge=0, le=23)
+    ai_daily_request_limit: int | None = Field(default=None, ge=1, le=10000)
+    ai_conversation_retention_days: int | None = Field(default=None, ge=1, le=3650)
+    ai_audio_daily_request_limit: int | None = Field(default=None, ge=0, le=500)
+    ai_transcribe_enabled: bool | None = None
 
 
 @router.put("")
@@ -61,6 +70,10 @@ def put_settings(c: Ctx, _a: Admin, body: RuntimeSettings) -> dict[str, Any]:
             c.settings.usage_monthly_limit_gb = float(v) if v else None
         if k == "usage_cycle_start_day":
             c.settings.usage_cycle_start_day = int(v)
+        if k in AI_INT_LIMITS:
+            setattr(c.settings, k, int(v))
+        if k == "ai_transcribe_enabled":
+            c.settings.ai_transcribe_enabled = bool(v)
     return public_settings(c)
 
 
@@ -87,6 +100,13 @@ def apply_overrides(c: Any) -> None:
         v = c.db.get_kv(f"setting:{key}")
         if v and v.isdigit() and 0 <= int(v) <= hi:
             setattr(c.settings, key, int(v))
+    for key, (lo, hi) in AI_INT_LIMITS.items():
+        v = c.db.get_kv(f"setting:{key}")
+        if v and v.isdigit() and lo <= int(v) <= hi:
+            setattr(c.settings, key, int(v))
+    audio = c.db.get_kv("setting:ai_transcribe_enabled")
+    if audio is not None:
+        c.settings.ai_transcribe_enabled = audio == "True"
 
 
 def register(app: Any) -> None:

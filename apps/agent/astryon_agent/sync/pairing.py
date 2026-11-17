@@ -92,6 +92,7 @@ async def claim(db: Database, settings: Settings, code: str, agent_name: str | N
 def _store(db: Database, settings: Settings, token: str, info_json: str) -> dict[str, Any]:
     db.set_kv(KV_TOKEN, secrets_store.protect(token))
     db.set_kv(KV_INFO, info_json)
+    db.execute("UPDATE event_sync SET synced_revision = 0")
     return info(db, settings)
 
 

@@ -72,3 +72,33 @@ export function GapNote({ gaps }: { gaps: Gap[] }) {
     </p>
   );
 }
+
+/**
+ * Causas informadas pela antena (outage.cause do gRPC) e pelo agente, em português. O código cru só aparece na
+ * visão "ver" das evidências e no CSV. Causa desconhecida para o mapa é mostrada como veio.
+ */
+export const CAUSE_LABEL: Record<string, string> = {
+  OBSTRUCTED: "Obstrução",
+  NO_SCHEDULE: "Sem agendamento de satélite",
+  NO_SATS: "Nenhum satélite disponível",
+  NO_DOWNLINK: "Sem sinal de descida",
+  NO_PINGS: "Sem resposta de ping",
+  BOOTING: "Antena iniciando",
+  SEARCHING: "Buscando satélites",
+  STOWED: "Antena recolhida",
+  THERMAL_SHUTDOWN: "Desligamento por temperatura",
+  SLEEPING: "Modo de repouso",
+  CABLE_RESET: "Reinício do cabo",
+  ACTUATOR_ACTIVITY: "Motor de posicionamento em ação",
+  MOVING_WHILE_NOT_PERMITTED: "Movimento sem permissão",
+  UNKNOWN: "Causa não informada",
+  timeout: "tempo esgotado",
+  "too many redirects": "redirecionamentos demais",
+  unknown: "causa não informada",
+};
+
+/** Rótulo legível de uma causa (nulo quando não há causa). */
+export function causeText(cause: string | null | undefined): string | null {
+  if (!cause) return null;
+  return CAUSE_LABEL[cause] ?? CAUSE_LABEL[cause.trim()] ?? cause;
+}

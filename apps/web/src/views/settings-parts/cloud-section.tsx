@@ -8,7 +8,7 @@ import { Badge, Button, Callout, Input, Label, Skeleton } from "@/components/ui/
 import { api, ApiError, useAgent } from "@/lib/api";
 import { useDemo } from "@/lib/demo-context";
 import { fmtAgo, fmtNumber } from "@/lib/format";
-import { Section, type SyncState } from "./shared";
+import { type ModuleState, Section, type SyncState } from "./shared";
 
 /* ----------------------------------------------------------------- Conta na nuvem */
 export function CloudSection() {
@@ -28,11 +28,16 @@ export function CloudSection() {
   const unpair = useMutation({ mutationFn: () => api("sync/pair", { method: "DELETE" }), onSuccess: refresh });
   const p = q.data?.pairing;
   const codeOk = code.replace(/[^A-Za-z0-9]/g, "").length === 8;
+  const state: ModuleState = demo ? "off" : !p ? (q.error ? "warn" : "loading") : p.paired ? "ok" : "off";
   return (
     <Section
       id="nuvem"
       title="Conta na nuvem"
       icon={Cloud}
+      state={state}
+      stateLabel={demo ? "demonstração" : p && !p.cloud_configured ? "não configurada" : p && !p.paired ? "não conectado" : undefined}
+      value={demo ? "Indisponível na demonstração" : !p ? "—" : p.paired ? (p.workspace_name ?? "Conectado") : "Não conectado"}
+      detail={p?.paired ? `${p.paired_at ? `Pareado ${fmtAgo(p.paired_at)}` : "Via arquivo de ambiente"}${q.data ? ` · ${fmtNumber(q.data.pending, 0)} na fila` : ""}` : "Acompanhe a antena de qualquer lugar"}
       description="Ligue este agente à sua conta para acompanhar a antena de qualquer lugar, sem Tailscale. Gere o código no painel da sua conta, em Dispositivos → Conectar agente."
     >
       {demo && <Callout tone="demo">Na demonstração não é possível conectar uma conta.</Callout>}

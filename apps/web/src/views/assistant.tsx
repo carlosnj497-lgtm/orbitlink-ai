@@ -1,17 +1,18 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Check, History, MessageSquarePlus, Mic, ShieldCheck, Sparkles, Trash2, TriangleAlert, Wrench } from "lucide-react";
+import { ArrowUp, History, MessageSquarePlus, Mic, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/domain";
 import { Markdown } from "@/components/markdown";
-import { Badge, Button, Callout, Card, Dialog } from "@/components/ui/primitives";
+import { Button, Callout, Card, Dialog } from "@/components/ui/primitives";
 import { api, ApiError, useAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
 import { fmtAgo, usageForToday } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
+import { type CheckState, StateDot, StateIcon } from "./diagnostics-parts/checklist";
 
 interface AiStatus {
   configured: boolean;
@@ -129,9 +130,7 @@ function HistoryList({
   return (
     <div className="flex min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-3">
-        <p className="ol-label flex items-center gap-1.5">
-          <History className="size-3.5 text-accent" aria-hidden /> Histórico
-        </p>
+<h2 className="font-display text-[17px] font-semibold text-fg">Histórico</h2>
         <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onNew} disabled={disabled}>
           <MessageSquarePlus /> Nova
         </Button>
@@ -165,7 +164,7 @@ function HistoryList({
                   )}
                 >
                   <span aria-hidden className={cn("absolute inset-y-2 left-0 w-[2px] rounded-full bg-accent transition-opacity", on ? "opacity-100" : "opacity-0")} />
-                  <span className="line-clamp-1 text-[13px]">{c.title || "Conversa sem título"}</span>
+                  <span className="line-clamp-1 text-sm">{c.title || "Conversa sem título"}</span>
                   <span className="tabular mt-0.5 block text-[10.5px] text-fg-subtle">{fmtAgo(c.updated_at)}</span>
                 </button>
                 {confirm === c.id ? (
@@ -241,14 +240,20 @@ function ToolChips({ tools }: { tools: string[] }) {
   const uniq = Array.from(new Set(tools));
   if (!uniq.length) return null;
   return (
-    <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Consultas feitas pela IA">
-      {uniq.map((t) => (
-        <li key={t} className="inline-flex items-center gap-1 rounded-[3px] border border-accent-2/40 bg-accent-soft px-1.5 py-0.5 font-mono text-[10px] text-accent">
-          <Check className="size-3" aria-hidden />
-          {TOOL_LABEL[t] ?? t}
-        </li>
-      ))}
-    </ul>
+    <div className="mt-3 rounded-md border border-border bg-bg-elev/60 px-3 py-2">
+      <p className="text-[11px] text-fg-subtle">
+        Dados consultados <span className="tabular">({uniq.length})</span>
+      </p>
+      <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1" aria-label="Consultas feitas pela IA">
+        {uniq.map((t) => (
+          <li key={t} className="inline-flex items-center gap-1.5 text-xs text-fg-muted">
+            <StateDot state="ok" />
+            {TOOL_LABEL[t] ?? t}
+            <span className="sr-only">(consultado)</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -266,24 +271,28 @@ function Message({ m, base }: { m: Msg; base: string }) {
   return (
     <div className="animate-rise flex gap-3">
       <span aria-hidden className={cn("mt-0.5 grid size-7 shrink-0 place-items-center rounded-md border", m.error ? "border-crit/40 text-crit" : "border-accent-2/50 bg-bg-elev text-accent")}>
-        {m.error ? <TriangleAlert className="size-3.5" /> : <Sparkles className="size-3.5 stroke-[1.75]" />}
+        {m.error ? <StateIcon state="crit" className="size-4" /> : <Sparkles className="size-3.5 stroke-[1.75]" />}
       </span>
       <div className="min-w-0 max-w-[48rem] flex-1">
         {m.error ? <p className="text-sm text-crit">{m.text}</p> : <Markdown text={m.text} />}
         {m.meta?.proposal && (
           <div className="mt-3 rounded-md border border-warn/35 bg-warn-soft p-3 text-sm">
-            <p className="font-medium text-fg">Proposta: {m.meta.proposal.proposta.descricao}</p>
-            <p className="mt-0.5 text-xs text-fg-muted">
+            <p className="flex items-start gap-2 font-medium text-fg">
+              <StateIcon state="warn" className="mt-px size-4" />
+              <span>Proposta: {m.meta.proposal.proposta.descricao}</span>
+            </p>
+            <p className="mt-0.5 pl-6 text-xs text-fg-muted">
               {m.meta.proposal.disponivel ? "Disponível para confirmação manual." : `Indisponível (${m.meta.proposal.status_capacidade}).`} Nada foi executado.
             </p>
-            <Link href={`${base}/controle`} className="mt-2 inline-block text-xs font-medium text-accent hover:underline">
+            <Link href={`${base}/controle`} className="mt-2 ml-6 inline-block text-xs font-medium text-accent hover:underline">
               Abrir Controle da Starlink →
             </Link>
           </div>
         )}
         <ToolChips tools={tools} />
         {m.meta && (
-          <p className="tabular mt-2 text-[10.5px] text-fg-subtle">
+          <p className="tabular mt-2 flex items-center gap-1.5 text-[10.5px] text-fg-subtle">
+            <StateDot state={m.meta.engine === "groq" ? "ok" : "off"} className="size-1.5" />
             {m.meta.engine === "groq" ? `Groq · ${m.meta.model}` : "Regras determinísticas"}
             {m.meta.usage && ` · ${m.meta.usage.input_tokens + m.meta.usage.output_tokens} tokens`}
             {m.meta.usage?.estimated_cost_usd != null && ` · US$ ${m.meta.usage.estimated_cost_usd.toFixed(4)}`}
@@ -305,6 +314,56 @@ function Thinking() {
         <div className="ol-scan mt-2 h-px w-48 max-w-full bg-border" aria-hidden />
       </div>
     </div>
+  );
+}
+
+/* ----------------------------------------------------------------- Estado do motor */
+/** Linha de estado do motor: Groq ligado (verde) ou só regras (desligado), e o uso de hoje contra o limite. */
+function EngineLine({ status, loading, today, audioToday }: { status: AiStatus | undefined; loading: boolean; today: number; audioToday: number }) {
+  if (!status) return loading ? <div className="skeleton mb-4 h-11 w-full rounded-md" aria-hidden /> : null;
+  const on = status.configured;
+  const limit = status.daily_limit;
+  const ratio = limit > 0 ? today / limit : 0;
+  const use: CheckState = ratio >= 1 ? "crit" : ratio >= 0.8 ? "warn" : "ok";
+  const audio = status.audio;
+  return (
+    <section aria-label="Estado do motor de IA" className="ol-card mb-4 flex flex-wrap items-center gap-x-6 gap-y-2.5 px-4 py-2.5">
+      <p className="flex min-w-0 items-center gap-2 text-sm text-fg">
+        <StateDot state={on ? "ok" : "off"} />
+        {on ? (
+          <>
+            Groq ligado <span className="tabular truncate text-xs text-fg-subtle">{status.model}</span>
+          </>
+        ) : (
+          <>
+            Somente regras <span className="text-xs text-fg-subtle">(sem chave de API)</span>
+          </>
+        )}
+      </p>
+      {on && (
+        <div className="flex items-center gap-2.5 text-xs text-fg-muted">
+          <span>Perguntas</span>
+          <span
+            role="meter"
+            aria-label="Perguntas de hoje"
+            aria-valuemin={0}
+            aria-valuemax={limit}
+            aria-valuenow={today}
+            className="relative h-1.5 w-24 overflow-hidden rounded-full bg-bg-elev ring-1 ring-border"
+          >
+            <span className={cn("absolute inset-y-0 left-0 rounded-full", use === "crit" ? "bg-crit" : use === "warn" ? "bg-warn" : "bg-accent")} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
+          </span>
+          <span className={cn("tabular", use === "crit" ? "text-crit" : use === "warn" ? "text-warn" : "text-fg")}>{`${today}/${limit} hoje`}</span>
+        </div>
+      )}
+      {audio?.enabled && (
+        <p className="flex items-center gap-1.5 text-xs text-fg-muted">
+          <Mic className="size-3.5 text-fg-subtle" aria-hidden />
+          <span className="tabular text-fg">{`${audioToday}/${audio.daily_limit}`}</span> áudios hoje
+        </p>
+      )}
+      <p className="text-xs text-fg-subtle sm:ml-auto">{on ? "A IA escolhe quais dados consultar; as consultas aparecem marcadas em cada resposta." : "As respostas vêm do diagnóstico por regras do agente."}</p>
+    </section>
   );
 }
 
@@ -458,33 +517,17 @@ export default function AssistantView() {
         title="Central de IA"
         icon={<Sparkles />}
         description="Perguntas em português sobre a sua conexão, respondidas só com dados registrados pelo agente, com período, fonte e incerteza."
-        actions={
-          status.data && (
-            <>
-              <Badge tone={configured ? "accent" : "neutral"}>{configured ? `Groq · ${status.data.model}` : "Somente regras (sem chave de API)"}</Badge>
-              {configured && (
-                <Badge>
-                  {today?.requests ?? 0}/{status.data.daily_limit} hoje
-                </Badge>
-              )}
-              {audio?.enabled && (
-                <Badge tone="neutral">
-                  <Mic className="size-3" /> {audioToday?.requests ?? 0}/{audio.daily_limit} áudios hoje
-                </Badge>
-              )}
-            </>
-          )
-        }
       />
+      <EngineLine status={status.data} loading={status.isLoading} today={today?.requests ?? 0} audioToday={audioToday?.requests ?? 0} />
       {demo && (
         <Callout tone="demo" className="mb-4">
           A Central de IA não responde na demonstração.
         </Callout>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] 2xl:grid-cols-[16rem_minmax(0,1fr)_18rem]">
+      <div className="grid items-start gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_17rem] 2xl:grid-cols-[16rem_minmax(0,1fr)_18rem]">
         {/* Histórico: coluna fixa no desktop, painel recolhível no celular */}
-        <Card className="hidden min-h-0 flex-col lg:flex lg:h-[min(72dvh,46rem)]">{historyList}</Card>
+        <Card className="hidden min-h-0 flex-col lg:flex lg:max-h-[min(72dvh,46rem)]">{historyList}</Card>
 
         <Card className="ol-glow flex min-h-[28rem] flex-col lg:h-[min(72dvh,46rem)]">
           <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
@@ -516,9 +559,7 @@ export default function AssistantView() {
                 </div>
                 <p className="font-display text-lg font-semibold text-fg">Como posso ajudar com a sua Starlink?</p>
                 <p className="mt-1 max-w-xl text-sm text-fg-muted">
-                  {configured
-                    ? "A IA consulta os dados do agente com ferramentas somente leitura antes de responder."
-                    : "Sem chave da Groq, as respostas vêm do diagnóstico por regras do agente."}
+                  Pergunte sobre o estado da antena, consumo, quedas, perda por horário, obstrução, alertas, dispositivos da rede e o ESP32. As respostas usam só os dados registrados pelo agente, lidos sem alterar nada.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
                   {SUGGESTIONS.map((s) => (
@@ -566,36 +607,30 @@ export default function AssistantView() {
         </Card>
 
         {/* Ferramentas e regras: coluna à direita em telas largas, abaixo do chat nas demais */}
-        <div className="space-y-4 lg:col-span-2 2xl:col-span-1 2xl:h-[min(72dvh,46rem)] 2xl:overflow-y-auto">
+        <div className="grid gap-4 lg:col-span-2 lg:grid-cols-2 xl:col-span-1 xl:grid-cols-1 xl:max-h-[min(72dvh,46rem)] xl:overflow-y-auto">
           <Card className="p-4">
-            <p className="ol-label flex items-center gap-1.5">
-              <Wrench className="size-3.5 text-accent" aria-hidden /> Ferramentas disponíveis
-            </p>
+            <h2 className="font-display text-[17px] font-semibold text-fg">Ferramentas disponíveis</h2>
             <p className="mt-2 text-xs leading-relaxed text-fg-muted">
-              {configured ? "A IA escolhe quais consultar para cada pergunta. As usadas aparecem marcadas na resposta." : "Usadas só com a Groq configurada. No modo por regras, o agente responde com o diagnóstico direto."}
+              {configured ? "A IA escolhe quais consultar para cada pergunta. As usadas aparecem marcadas na resposta." : "Desligadas sem a chave da Groq."}
             </p>
-            <ul className="mt-3 grid gap-1 sm:grid-cols-2 2xl:grid-cols-1">
+            <ul className="mt-3 grid gap-1 sm:grid-cols-2 lg:grid-cols-1">
               {TOOLS.map((t) => (
                 <li key={t.name} className="flex items-center gap-2 rounded-[4px] px-1.5 py-1 text-xs text-fg-muted">
-                  <span aria-hidden className={cn("size-1 shrink-0 rounded-full", configured ? "bg-accent" : "bg-fg-subtle")} />
+                  <StateDot state={configured ? "ok" : "off"} className="size-1.5" />
                   {t.label}
                 </li>
               ))}
             </ul>
           </Card>
           <Card className="p-4">
-            <p className="ol-label flex items-center gap-1.5">
-              <ShieldCheck className="size-3.5 text-accent" aria-hidden /> Segurança
-            </p>
+            <h2 className="font-display text-[17px] font-semibold text-fg">Segurança</h2>
             <p className="mt-2 text-xs leading-relaxed text-fg-muted">
               A IA só lê dados. Pedidos de ação geram uma proposta; a execução exige sua confirmação na tela de Controle. Conversas ficam apenas neste computador e expiram automaticamente.
             </p>
           </Card>
           {audio?.enabled && (
             <Card className="p-4">
-              <p className="ol-label flex items-center gap-1.5">
-                <Mic className="size-3.5 text-accent" aria-hidden /> Áudio no Telegram
-              </p>
+              <h2 className="font-display text-[17px] font-semibold text-fg">Áudio no Telegram</h2>
               <p className="mt-2 text-xs leading-relaxed text-fg-muted">
                 Notas de voz são transcritas pelo Whisper ({audio.model}) e seguem o mesmo caminho de uma pergunta escrita. O áudio não é salvo em disco.
                 {audioToday && audioToday.requests > 0 && (

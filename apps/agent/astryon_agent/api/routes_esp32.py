@@ -86,9 +86,6 @@ def readings(c: Ctx, _u: User, node_id: int, start: StartQ = None, end: EndQ = N
 
 
 # --------------------------------------------------------------------------- listener LAN
-PAIR_MAX_FAILURES = 10
-
-
 def build_ingest_app(ctx: AppContext) -> FastAPI:
     app = FastAPI(title="ASTRYON ESP32 ingest", docs_url=None, redoc_url=None, openapi_url=None)
     limiter = RateLimiter(10, 60)
@@ -96,8 +93,6 @@ def build_ingest_app(ctx: AppContext) -> FastAPI:
     ingest_limiter = RateLimiter(240, 60)
     auth_fail_limiter = RateLimiter(20, 60)
     skew = ctx.settings.esp32_clock_skew_s
-
-    pair_failures = {"n": 0}
 
     def client_ip(req: Request) -> str:
         return req.client.host if req.client else "?"
@@ -125,9 +120,7 @@ def build_ingest_app(ctx: AppContext) -> FastAPI:
         raw = await read_limited(req)
         try:
             body = protocol.PairBody.model_validate_json(raw)
-            res = await asyncio.to_thread(protocol.pair, ctx.db, body)
-            pair_failures["n"] = 0
-            return res
+            return await asyncio.to_thread(protocol.pair, ctx.db, body)
         except ValidationError as exc:
             if b'"code"' in raw:  # firmware antigo (v1) mandava o código em texto claro
                 raise HTTPException(426, "Firmware antigo: atualize o firmware do ESP32 (pareamento v2) e gere um "
@@ -135,14 +128,6 @@ def build_ingest_app(ctx: AppContext) -> FastAPI:
             raise HTTPException(422, "Payload inválido") from exc
         except protocol.AuthError as exc:
             log.warning("pareamento recusado de %s: %s", _mask_ip_str(client_ip(req)), exc.message)
-            pair_failures["n"] += 1
-            if pair_failures["n"] >= PAIR_MAX_FAILURES:
-                # Defesa extra contra tentativa online: depois de muitas provas erradas (de qualquer IP), invalida
-                # os códigos ativos. O administrador gera outro no painel.
-                await asyncio.to_thread(ctx.db.execute, "UPDATE esp32_pairing_codes SET used_at = ? WHERE used_at IS NULL",
-                                        (now_ts(),))
-                pair_failures["n"] = 0
-                log.warning("códigos de pareamento ESP32 invalidados após %d tentativas erradas", PAIR_MAX_FAILURES)
             raise HTTPException(exc.status, exc.message) from exc
 
     async def authed(req: Request) -> tuple[dict[str, Any], bytes]:

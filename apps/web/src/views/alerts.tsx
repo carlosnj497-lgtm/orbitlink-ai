@@ -2,275 +2,335 @@
 
 import type { DigestStatus, NotificationStatus } from "@astryon/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { BellOff, BellRing, CalendarClock, Check, Plus, Send, Trash2 } from "lucide-react";
+import { BellRing, CalendarClock, Check, History, Plus, Send } from "lucide-react";
 import { useState } from "react";
 import { PageHeader, QueryError } from "@/components/domain";
-import { Badge, Button, Callout, Card, CardBody, CardHeader, Dialog, EmptyState, Input, Label, Select, Skeleton, Switch } from "@/components/ui/primitives";
-import { api, ApiError, useAgent } from "@/lib/api";
+import { Badge, Button, Callout, Card, CardBody, CardHeader, EmptyState, Label, Select, Skeleton, Switch } from "@/components/ui/primitives";
+import { api, type ApiError, useAgent } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import { useDemo } from "@/lib/demo-context";
-import { fmtDateTime, fmtDuration } from "@/lib/format";
+import { fmtAgo, fmtDateTime, fmtDuration } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
+import { type AlertEvent, type Kinds, type Rule, SEVERITY } from "./alerts-parts/phrases";
+import { RuleEditor } from "./alerts-parts/rule-editor";
+import { RuleRow } from "./alerts-parts/rule-row";
 
-interface Rule {
-  id: number;
-  name: string;
-  kind: string;
-  operator: "gt" | "lt";
-  threshold: number;
-  min_duration_s: number;
-  window_s: number;
-  severity: "info" | "warn" | "crit";
-  cooldown_s: number;
-  hysteresis: number;
-  enabled: boolean;
-  silenced_until: number | null;
-  last_event: { status: string; started_at: number; resolved_at: number | null; occurrences: number } | null;
+const WEEKDAYS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
+const sevTone = (s: string) => SEVERITY[s as Rule["severity"]]?.tone ?? "warn";
+
+/* ----------------------------------------------------------------- Ativos agora */
+function ActiveNow({ events, now, onAck, demo }: { events: AlertEvent[] | undefined; now: number; onAck: (id: number) => void; demo: boolean }) {
+  if (!events) return <Skeleton className="mb-6 h-20 w-full" />;
+  const active = events.filter((e) => e.status === "active");
+  const last = events.find((e) => e.status === "resolved");
+  if (!active.length) {
+    return (
+      <div className="ol-card mb-6 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+        <p className="flex items-center gap-2.5 text-sm text-fg">
+          <span className="size-2 rounded-full bg-ok" aria-hidden />
+          Nenhum alerta ativo agora.
+        </p>
+        <p className="text-xs text-fg-subtle">{last ? `Última ocorrência: ${last.rule_name}, ${fmtAgo(last.started_at)}` : "Nenhuma ocorrência registrada ainda."}</p>
+      </div>
+    );
+  }
+  return (
+    <section aria-labelledby="ativos-t" className="ol-card ol-glow ol-hud mb-6 px-4 py-4">
+      <h2 id="ativos-t" className="font-display text-[17px] font-semibold text-fg">
+        {active.length === 1 ? "1 alerta ativo agora" : `${active.length} alertas ativos agora`}
+      </h2>
+      <ul className="mt-3 space-y-2">
+        {active.map((e) => {
+          const tone = sevTone(e.severity);
+          return (
+            <li key={e.id} className={cn("flex flex-col gap-2 rounded-md border px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3", tone === "crit" ? "border-crit/40 bg-crit-soft" : tone === "warn" ? "border-warn/40 bg-warn-soft" : "border-border-strong bg-surface-2")}>
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+              <span className={cn("mt-1.5 size-2.5 shrink-0 rounded-full", tone === "crit" ? "bg-crit" : tone === "warn" ? "bg-warn" : "bg-fg-muted")} aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-fg">
+                  {e.rule_name}
+                  {e.occurrences > 1 && <span className="ml-2 text-xs font-normal text-fg-muted"><span className="tabular">{e.occurrences}</span> ocorrências</span>}
+                </p>
+                <p className="text-xs text-fg-muted">{e.message}</p>
+              </div>
+              </div>
+              <div className="flex items-center justify-between gap-3 pl-5.5 sm:justify-end sm:pl-0">
+              {now > 0 && <span className="text-xs text-fg-muted">{fmtAgo(e.started_at, now)}</span>}
+              {e.acknowledged_at ? (
+                <Badge>reconhecido</Badge>
+              ) : (
+                <Button size="sm" variant="secondary" disabled={demo} onClick={() => onAck(e.id)}>
+                  <Check /> Reconhecer
+                </Button>
+              )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
-interface AlertEvent {
-  id: number;
-  rule_name: string;
-  status: "active" | "resolved";
-  severity: string;
-  started_at: number;
-  resolved_at: number | null;
-  message: string;
-  occurrences: number;
-  acknowledged_at: number | null;
+
+/* ----------------------------------------------------------------- Canais de aviso */
+function ChannelLine({ name, on }: { name: string; on: boolean }) {
+  return (
+    <li className="flex items-center justify-between gap-3 py-2">
+      <span className="flex items-center gap-2 text-sm text-fg">
+        <span className={cn("size-2 rounded-full", on ? "bg-ok" : "border border-fg-subtle")} aria-hidden />
+        {name}
+      </span>
+      <span className="text-xs text-fg-muted">{on ? "ativo" : "não configurado"}</span>
+    </li>
+  );
 }
-type Kinds = Record<string, { label: string; unit: string; operator: string }>;
 
-const SEV_TONE = { info: "info", warn: "warn", crit: "crit" } as const;
-
-function NotificationsCard() {
+function ChannelsCard() {
   const demo = useDemo();
   const qc = useQueryClient();
   const st = useAgent<NotificationStatus>("alerts/notifications", { refetchInterval: 30_000 });
-  const test = useMutation({
-    mutationFn: () => api<{ results: Record<string, { ok: boolean; error?: string }> }>("alerts/notifications/test", { method: "POST" }),
+  const test = useMutation<{ results: Record<string, { ok: boolean; error?: string }> }, ApiError>({
+    mutationFn: () => api("alerts/notifications/test", { method: "POST" }),
     onSettled: () => qc.invalidateQueries({ queryKey: ["agent", "alerts/notifications"] }),
   });
   const d = st.data;
   const any = d ? d.channels.telegram || d.channels.webhook : false;
   return (
-    <Card className="mb-4">
-      <CardHeader
-        title="Notificações"
-        icon={<Send />}
-        subtitle="Alertas disparados e resolvidos saem por Telegram e/ou webhook. Sem internet, ficam na fila e são reenviados quando a conexão volta."
-        actions={<Button size="sm" variant="secondary" disabled={demo || !any} loading={test.isPending} onClick={() => test.mutate()}><Send /> Enviar teste</Button>}
-      />
+    <Card>
+      <CardHeader title="Canais de aviso" icon={<Send />} actions={<Button size="sm" variant="secondary" disabled={demo || !any} loading={test.isPending} onClick={() => test.mutate()}>Enviar teste</Button>} />
       <CardBody className="space-y-3">
         {st.error && <QueryError error={st.error} />}
-        {!d && !st.error && <Skeleton className="h-10 w-full" />}
+        {!d && !st.error && <Skeleton className="h-16 w-full" />}
         {d && (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-            <span className="flex items-center gap-2">Telegram <Badge tone={d.channels.telegram ? "ok" : "neutral"}>{d.channels.telegram ? "configurado" : "ausente"}</Badge></span>
-            <span className="flex items-center gap-2">Webhook <Badge tone={d.channels.webhook ? "ok" : "neutral"}>{d.channels.webhook ? "configurado" : "ausente"}</Badge></span>
-            <span className="text-fg-muted tabular">Na fila: {d.pending}</span>
-            {d.failed_24h > 0 && <Badge tone="warn">{d.failed_24h} descartada(s) em 24 h</Badge>}
-            {d.last_sent_at && <span className="text-xs text-fg-subtle tabular">Último envio: {fmtDateTime(d.last_sent_at)}</span>}
-          </div>
-        )}
-        {d?.last_error && <p className="text-xs text-fg-subtle">Último erro ({d.last_error.channel}): {d.last_error.last_error}</p>}
-        {d?.telegram_chat?.enabled && (
-          <p className="text-sm text-fg-muted">
-            Perguntas pelo Telegram: <Badge tone={d.telegram_chat.last_error ? "warn" : "ok"}>{d.telegram_chat.last_error ? "com erro" : "ativo"}</Badge>
-            {" "}<span className="tabular">{d.telegram_chat.answered ?? 0} respondida(s) desde o início do agente.</span>
-            {d.telegram_chat.last_error && <span className="block text-xs text-fg-subtle">{d.telegram_chat.last_error}</span>}
-          </p>
+          <>
+            <ul className="divide-y divide-border/60">
+              <ChannelLine name="Telegram" on={d.channels.telegram} />
+              <ChannelLine name="Webhook" on={d.channels.webhook} />
+            </ul>
+            <p className="text-xs text-fg-subtle">
+              <span className="tabular">{d.pending}</span> na fila · {d.last_sent_at ? `último envio ${fmtAgo(d.last_sent_at)}` : "nada enviado ainda"}
+              {d.failed_24h > 0 && (
+                <span className="text-warn">
+                  {" "}
+                  · <span className="tabular">{d.failed_24h}</span> descartado(s) em 24 h
+                </span>
+              )}
+            </p>
+            {d.last_error && <p className="text-xs text-warn">Último erro ({d.last_error.channel}): {d.last_error.last_error}</p>}
+            {d.telegram_chat?.enabled && (
+              <p className="text-xs text-fg-muted">
+                Perguntas pelo Telegram: {d.telegram_chat.last_error ? <span className="text-warn">com erro</span> : "ativas"} · <span className="tabular">{d.telegram_chat.answered ?? 0}</span> respondidas
+              </p>
+            )}
+          </>
         )}
         {d && !any && (
-          <Callout tone="info">
-            Para receber no celular: crie um bot com o @BotFather no Telegram, envie uma mensagem a ele e defina ASTRYON_TELEGRAM_BOT_TOKEN e ASTRYON_TELEGRAM_CHAT_ID (o comando <code>astryonctl telegram-chat-id</code> mostra o número). Depois reinicie o agente.
-          </Callout>
+          <details className="rounded-md border border-border px-3 py-2 text-xs text-fg-muted">
+            <summary className="cursor-pointer text-fg">Como receber no celular</summary>
+            <p className="mt-2 leading-relaxed">
+              Crie um bot com o @BotFather no Telegram, mande uma mensagem a ele e defina ASTRYON_TELEGRAM_BOT_TOKEN e ASTRYON_TELEGRAM_CHAT_ID (o comando <code className="font-mono">astryonctl telegram-chat-id</code> mostra o número). Depois reinicie o agente. Sem internet, os avisos ficam na fila e saem quando a conexão volta.
+            </p>
+          </details>
         )}
         {test.data &&
           Object.entries(test.data.results).map(([ch, r]) => (
-            <Callout key={ch} tone={r.ok ? "ok" : "crit"}>{r.ok ? `Teste enviado por ${ch}. Confira se chegou.` : `Falha no ${ch}: ${r.error}`}</Callout>
+            <Callout key={ch} tone={r.ok ? "ok" : "crit"}>
+              {r.ok ? `Teste enviado por ${ch}. Confira se chegou.` : `Falha no ${ch}: ${r.error}`}
+            </Callout>
           ))}
-        {test.error && <Callout tone="crit">{(test.error as ApiError).message}</Callout>}
+        {test.error && <Callout tone="crit">{test.error.message}</Callout>}
       </CardBody>
     </Card>
   );
 }
-const WEEKDAYS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
 
+/* ----------------------------------------------------------------- Resumo semanal */
 function DigestCard() {
   const demo = useDemo();
   const qc = useQueryClient();
   const st = useAgent<DigestStatus>("alerts/digest", { refetchInterval: 60_000 });
-  const save = useMutation({
-    mutationFn: (body: Partial<{ weekly_digest_enabled: boolean; weekly_digest_weekday: number; weekly_digest_hour: number }>) =>
-      api("settings", { method: "PUT", body: JSON.stringify(body) }),
+  const save = useMutation<unknown, ApiError, Partial<{ weekly_digest_enabled: boolean; weekly_digest_weekday: number; weekly_digest_hour: number }>>({
+    mutationFn: (body) => api("settings", { method: "PUT", body: JSON.stringify(body) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["agent", "alerts/digest"] }),
   });
-  const send = useMutation({ mutationFn: () => api<{ ok: boolean; error?: string }>("alerts/digest/send", { method: "POST" }) });
+  const send = useMutation<{ ok: boolean; error?: string }, ApiError>({ mutationFn: () => api("alerts/digest/send", { method: "POST" }) });
   const d = st.data;
   const off = demo || !d?.telegram || save.isPending;
   return (
-    <Card className="mb-4">
-      <CardHeader
-        title="Resumo semanal"
-        icon={<CalendarClock />}
-        subtitle="Consumo, disponibilidade, quedas, pior horário e franquia da semana, pelo Telegram. No bot, /resumo mostra os últimos 7 dias a qualquer hora."
-        actions={<Button size="sm" variant="secondary" disabled={off} loading={send.isPending} onClick={() => send.mutate()}><Send /> Enviar agora</Button>}
-      />
+    <Card>
+      <CardHeader title="Resumo semanal" icon={<CalendarClock />} actions={<Button size="sm" variant="secondary" disabled={off} loading={send.isPending} onClick={() => send.mutate()}>Enviar agora</Button>} />
       <CardBody className="space-y-3">
         {st.error && <QueryError error={st.error} />}
-        {!d && !st.error && <Skeleton className="h-10 w-full" />}
+        {!d && !st.error && <Skeleton className="h-16 w-full" />}
         {d && (
-          <div className="flex flex-wrap items-end gap-x-5 gap-y-3 text-sm">
-            <Switch label="Enviar toda semana" checked={d.enabled} disabled={off} onCheckedChange={(v) => save.mutate({ weekly_digest_enabled: v })} />
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="digest-weekday">Dia</Label>
-              <Select id="digest-weekday" value={d.weekday} disabled={off || !d.enabled} onChange={(e) => save.mutate({ weekly_digest_weekday: Number(e.target.value) })}>
-                {WEEKDAYS.map((w, i) => <option key={w} value={i}>{w}</option>)}
-              </Select>
+          <>
+            <label className="flex items-center gap-3 text-sm text-fg">
+              <Switch label="Enviar o resumo toda semana" checked={d.enabled} disabled={off} onCheckedChange={(v) => save.mutate({ weekly_digest_enabled: v })} />
+              Enviar toda semana
+            </label>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="digest-weekday">Dia</Label>
+                <Select id="digest-weekday" className="block" value={d.weekday} disabled={off || !d.enabled} onChange={(e) => save.mutate({ weekly_digest_weekday: Number(e.target.value) })}>
+                  {WEEKDAYS.map((w, i) => (
+                    <option key={w} value={i}>
+                      {w}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="digest-hour">Hora</Label>
+                <Select id="digest-hour" className="block" value={d.hour} disabled={off || !d.enabled} onChange={(e) => save.mutate({ weekly_digest_hour: Number(e.target.value) })}>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>
+                      {String(h).padStart(2, "0")}h
+                    </option>
+                  ))}
+                </Select>
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="digest-hour">Hora</Label>
-              <Select id="digest-hour" value={d.hour} disabled={off || !d.enabled} onChange={(e) => save.mutate({ weekly_digest_hour: Number(e.target.value) })}>
-                {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, "0")}h</option>)}
-              </Select>
-            </div>
-            {d.next_at && <span className="text-xs text-fg-subtle tabular">Próximo envio: {fmtDateTime(d.next_at)}</span>}
-          </div>
+            <p className="text-xs text-fg-subtle">
+              {!d.telegram ? "Sai só pelo Telegram: configure o bot em Canais de aviso." : d.next_at ? <>Próximo envio: <span className="tabular">{fmtDateTime(d.next_at)}</span>. No bot, /resumo mostra os últimos 7 dias.</> : "Consumo, disponibilidade, quedas e franquia da semana."}
+            </p>
+          </>
         )}
-        {d && !d.telegram && <Callout tone="info">O resumo sai só pelo Telegram. Configure o bot (veja Notificações acima) para ativar.</Callout>}
-        {save.error && <Callout tone="crit">{(save.error as ApiError).message}</Callout>}
-        {send.data && <Callout tone={send.data.ok ? "ok" : "crit"}>{send.data.ok ? "Resumo dos últimos 7 dias enviado. Confira no Telegram." : `Falha no envio: ${send.data.error}`}</Callout>}
-        {send.error && <Callout tone="crit">{(send.error as ApiError).message}</Callout>}
+        {save.error && <Callout tone="crit">{save.error.message}</Callout>}
+        {send.data && <Callout tone={send.data.ok ? "ok" : "crit"}>{send.data.ok ? "Resumo enviado. Confira no Telegram." : `Falha no envio: ${send.data.error}`}</Callout>}
+        {send.error && <Callout tone="crit">{send.error.message}</Callout>}
       </CardBody>
     </Card>
   );
 }
 
-const EMPTY = { name: "", kind: "latency_high", threshold: 100, min_duration_s: 300, window_s: 300, severity: "warn", cooldown_s: 900, hysteresis: 0.1, enabled: true };
-
-function RuleDialog({ open, onClose, kinds, initial }: { open: boolean; onClose: () => void; kinds: Kinds; initial: (Partial<Rule> & { id?: number }) | null }) {
-  const qc = useQueryClient();
-  const [f, setF] = useState<typeof EMPTY>({ ...EMPTY, ...(initial ?? {}) } as typeof EMPTY);
-  const save = useMutation({
-    mutationFn: () => api(initial?.id ? `alerts/rules/${initial.id}` : "alerts/rules", { method: initial?.id ? "PUT" : "POST", body: JSON.stringify(f) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agent", "alerts/rules"] });
-      onClose();
-    },
-  });
-  const set = (k: keyof typeof EMPTY, v: unknown) => setF((x) => ({ ...x, [k]: v }));
-  const unit = kinds[f.kind]?.unit ?? "";
+/* ----------------------------------------------------------------- Histórico */
+function HistoryCard({ events }: { events: AlertEvent[] | undefined }) {
+  const [all, setAll] = useState(false);
+  const resolved = (events ?? []).filter((e) => e.status === "resolved");
+  const shown = all ? resolved : resolved.slice(0, 6);
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => !o && onClose()}
-      title={initial?.id ? "Editar regra" : "Nova regra de alerta"}
-      footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button variant="primary" loading={save.isPending} onClick={() => save.mutate()} disabled={f.name.length < 3}>Salvar</Button></>}
-    >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="space-y-1 sm:col-span-2"><Label htmlFor="r-name">Nome</Label><Input id="r-name" value={f.name} onChange={(e) => set("name", e.target.value)} /></div>
-        <div className="space-y-1 sm:col-span-2">
-          <Label htmlFor="r-kind">Condição</Label>
-          <Select id="r-kind" className="w-full" value={f.kind} onChange={(e) => set("kind", e.target.value)}>
-            {Object.entries(kinds).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </Select>
-        </div>
-        <div className="space-y-1"><Label htmlFor="r-thr">Limiar ({kinds[f.kind]?.operator === "lt" ? "abaixo de" : "acima de"}) {unit}</Label><Input id="r-thr" type="number" step="any" value={f.threshold} onChange={(e) => set("threshold", Number(e.target.value))} /></div>
-        <div className="space-y-1"><Label htmlFor="r-sev">Severidade</Label><Select id="r-sev" className="w-full" value={f.severity} onChange={(e) => set("severity", e.target.value)}><option value="info">info</option><option value="warn">atenção</option><option value="crit">crítico</option></Select></div>
-        <div className="space-y-1"><Label htmlFor="r-dur">Duração mínima (s)</Label><Input id="r-dur" type="number" min={0} value={f.min_duration_s} onChange={(e) => set("min_duration_s", Number(e.target.value))} /></div>
-        <div className="space-y-1"><Label htmlFor="r-win">Janela de avaliação (s)</Label><Input id="r-win" type="number" min={60} value={f.window_s} onChange={(e) => set("window_s", Number(e.target.value))} /></div>
-        <div className="space-y-1"><Label htmlFor="r-cd">Cooldown / agrupamento (s)</Label><Input id="r-cd" type="number" min={0} value={f.cooldown_s} onChange={(e) => set("cooldown_s", Number(e.target.value))} /></div>
-        <div className="space-y-1"><Label htmlFor="r-hy">Histerese (0–0,9)</Label><Input id="r-hy" type="number" step="0.05" min={0} max={0.9} value={f.hysteresis} onChange={(e) => set("hysteresis", Number(e.target.value))} /></div>
-      </div>
-      {save.error && <Callout tone="crit" className="mt-3">{(save.error as ApiError).message}</Callout>}
-    </Dialog>
+    <Card>
+      <CardHeader title="Histórico" icon={<History />} />
+      <CardBody>
+        {!events && <Skeleton className="h-16 w-full" />}
+        {events && !resolved.length && <p className="text-sm text-fg-muted">Nenhuma ocorrência resolvida ainda.</p>}
+        <ul className="divide-y divide-border/60">
+          {shown.map((e) => (
+            <li key={e.id} className="py-2">
+              <p className="flex items-center gap-2 text-sm text-fg">
+                <span className={cn("size-1.5 shrink-0 rounded-full", sevTone(e.severity) === "crit" ? "bg-crit" : sevTone(e.severity) === "warn" ? "bg-warn" : "bg-fg-subtle")} aria-hidden />
+                <span className="truncate">{e.rule_name}</span>
+                {e.occurrences > 1 && <span className="tabular text-xs text-fg-subtle">×{e.occurrences}</span>}
+              </p>
+              <p className="pl-3.5 text-[11px] text-fg-subtle">
+                <span className="tabular">{fmtDateTime(e.started_at)}</span>
+                {e.resolved_at ? (
+                  <>
+                    {" "}
+                    · durou <span className="tabular">{fmtDuration(e.resolved_at - e.started_at)}</span>
+                  </>
+                ) : null}
+              </p>
+            </li>
+          ))}
+        </ul>
+        {resolved.length > 6 && (
+          <Button size="sm" variant="ghost" className="mt-2" onClick={() => setAll((v) => !v)}>
+            {all ? "Mostrar menos" : `Ver todas (${resolved.length})`}
+          </Button>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 
+/* ----------------------------------------------------------------- Tela */
 export default function AlertsView() {
   const demo = useDemo();
   const qc = useQueryClient();
   const rules = useAgent<{ rules: Rule[] }>("alerts/rules", { refetchInterval: 30_000 });
   const kinds = useAgent<{ kinds: Kinds }>("alerts/kinds");
   const events = useAgent<{ events: AlertEvent[] }>("alerts/events?status=all&limit=100", { refetchInterval: 30_000 });
-  const [editing, setEditing] = useState<Partial<Rule> | null>(null);
+  const [editing, setEditing] = useState<number | "new" | null>(null);
   const inv = () => qc.invalidateQueries({ predicate: (q) => String(q.queryKey[1]).startsWith("alerts") });
-  const toggle = useMutation({ mutationFn: (r: Rule) => api(`alerts/rules/${r.id}`, { method: "PUT", body: JSON.stringify({ ...r, enabled: !r.enabled }) }), onSuccess: inv });
-  const silence = useMutation({ mutationFn: ({ id, minutes }: { id: number; minutes: number }) => api(`alerts/rules/${id}/silence`, { method: "POST", body: JSON.stringify({ minutes }) }), onSuccess: inv });
-  const del = useMutation({ mutationFn: (id: number) => api(`alerts/rules/${id}`, { method: "DELETE" }), onSuccess: inv });
-  const ack = useMutation({ mutationFn: (id: number) => api(`alerts/events/${id}/ack`, { method: "POST" }), onSuccess: inv });
-  const now = useNow(30_000) ?? 0;
+  const toggle = useMutation<unknown, ApiError, Rule>({ mutationFn: (r) => api(`alerts/rules/${r.id}`, { method: "PUT", body: JSON.stringify({ ...r, enabled: !r.enabled }) }), onSuccess: inv });
+  const silence = useMutation<unknown, ApiError, { id: number; minutes: number }>({ mutationFn: ({ id, minutes }) => api(`alerts/rules/${id}/silence`, { method: "POST", body: JSON.stringify({ minutes }) }), onSuccess: inv });
+  const del = useMutation<unknown, ApiError, number>({ mutationFn: (id) => api(`alerts/rules/${id}`, { method: "DELETE" }), onSuccess: inv });
+  const ack = useMutation<unknown, ApiError, number>({ mutationFn: (id) => api(`alerts/events/${id}/ack`, { method: "POST" }), onSuccess: inv });
+  const now = useNow(15_000) ?? 0; // 0 até o relógio do cliente existir (sem Date.now no render)
+  const actionError = toggle.error ?? silence.error ?? del.error ?? ack.error;
+  const list = rules.data?.rules ?? [];
+  const on = list.filter((r) => r.enabled).length;
 
   return (
     <>
       <PageHeader
         title="Alertas e Automações"
         icon={<BellRing />}
-        description="Regras com duração mínima, histerese, cooldown e agrupamento para evitar spam. Notificações no aplicativo, no Telegram e por webhook."
-        actions={<Button size="sm" variant="primary" disabled={demo} onClick={() => setEditing({})}><Plus /> Nova regra</Button>}
+        description="Cada regra mostra o valor de agora perto do limite dela. Quando passa do limite pelo tempo definido, o aviso sai no painel, no Telegram e no webhook."
+        actions={
+          <Button size="sm" variant="primary" disabled={demo || !kinds.data || editing === "new"} onClick={() => setEditing("new")}>
+            <Plus /> Nova regra
+          </Button>
+        }
       />
-      {(toggle.error ?? silence.error ?? del.error ?? ack.error) && (
+      {actionError && (
         <Callout tone="crit" className="mb-4" title="A ação não foi concluída">
-          {(toggle.error ?? silence.error ?? del.error ?? ack.error)?.message}
+          {actionError.message}
         </Callout>
       )}
-      <NotificationsCard />
-      <DigestCard />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-        <Card className="xl:col-span-3">
-          <CardHeader title="Regras" />
-          <CardBody>
-            {rules.isLoading && <Skeleton className="h-40 w-full" />}
-            {rules.error && <QueryError error={rules.error} />}
-            {rules.data && !rules.data.rules.length && <EmptyState title="Nenhuma regra" />}
-            <ul className="divide-y divide-border">
-              {rules.data?.rules.map((r) => {
-                const k = kinds.data?.kinds[r.kind];
-                const silenced = r.silenced_until && r.silenced_until > now;
-                return (
-                  <li key={r.id} className="flex flex-wrap items-center gap-3 py-3">
-                    <Switch label={`Ativar ${r.name}`} checked={r.enabled} onCheckedChange={() => toggle.mutate(r)} disabled={demo} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{r.name} <Badge tone={SEV_TONE[r.severity]} className="ml-1">{r.severity}</Badge>{silenced && <Badge className="ml-1">silenciada</Badge>}</p>
-                      <p className="text-xs text-fg-subtle">
-                        {k?.label ?? r.kind} {r.operator === "gt" ? ">" : "<"} {r.threshold} {k?.unit} · janela {fmtDuration(r.window_s)} · mínimo {fmtDuration(r.min_duration_s)} · cooldown {fmtDuration(r.cooldown_s)}
-                        {r.last_event && ` · última: ${fmtDateTime(r.last_event.started_at)} (${r.last_event.status})`}
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="ghost" disabled={demo} onClick={() => silence.mutate({ id: r.id, minutes: silenced ? 0 : 60 })}><BellOff /> {silenced ? "Reativar" : "1 h"}</Button>
-                      <Button size="sm" variant="ghost" disabled={demo} onClick={() => setEditing(r)}>Editar</Button>
-                      <Button size="icon" variant="ghost" aria-label={`Excluir ${r.name}`} disabled={demo} onClick={() => confirm(`Excluir a regra "${r.name}"?`) && del.mutate(r.id)}><Trash2 /></Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </CardBody>
-        </Card>
-        <Card className="xl:col-span-2">
-          <CardHeader title="Ocorrências" />
-          <CardBody>
-            {events.data && !events.data.events.length && <EmptyState title="Nenhum alerta disparado" />}
-            <ul className="divide-y divide-border">
-              {events.data?.events.map((e) => (
-                <li key={e.id} className="py-2.5">
-                  <div className="flex items-center gap-2">
-                    <Badge tone={e.status === "active" ? SEV_TONE[e.severity as keyof typeof SEV_TONE] ?? "warn" : "neutral"}>{e.status === "active" ? "ativo" : "resolvido"}</Badge>
-                    <span className="text-sm">{e.rule_name}</span>
-                    {e.occurrences > 1 && <Badge>×{e.occurrences}</Badge>}
-                    {e.status === "active" && !e.acknowledged_at && (
-                      <Button size="sm" variant="ghost" className="ml-auto h-7" disabled={demo} onClick={() => ack.mutate(e.id)}><Check /> Reconhecer</Button>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-fg-muted">{e.message}</p>
-                  <p className="text-[11px] text-fg-subtle tabular">{fmtDateTime(e.started_at)}{e.resolved_at ? ` → ${fmtDateTime(e.resolved_at)}` : ""}</p>
+
+      <ActiveNow events={events.data?.events} now={now} onAck={(id) => ack.mutate(id)} demo={demo} />
+
+      <section aria-labelledby="regras-t" className="mb-8">
+        <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <h2 id="regras-t" className="font-display text-[17px] font-semibold text-fg">
+            Regras
+          </h2>
+          {rules.data && (
+            <p className="text-xs text-fg-subtle">
+              <span className="tabular">{on}</span> de <span className="tabular">{list.length}</span> ligadas
+            </p>
+          )}
+        </div>
+        {rules.isLoading && <Skeleton className="h-48 w-full" />}
+        {rules.error && <QueryError error={rules.error} />}
+        <div className="space-y-2">
+          {editing === "new" && kinds.data && <RuleEditor initial={null} kinds={kinds.data.kinds} onDone={() => setEditing(null)} />}
+          {rules.data && !list.length && editing !== "new" && (
+            <EmptyState title="Nenhuma regra ainda">Crie a primeira a partir de um modelo pronto, como latência alta ou antena fora do ar.</EmptyState>
+          )}
+          <ul className="space-y-2">
+            {list.map((r) =>
+              editing === r.id && kinds.data ? (
+                <li key={r.id}>
+                  <RuleEditor initial={r} kinds={kinds.data.kinds} onDone={() => setEditing(null)} />
                 </li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
+              ) : (
+                <RuleRow
+                  key={r.id}
+                  r={r}
+                  kinds={kinds.data?.kinds}
+                  now={now}
+                  demo={demo}
+                  onToggle={() => toggle.mutate(r)}
+                  onSilence={(minutes) => silence.mutate({ id: r.id, minutes })}
+                  onEdit={() => setEditing(r.id)}
+                  onDelete={() => confirm(`Excluir a regra "${r.name}"? Isso não pode ser desfeito.`) && del.mutate(r.id)}
+                />
+              ),
+            )}
+          </ul>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ChannelsCard />
+        <DigestCard />
+        <div className="md:col-span-2 xl:col-span-1">
+          <HistoryCard events={events.data?.events} />
+        </div>
       </div>
-      {editing && kinds.data && <RuleDialog open onClose={() => setEditing(null)} kinds={kinds.data.kinds} initial={editing} />}
     </>
   );
 }

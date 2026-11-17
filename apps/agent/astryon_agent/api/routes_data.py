@@ -54,7 +54,8 @@ def _terminal(c: Ctx, terminal_id: int | None) -> int | None:
 def agent(c: Ctx, _u: User) -> dict[str, Any]:
     snap: dict[str, Any] = c.collector.agent_snapshot() if c.collector else {"mode": "sem_coletor"}
     snap["db_bytes"] = c.db.size_bytes()
-    snap["sync_pending"] = c.db.scalar("SELECT COUNT(*) FROM sync_queue WHERE synced_at IS NULL")
+    snap["sync_pending"] = c.db.scalar("SELECT (SELECT COUNT(*) FROM sync_queue WHERE synced_at IS NULL) "
+                      "+ (SELECT COUNT(*) FROM event_sync WHERE synced_revision < revision)")
     snap["supabase_configured"] = bool(c.settings.supabase_url)
     snap["ai_configured"] = bool(c.settings.groq_api_key)
     snap["timezone"] = c.settings.timezone

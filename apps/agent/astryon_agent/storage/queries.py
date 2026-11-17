@@ -271,7 +271,8 @@ def usage_series(db: Database, terminal_id: int | None, start: int, end: int, bu
             size = 3600
         elif bucket == "month":
             k = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            size = 86400 * 30
+            next_month = k.replace(year=k.year + 1, month=1) if k.month == 12 else k.replace(month=k.month + 1)
+            size = int((next_month - k).total_seconds())
         else:
             k = local_day_start(dt)
             size = 86400

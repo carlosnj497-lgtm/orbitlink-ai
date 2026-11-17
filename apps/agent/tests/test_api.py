@@ -144,3 +144,16 @@ def test_setup_code_required_when_configured(tmp_path):
         assert c.post("/v1/auth/setup", json=body, headers=SVC).status_code == 403
         assert c.post("/v1/auth/setup", json={**body, "setup_code": "errado"}, headers=SVC).status_code == 403
         assert c.post("/v1/auth/setup", json={**body, "setup_code": "codigo-do-servidor"}, headers=SVC).status_code == 201
+
+
+def test_password_change_rejects_short_and_invalidates_sessions(unreachable_client):
+    c = unreachable_client
+    h = login(c)
+    assert c.post("/v1/auth/password", headers=h,
+                  json={"old_password": "senha-forte-123", "new_password": "a"}).status_code == 422
+    assert c.get("/v1/auth/me", headers=h).status_code == 200
+    assert c.post("/v1/auth/password", headers=h,
+                  json={"old_password": "senha-forte-123", "new_password": "nova-senha-forte"}).status_code == 204
+    assert c.get("/v1/auth/me", headers=h).status_code == 401
+    assert c.post("/v1/auth/login", headers=SVC,
+                  json={"username": "admin", "password": "nova-senha-forte"}).status_code == 200

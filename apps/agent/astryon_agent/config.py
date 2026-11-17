@@ -131,7 +131,7 @@ class Settings(BaseSettings):
     healthcheck_interval_s: float = Field(default=300, ge=60, le=3600)
     # Backup do banco: cópia diária em <data>/backups (mantém N) e cópia semanal no chat do Telegram.
     backup_enabled: bool = True
-    backup_keep: int = Field(default=7, ge=1, le=90)
+    backup_keep: int = Field(default=14, ge=1, le=90)
     # Desligado por padrão: o arquivo vai para fora da máquina. Quando ligado, segue uma cópia sem sessões, hashes
     # de senha nem segredos cifrados, e nunca para chat de grupo.
     backup_telegram: bool = False

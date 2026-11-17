@@ -25,8 +25,8 @@ Situação em 13/11/2026. ✅ = verificado por teste automatizado ou execução 
 ## Como reproduzir
 
 ```powershell
-npm run test         # 84 pytest + 21 vitest + 11 RLS
-npm run test:deploy  # 51 testes dos scripts do servidor Linux
+npm run test         # pytest + Vitest + testes SQL/RLS; contagens aparecem na execução
+npm run test:deploy  # testes dos scripts do servidor Linux
 npm run audit        # npm audit + pip-audit
 npm run test:e2e     # 9 Playwright (requer: npx playwright install chromium)
 npm run lint; npm run typecheck; npm run build

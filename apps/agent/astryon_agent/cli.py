@@ -127,6 +127,29 @@ def _cmd_telegram_chat_id(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_recover_admin(args: argparse.Namespace) -> int:
+    from getpass import getpass
+
+    from .auth.local import recover_admin
+    from .config import Settings
+    from .storage.db import Database
+
+    password = getpass("Nova senha (mínimo de 10 caracteres): ")
+    if password != getpass("Repita a nova senha: "):
+        print("As senhas não conferem.", file=sys.stderr)
+        return 1
+    db = Database(Path(args.database) if args.database else Settings().db_path)
+    try:
+        recover_admin(db, args.username, password)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    finally:
+        db.close()
+    print("Acesso recuperado. Entre no painel com a nova senha.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -161,6 +184,11 @@ def main(argv: list[str] | None = None) -> int:
 
     tg = sub.add_parser("telegram-chat-id", help="Descobre o chat_id para os alertas no Telegram")
     tg.set_defaults(func=_cmd_telegram_chat_id)
+
+    recovery = sub.add_parser("recover-admin", help="Recupera administrador de um backup sanitizado pelo console local")
+    recovery.add_argument("--username", required=True)
+    recovery.add_argument("--database", help="Caminho explícito do banco restaurado")
+    recovery.set_defaults(func=_cmd_recover_admin)
 
     args = p.parse_args(argv)
     return int(args.func(args))

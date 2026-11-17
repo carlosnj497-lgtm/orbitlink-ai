@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import copy
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -134,6 +136,19 @@ async def test_quality_and_telemetry_queries(tmp_path, fixture_data):
     summary = queries.usage_summary(db, tid, "America/Fortaleza")
     assert summary["today"]["bytes_total"] == round(18 * 8_800_000 / 8)
     assert "ESTIMADO" in summary["method"]
+
+
+def test_monthly_usage_coverage_uses_actual_month_length(tmp_path):
+    db = Database(tmp_path / "monthly.sqlite3")
+    start = datetime(2026, 1, 1, tzinfo=ZoneInfo("UTC"))
+    end = datetime(2026, 2, 1, tzinfo=ZoneInfo("UTC"))
+    db.execute("INSERT INTO terminals (id, terminal_key, target, origin, first_seen, last_seen) VALUES (1,'k','x','grpc',0,0)")
+    db.execute("INSERT INTO usage_minutes VALUES (1, ?, 0, 0, ?, 1.0, 'calculada')",
+               (int(start.timestamp()), 30 * 86400))
+
+    series = queries.usage_series(db, 1, int(start.timestamp()), int(end.timestamp()), "month", "UTC")
+
+    assert series["points"][0]["coverage"] == pytest.approx(30 / 31, abs=0.0001)
 
 
 async def test_retention_keeps_recent(tmp_path, fixture_data):

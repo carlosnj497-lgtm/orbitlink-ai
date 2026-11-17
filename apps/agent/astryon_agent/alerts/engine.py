@@ -197,6 +197,8 @@ class AlertEngine:
     settings: Any | None = None
     notifier: Notifier | None = None
     first_breach: dict[int, int] = field(default_factory=dict)
+    # Última leitura de cada regra ativa (valor ou None quando não há dado), para o painel mostrar o quão perto do limite.
+    readings: dict[int, tuple[float | None, int]] = field(default_factory=dict)
 
     def _emit(self, ev: dict[str, Any]) -> None:
         self.bus.publish("alert", ev)
@@ -208,6 +210,7 @@ class AlertEngine:
         now = now_ts()
         for r in self.db.query("SELECT * FROM alert_rules WHERE enabled = 1"):
             value = measure(self.db, self.collector, r["kind"], r["window_s"], self.tz, self.settings)
+            self.readings[r["id"]] = (value, now)
             active = self.db.one("SELECT * FROM alert_events WHERE rule_id = ? AND status = 'active'", (r["id"],))
             if value is None:
                 continue

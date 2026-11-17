@@ -61,7 +61,15 @@ export function localMidnight(ts: number, tz: string, days = 0): number {
   );
   const asUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second) / 1000;
   const offset = asUtc - ts; // segundos que o fuso está à frente do UTC
-  return Date.UTC(+parts.year, +parts.month - 1, +parts.day + days) / 1000 - offset;
+  const target = Date.UTC(+parts.year, +parts.month - 1, +parts.day + days) / 1000;
+  const guess = target - offset;
+  const targetParts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" })
+      .formatToParts(new Date(guess * 1000))
+      .map((p) => [p.type, p.value]),
+  );
+  const targetAsUtc = Date.UTC(+targetParts.year, +targetParts.month - 1, +targetParts.day, +targetParts.hour, +targetParts.minute, +targetParts.second) / 1000;
+  return target - (targetAsUtc - guess);
 }
 
 /** Epoch da 0h local do 1º dia do mês que contém `ts`, deslocado `monthsBack` meses para trás (negativo = à frente). */

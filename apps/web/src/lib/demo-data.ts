@@ -169,7 +169,7 @@ function obstruction(): ObstructionResponse {
       else if (Math.atan2(dy, dx) > 2.2 && Math.atan2(dy, dx) < 2.7 && d > 18) snr.push(0);
       else snr.push(r() < 0.55 ? 1 : -1);
     }
-  return { map: { ts: now() - 120, num_rows: rows, num_cols: cols, snr, min_elevation_deg: 25, max_theta_deg: 65, source: "demonstracao" }, map_capability: { status: "verificada", detail: null }, trend: [] };
+  return { map: { ts: now() - 120, num_rows: rows, num_cols: cols, snr, min_elevation_deg: 25, max_theta_deg: 65, source: "demonstracao" }, map_capability: { status: "verificada", detail: null }, trend: demoObstructionTrend() };
 }
 
 const status = (): StatusResponse => ({
@@ -259,13 +259,13 @@ export async function demoFetch(path: string): Promise<unknown> {
     case "usage/summary": return usageSummary();
     case "usage/plan": return usagePlan();
     case "usage/series": return usageSeries(q);
-    case "usage/hourly-profile": return Array.from({ length: 24 }, (_, hour) => ({ hour, bytes_total: Math.round(diurnal(hour * 3600 + 3 * 3600) * 4e9), observed_seconds: 3500 * 30 }));
+    case "usage/hourly-profile": return Array.from({ length: 24 }, (_, hour) => ({ hour, bytes_total: Math.round(diurnal(hour * 3600 + 3 * 3600) * 1.4e10), observed_seconds: 3500 * 30 }));
     case "quality": return quality(q);
     case "events": return events(q);
     case "obstruction": return obstruction();
-    case "alerts/events": return { events: [] };
-    case "alerts/rules": return { rules: [] };
-    case "alerts/kinds": return { kinds: {} };
+    case "alerts/events": return demoAlertEvents();
+    case "alerts/rules": return demoAlertRules();
+    case "alerts/kinds": return { kinds: DEMO_ALERT_KINDS };
     case "alerts/digest": return { enabled: true, telegram: false, weekday: 0, hour: 8, next_at: null, last_period_end: null };
     case "alerts/notifications": return { channels: { webhook: false, telegram: false }, pending: 0, failed_24h: 0, last_sent_at: null, last_error: null };
     case "diagnostics/summary":
@@ -273,17 +273,17 @@ export async function demoFetch(path: string): Promise<unknown> {
         generated_at: now(), engine: "regras", source: "demonstracao",
         headline: "DEMONSTRAÇÃO — disponibilidade observada de 99,42%, com perdas concentradas entre 19h e 22h.",
         findings: [
-          { severity: "warn", kind: "evento_observado", text: "Perda média acima do padrão entre 19h e 22h (fictício).", evidence: "Dados de demonstração" },
-          { severity: "warn", kind: "causa_confirmada", text: "A antena reportou 1 interrupção com causa OBSTRUCTED (fictício).", evidence: "Dados de demonstração" },
-          { severity: "info", kind: "hipotese", text: "Obstrução pode contribuir para as perdas noturnas (fictício).", evidence: "Correlação não comprova causa" },
+          { severity: "warn", kind: "evento_observado", text: "Perda média acima do padrão entre 19h e 22h (fictício).", evidence: "19h–22h: perda média de 1,4% contra 0,3% no resto do dia (fictício)." },
+          { severity: "warn", kind: "causa_confirmada", text: "A antena reportou 1 interrupção causada por obstrução (fictício).", evidence: "15/11 às 21:12, 38 s fora do ar; causa obstrução (OBSTRUCTED) informada pela própria antena (fictício)." },
+          { severity: "info", kind: "hipotese", text: "Obstrução pode contribuir para as perdas noturnas (fictício).", evidence: "Obstrução de 1,8% e perdas no mesmo horário; sem leitura da direção do bloqueio. Correlação não comprova causa (fictício)." },
         ],
       };
     case "ai/status":
-      return { configured: false, model: "—", daily_limit: 0, usage: [],
-               audio: { enabled: false, model: "—", daily_limit: 0, usage: [], pricing_usd_per_hour: null, telegram: false } };
+      return { configured: false, model: "openai/gpt-oss-120b", daily_limit: 100, retention_days: 30, usage: [],
+               audio: { enabled: false, model: "whisper-large-v3-turbo", daily_limit: 50, usage: [], pricing_usd_per_hour: null, telegram: false } };
     case "control/actions":
       return { policy: "Demonstração.", actions: [{ action: "reboot", label: "Reiniciar a antena", consequences: [], capability: capabilities().capabilities.find((c) => c.key === "dish.reboot"), enabled: true, reason: null }] };
-    case "control/requests": return { requests: [], audit: [] };
+    case "control/requests": return demoControlRequests();
     case "settings":
       // Valores padrão do agente (config.py), só para a tela de Configurações ter o que mostrar na demonstração.
       return {
@@ -294,7 +294,7 @@ export async function demoFetch(path: string): Promise<unknown> {
         esp32_enabled: false, supabase_url: null, sync_interval_s: 60,
         status_interval_s: 10, history_interval_s: 30, obstruction_interval_s: 300, capability_refresh_s: 3600, grpc_timeout_s: 5, degraded_drop_rate: 0.05,
         retention_raw_days: 7, retention_minute_days: 400,
-        ai_model: "openai/gpt-oss-120b", ai_conversation_retention_days: 30,
+        ai_model: "openai/gpt-oss-120b", ai_conversation_retention_days: 30, ai_transcribe_enabled: true,
       };
     case "insights/compare": {
       const [s, e] = rangeOf(q, "7d");
@@ -312,12 +312,123 @@ export async function demoFetch(path: string): Promise<unknown> {
       return { disk: { free_bytes: 92e9, total_bytes: 120e9, free_pct: 76.7 }, db_size_bytes: 48e6, cpu_temp_c: 52, mem_available_pct: 61, load_1m: 0.4, cpus: 2, last_backup_at: now() - 5 * 3600, healthcheck_configured: false, checked_at: now() };
     case "weather": return demoWeather();
     case "weather/hourly": return demoWeatherHourly(q);
-    case "esp32/nodes": return { nodes: [] };
-    case "devices": return { source: "indisponivel", reason: "Demonstração: nenhuma fonte de dispositivos.", devices: [] };
+    case "esp32/nodes": return demoEsp32Nodes();
+    case "devices": return demoDevices();
     case "cloud/account": {
       const iso = (ts: number) => new Date(ts * 1000).toISOString();
       return { workspace_id: null, workspace_name: "Conta de demonstração", agents: [{ id: "demo", name: "Starlink Mini (demonstração)", created_at: iso(now() - 30 * 86400), last_seen: iso(now() - 90), revoked: false }] };
     }
     default: return {};
   }
+}
+
+/* ----------------------------------------------------------------- Alertas (demonstração) */
+// Mesmos tipos do motor de alertas do agente (alerts/engine.py, KINDS).
+const DEMO_ALERT_KINDS = {
+  dish_unreachable: { label: "Antena inacessível", unit: "s", operator: "gt" },
+  latency_high: { label: "Latência alta (média na janela)", unit: "ms", operator: "gt" },
+  loss_high: { label: "Perda de ping elevada (média na janela)", unit: "%", operator: "gt" },
+  multiple_drops: { label: "Múltiplas quedas na janela", unit: "eventos", operator: "gt" },
+  usage_month: { label: "Consumo estimado do mês acima do limite local", unit: "GB", operator: "gt" },
+  usage_cap_pct: { label: "Franquia do plano consumida no ciclo (estimativa)", unit: "%", operator: "gt" },
+  obstruction_high: { label: "Obstrução acima do limite", unit: "%", operator: "gt" },
+  dish_rebooted: { label: "Antena reiniciou", unit: "eventos", operator: "gt" },
+  dish_firmware_changed: { label: "Firmware da antena atualizado", unit: "eventos", operator: "gt" },
+  server_disk_low: { label: "Pouco espaço livre no disco do servidor", unit: "%", operator: "lt" },
+  server_temp_high: { label: "Temperatura alta no servidor", unit: "°C", operator: "gt" },
+  weather_rain_forecast: { label: "Chuva forte prevista (clima estimado)", unit: "mm/h", operator: "gt" },
+};
+
+function demoAlertRules() {
+  const t = now();
+  const base = { cooldown_s: 900, hysteresis: 0.1, silenced_until: null as number | null };
+  const at = (value: number | null) => ({ value, measured_at: t - 12 });
+  return {
+    rules: [
+      { ...base, id: 1, name: "Antena fora do ar", kind: "dish_unreachable", operator: "gt", threshold: 60, min_duration_s: 0, window_s: 300, severity: "crit", enabled: true, current: at(0), breaching_since: null, last_event: { status: "resolved", started_at: t - 3 * 86400, resolved_at: t - 3 * 86400 + 420, occurrences: 1 } },
+      { ...base, id: 2, name: "Latência alta", kind: "latency_high", operator: "gt", threshold: 100, min_duration_s: 300, window_s: 300, severity: "warn", enabled: true, current: at(132), breaching_since: t - 120, last_event: null },
+      { ...base, id: 3, name: "Perda de pacotes alta", kind: "loss_high", operator: "gt", threshold: 2, min_duration_s: 300, window_s: 300, severity: "warn", enabled: true, current: at(4.1), breaching_since: t - 900, last_event: { status: "active", started_at: t - 720, resolved_at: null, occurrences: 3 } },
+      { ...base, id: 4, name: "Quedas repetidas", kind: "multiple_drops", operator: "gt", threshold: 3, min_duration_s: 0, window_s: 3600, severity: "warn", enabled: true, current: at(2), breaching_since: null, last_event: { status: "resolved", started_at: t - 86400, resolved_at: t - 86400 + 3600, occurrences: 1 } },
+      { ...base, id: 5, name: "Franquia quase no fim", kind: "usage_cap_pct", operator: "gt", threshold: 80, min_duration_s: 0, window_s: 3600, severity: "info", enabled: true, current: at(70.4), breaching_since: null, last_event: null },
+      { ...base, id: 6, name: "Obstrução alta", kind: "obstruction_high", operator: "gt", threshold: 5, min_duration_s: 600, window_s: 600, severity: "info", enabled: true, current: at(null), breaching_since: null, last_event: null },
+      { ...base, id: 7, name: "Antena reiniciou", kind: "dish_rebooted", operator: "gt", threshold: 0, min_duration_s: 0, window_s: 900, severity: "info", enabled: true, current: at(0), breaching_since: null, last_event: { status: "resolved", started_at: t - 5 * 86400, resolved_at: t - 5 * 86400 + 900, occurrences: 1 } },
+      { ...base, id: 8, name: "Pouco disco no servidor", kind: "server_disk_low", operator: "lt", threshold: 10, min_duration_s: 0, window_s: 3600, severity: "crit", enabled: false, current: null, breaching_since: null, last_event: null },
+    ],
+  };
+}
+
+function demoAlertEvents() {
+  const t = now();
+  return {
+    events: [
+      { id: 31, rule_name: "Perda de pacotes alta", status: "active", severity: "warn", started_at: t - 720, resolved_at: null, occurrences: 3, acknowledged_at: null, message: "Perda de pacotes alta: valor 4,10 % (limiar 2 %). Demonstração." },
+      { id: 30, rule_name: "Quedas repetidas", status: "resolved", severity: "warn", started_at: t - 86400, resolved_at: t - 86400 + 3600, occurrences: 1, acknowledged_at: t - 86000, message: "Quedas repetidas: 4 quedas em 1 h. Demonstração." },
+      { id: 29, rule_name: "Antena fora do ar", status: "resolved", severity: "crit", started_at: t - 3 * 86400, resolved_at: t - 3 * 86400 + 420, occurrences: 1, acknowledged_at: null, message: "Antena inacessível por 7 min. Demonstração." },
+      { id: 28, rule_name: "Antena reiniciou", status: "resolved", severity: "info", started_at: t - 5 * 86400, resolved_at: t - 5 * 86400 + 900, occurrences: 1, acknowledged_at: null, message: "A antena reiniciou. Demonstração." },
+      { id: 27, rule_name: "Perda de pacotes alta", status: "resolved", severity: "warn", started_at: t - 6 * 86400, resolved_at: t - 6 * 86400 + 1500, occurrences: 2, acknowledged_at: null, message: "Perda de pacotes alta. Demonstração." },
+    ],
+  };
+}
+
+/* ----------------------------------------------------------------- Antena e rede (demonstração) */
+function demoObstructionTrend() {
+  // 72 h por hora: mais obstrução no fim da tarde, algumas horas sem dado e picos acima de 5%
+  const t0 = Math.floor(now() / 3600) * 3600;
+  return Array.from({ length: 72 }, (_, i) => {
+    const t = t0 - (71 - i) * 3600;
+    const hour = new Date(t * 1000).getHours();
+    if (i % 23 === 7) return { t, obstruction_pct: null, obstructed_samples: 0, n: 0 };
+    const pct = Math.max(0, 0.8 + (hour >= 16 && hour <= 19 ? 4.5 : 0) + Math.sin(i * 1.7) * 0.9);
+    return { t, obstruction_pct: Math.round(pct * 100) / 100, obstructed_samples: Math.round(pct * 36), n: 3600 };
+  });
+}
+
+function demoEsp32Nodes() {
+  const t = now();
+  return {
+    enabled: true,
+    listen: "0.0.0.0:8788",
+    nodes: [
+      { id: 1, device_id: "esp32-a1b2c3", name: "Fonte da antena (demonstração)", firmware: "1.2.0", sensors: ["power.voltage_v", "power.current_a", "power.power_w", "env.temp_c"], last_seen: t - 8, rssi: -61, uptime_s: 86400 * 2 + 3600, enabled: 1, online: true,
+        latest: [
+          { sensor: "power.voltage_v", value: 12.14, quality: "ok", ts: t - 8 },
+          { sensor: "power.current_a", value: 1.9, quality: "ok", ts: t - 8 },
+          { sensor: "power.power_w", value: 23.1, quality: "ok", ts: t - 8 },
+          { sensor: "env.temp_c", value: 34.5, quality: "ok", ts: t - 8 },
+        ] },
+      { id: 2, device_id: "esp32-d4e5f6", name: "Caixa externa (demonstração)", firmware: "1.1.3", sensors: ["env.temp_c", "env.humidity_pct"], last_seen: t - 3 * 3600, rssi: -78, uptime_s: null, enabled: 1, online: false,
+        latest: [
+          { sensor: "env.temp_c", value: 29.0, quality: "ok", ts: t - 3 * 3600 },
+          { sensor: "env.humidity_pct", value: 71, quality: "ok", ts: t - 3 * 3600 },
+        ] },
+    ],
+  };
+}
+
+function demoDevices() {
+  return {
+    source: "demonstracao",
+    reason: null,
+    capability: { status: "verificada", detail: null },
+    devices: [
+      { name: "Notebook (demonstração)", ip: "192.168.1.20", mac: "a4:83:e7:12:34:56", interface: "Wi-Fi 5 GHz", signal_dbm: -48, connected_s: 3 * 3600 + 120, rx_bytes: 4.2e9, tx_bytes: 3.1e8 },
+      { name: "Celular (demonstração)", ip: "192.168.1.21", mac: "f0:99:b6:ab:cd:ef", interface: "Wi-Fi 2,4 GHz", signal_dbm: -67, connected_s: 86400 + 900, rx_bytes: 1.3e9, tx_bytes: 1.9e8 },
+      { name: null, ip: "192.168.1.30", mac: "b8:27:eb:00:11:22", interface: "Cabo", signal_dbm: null, connected_s: 5 * 86400, rx_bytes: 2.4e8, tx_bytes: 9.6e7 },
+    ],
+  };
+}
+
+function demoControlRequests() {
+  const t = now();
+  return {
+    requests: [
+      { operation_id: "op-demo-2", action: "reboot", status: "accepted", created_at: t - 2 * 86400, result_detail: "A antena aceitou o comando (demonstração).", requested_by: "admin", origin: "painel" },
+      { operation_id: "op-demo-1", action: "reboot", status: "expired", created_at: t - 4 * 86400, result_detail: "Código não confirmado a tempo (demonstração).", requested_by: "admin", origin: "painel" },
+    ],
+    audit: [
+      { operation_id: "op-demo-2", ts: t - 2 * 86400 + 30, actor: "admin", event: "executed", detail: "reboot aceito (demonstração)" },
+      { operation_id: "op-demo-2", ts: t - 2 * 86400, actor: "admin", event: "prepared", detail: null },
+      { operation_id: "op-demo-1", ts: t - 4 * 86400 + 120, actor: "sistema", event: "expired", detail: null },
+    ],
+  };
 }

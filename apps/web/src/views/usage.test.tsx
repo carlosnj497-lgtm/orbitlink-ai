@@ -18,7 +18,7 @@ describe("PlanCard (franquia)", () => {
   it("sem franquia, convida a configurar em vez de mostrar 0%", () => {
     render(<PlanCard p={plan({ configured: false, cap_bytes: null, pct_used: null })} />);
     expect(screen.getByText("Franquia do plano não configurada")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Configurar" })).toHaveAttribute("href", "/configuracoes");
+    expect(screen.getByRole("link", { name: "Configurar" })).toHaveAttribute("href", "/configuracoes#plano");
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
   it("mostra o percentual e a barra limitada a 100%", () => {

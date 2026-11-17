@@ -38,8 +38,13 @@ def kinds(_u: User) -> dict[str, Any]:
 def rules(c: Ctx, _u: User) -> dict[str, Any]:
     seed_defaults(c.db)
     rows = c.db.query("SELECT * FROM alert_rules ORDER BY id")
+    engine: AlertEngine | None = c.extras.get("alerts_engine")
     for r in rows:
         r["enabled"] = bool(r["enabled"])
+        # Leitura da última avaliação (a cada ~30 s). Regra desligada não é avaliada: fica sem leitura.
+        reading = engine.readings.get(r["id"]) if engine and r["enabled"] else None
+        r["current"] = {"value": reading[0], "measured_at": reading[1]} if reading else None
+        r["breaching_since"] = engine.first_breach.get(r["id"]) if engine and r["enabled"] else None
         r["last_event"] = c.db.one("SELECT status, started_at, resolved_at, occurrences FROM alert_events WHERE rule_id=? "
                                    "ORDER BY started_at DESC LIMIT 1", (r["id"],))
     return {"rules": rows}
@@ -153,6 +158,7 @@ async def digest_send(c: Ctx, _a: Admin) -> dict[str, Any]:
 def register(app: FastAPI) -> None:
     async def start(ctx: AppContext) -> None:
         engine = AlertEngine(ctx.db, ctx.bus, ctx.collector, ctx.settings.timezone, ctx.settings, notifier(ctx))
+        ctx.extras["alerts_engine"] = engine
         ctx.extras["alerts_task"] = asyncio.create_task(engine.run(), name="alerts")
         ctx.extras["digest_task"] = asyncio.create_task(digest.run(ctx.db, ctx.settings, notifier(ctx)), name="digest")
 

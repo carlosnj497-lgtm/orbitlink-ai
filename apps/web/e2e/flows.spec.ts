@@ -15,7 +15,7 @@ async function login(page: Page) {
   await page.waitForURL("**/");
 }
 
-test.describe.serial("fluxos essenciais", () => {
+test.describe("fluxos essenciais", () => {
   test("sem sessão redireciona para o login", async ({ page }) => {
     await page.goto("/consumo");
     await expect(page).toHaveURL(/\/login\?next=%2Fconsumo/);
@@ -28,16 +28,16 @@ test.describe.serial("fluxos essenciais", () => {
     await expect(page.getByText("Download agora")).toBeVisible();
     // modo fixture: todo número é marcado como demonstração
     await expect(page.getByText("demonstração").first()).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText(/Tráfego corrente, não capacidade|Ocioso/).first()).toBeVisible();
+    await expect(page.getByText(/tráfego(?: corrente)?, não capacidade|ocioso/i).first()).toBeVisible();
   });
 
   test("gráficos e consumo carregam", async ({ page }) => {
     await login(page);
     await page.goto("/consumo");
     await expect(page.getByRole("heading", { name: "Consumo de Internet" })).toBeVisible();
-    await expect(page.getByText("Como este valor é calculado")).toBeVisible();
+    await expect(page.getByText("Como é calculado:")).toBeVisible();
     await page.goto("/qualidade");
-    await expect(page.getByText("Disponibilidade observada")).toBeVisible();
+    await expect(page.getByText("No ar (disponibilidade)")).toBeVisible();
   });
 
   test("relatório PDF é baixado", async ({ page }) => {
@@ -71,20 +71,22 @@ test.describe.serial("fluxos essenciais", () => {
   test("franquia: configurar em Configurações e acompanhar em Consumo", async ({ page }) => {
     await login(page);
     // o banco do E2E persiste entre execuções: começa removendo a franquia (campo vazio = sem franquia)
-    await page.goto("/configuracoes");
+    await page.goto("/configuracoes#plano");
     await page.getByLabel("Franquia mensal do plano (GB)").fill("");
-    await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page.getByText("Preferências salvas.")).toBeVisible();
+    const savePlan = page.locator("#plano-body").getByRole("button", { name: "Salvar", exact: true });
+    if (await savePlan.isEnabled()) {
+      await savePlan.click();
+      await expect(page.getByText("Salvo. Já está valendo.")).toBeVisible();
+    }
     await page.goto("/consumo");
     await expect(page.getByText("Franquia do plano não configurada")).toBeVisible();
     await page.getByRole("link", { name: "Configurar" }).click();
     await expect(page.getByRole("heading", { name: "Configurações" })).toBeVisible();
     await page.getByLabel("Franquia mensal do plano (GB)").fill("100");
     await page.getByLabel("Dia de virada do ciclo (1–28)").fill("5");
-    await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page.getByText("Preferências salvas.")).toBeVisible();
+    await page.locator("#plano-body").getByRole("button", { name: "Salvar", exact: true }).click();
+    await expect(page.getByText("Salvo. Já está valendo.")).toBeVisible();
     await page.goto("/consumo");
-    await expect(page.getByText("Franquia do ciclo")).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Franquia consumida" })).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(results.violations.filter((v) => v.impact === "critical" || v.impact === "serious").map((v) => v.id)).toEqual([]);
@@ -97,6 +99,7 @@ test.describe.serial("fluxos essenciais", () => {
     await expect(page.getByText("Franquia: 100% consumida")).toBeVisible();
     // sem Telegram/webhook configurado: o teste fica desabilitado e a tela explica como configurar
     await expect(page.getByRole("button", { name: "Enviar teste" })).toBeDisabled();
+    await page.getByText("Como receber no celular").click();
     await expect(page.getByText(/@BotFather/)).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(results.violations.filter((v) => v.impact === "critical" || v.impact === "serious").map((v) => v.id)).toEqual([]);

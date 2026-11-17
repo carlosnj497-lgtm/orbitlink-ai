@@ -101,6 +101,14 @@ describe("auxiliares", () => {
     expect(localMidnight(t, "America/Sao_Paulo", -1)).toBe(Date.UTC(2026, 10, 13, 3) / 1000);
   });
 
+  it("0h local usa o deslocamento do dia de destino no horário de verão", () => {
+    const spring = Date.UTC(2026, 2, 9, 16) / 1000;
+    expect(localMidnight(spring, "America/New_York", -1)).toBe(Date.UTC(2026, 2, 8, 5) / 1000);
+
+    const autumn = Date.UTC(2026, 10, 2, 17) / 1000;
+    expect(localMidnight(autumn, "America/New_York", -1)).toBe(Date.UTC(2026, 10, 1, 4) / 1000);
+  });
+
   it("traduz erros do Supabase Auth", () => {
     expect(translateAuthError("Invalid login credentials", 400)).toBe("E-mail ou senha incorretos.");
     expect(translateAuthError("Email not confirmed", 400)).toContain("Confirme o e-mail");

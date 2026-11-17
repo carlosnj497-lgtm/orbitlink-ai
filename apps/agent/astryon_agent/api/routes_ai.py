@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from ..ai import copilot, telegram_bot, transcribe
-from .deps import AppContext, Ctx, User
+from .deps import Admin, AppContext, Ctx, User
 
 log = logging.getLogger("astryon.ai")
 router = APIRouter(prefix="/v1/ai", tags=["assistente"])
@@ -34,6 +36,46 @@ def status(c: Ctx, _u: User) -> dict[str, Any]:
                       "usage": audio_usage,
                       "pricing_usd_per_hour": transcribe.AUDIO_PRICING_USD_PER_HOUR.get(c.settings.ai_transcribe_model),
                       "telegram": bool(bot and bot.transcriber.enabled()) if bot else False}}
+
+
+GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models"
+
+
+@router.post("/test")
+async def test_connection(c: Ctx, _a: Admin) -> dict[str, Any]:
+    """Confere a chave da Groq listando os modelos (não gasta tokens nem conta no limite diário)."""
+    key = c.settings.groq_api_key
+    if not key or not key.get_secret_value():
+        return {"ok": False, "detail": "Nenhuma chave da Groq definida. O assistente está usando só as regras.",
+                "latency_ms": None, "model_available": None}
+    started = time.monotonic()
+    try:
+        async with httpx.AsyncClient(timeout=10.0, transport=c.extras.get("groq_test_transport")) as http:
+            r = await http.get(GROQ_MODELS_URL, headers={"Authorization": f"Bearer {key.get_secret_value()}"})
+    except httpx.HTTPError as exc:
+        log.warning("teste da Groq falhou: %s", type(exc).__name__)
+        return {"ok": False, "detail": "Não foi possível falar com a Groq. Verifique a internet do servidor.",
+                "latency_ms": None, "model_available": None}
+    latency = round((time.monotonic() - started) * 1000)
+    if r.status_code in (401, 403):
+        return {"ok": False, "detail": "A Groq recusou a chave: ela está errada, foi revogada ou expirou.",
+                "latency_ms": latency, "model_available": None}
+    if r.status_code == 429:
+        return {"ok": False, "detail": "A chave é válida, mas a Groq está limitando as requisições agora. Tente de novo em instantes.",
+                "latency_ms": latency, "model_available": None}
+    if r.status_code >= 400:
+        log.warning("teste da Groq HTTP %s", r.status_code)
+        return {"ok": False, "detail": f"A Groq respondeu com erro (HTTP {r.status_code}). Tente de novo mais tarde.",
+                "latency_ms": latency, "model_available": None}
+    try:
+        ids = {str(m.get("id")) for m in (r.json() or {}).get("data", []) if isinstance(m, dict)}
+    except ValueError:
+        ids = set()
+    available = (c.settings.ai_model in ids) if ids else None
+    detail = "Conexão funcionando." if available is not False else (
+        f"A chave funciona, mas o modelo {c.settings.ai_model} não está disponível para ela. "
+        "Ajuste ASTRYON_AI_MODEL.")
+    return {"ok": available is not False, "detail": detail, "latency_ms": latency, "model_available": available}
 
 
 @router.post("/ask")

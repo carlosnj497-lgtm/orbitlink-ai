@@ -130,3 +130,60 @@ async def test_rejected_item_is_isolated_and_leaves_the_queue(env):
     assert all(rows[k]["synced_at"] for k in ("1:0", "1:1", "1:3"))  # os bons foram enviados
     assert rows["1:2"]["synced_at"] is None and rows["1:2"]["attempts"] >= worker.MAX_ATTEMPTS
     assert "HTTP 400" in rows["1:2"]["last_error"]
+
+
+async def test_old_events_retry_and_concurrent_close(env):
+    from astryon_agent.storage.db import now_ts
+    s, db, _ = env
+    start = now_ts() - 72 * 3600
+    db.execute("INSERT INTO connection_events(kind, start_ts, confidence) VALUES ('unreachable', ?, 'derivado')", (start,))
+    event_id = db.scalar("SELECT id FROM connection_events")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(503))) as c:
+        with pytest.raises(RuntimeError):
+            await worker.push_once(db, s, c, True)
+    assert len(worker.event_snapshot(db)[0]) == 1
+
+    def close_during_send(req):
+        assert json.loads(req.content)["p_batch"]["events"][0]["end_ts"] is None
+        db.execute("UPDATE connection_events SET end_ts = ?, duration_s = 60 WHERE id = ?", (start + 60, event_id))
+        return httpx.Response(200, json={"ok": True})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(close_during_send)) as c:
+        await worker.push_once(db, s, c, True)
+    assert worker.event_snapshot(db)[0][0]["end_ts"] == start + 60
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200, json={}))) as c:
+        await worker.push_once(db, s, c, True)
+    assert worker.event_snapshot(db)[0] == []
+
+
+def test_event_backlog_paginates_and_survives_reopen(env):
+    s, db, _ = env
+    for i in range(1005):
+        db.execute("INSERT INTO connection_events(kind, start_ts, end_ts, confidence) VALUES ('ping_drop', ?, ?, 'derivado')",
+                   (i, i + 1))
+    batch, sent = worker.event_snapshot(db)
+    assert len(batch) == 1000
+    worker.confirm_events(db, sent)
+    reopened = Database(db.path)
+    try:
+        assert len(worker.event_snapshot(reopened)[0]) == 5
+    finally:
+        reopened.close()
+
+
+def test_event_migration_backfills_existing_database(tmp_path):
+    from pathlib import Path
+    db = Database(tmp_path / "old.sqlite3")
+    db.execute("DROP TRIGGER event_sync_insert")
+    db.execute("DROP TRIGGER event_sync_update")
+    db.execute("DROP TABLE event_sync")
+    db.execute("DELETE FROM schema_migrations WHERE version = 11")
+    db.execute("INSERT INTO connection_events(kind, start_ts, end_ts, confidence) VALUES ('ping_drop', 1, 2, 'derivado')")
+    db.close()
+    upgraded = Database(Path(tmp_path / "old.sqlite3"))
+    try:
+        assert len(worker.event_snapshot(upgraded)[0]) == 1
+        assert upgraded.migrate() == []
+    finally:
+        upgraded.close()

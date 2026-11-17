@@ -22,7 +22,7 @@
 | Teste sem antena | `FixtureTransport` + servidor gRPC sintético com reflection (`tests/fakegrpc`) | Exercita o caminho real de reflection. Toda fixture exige `_fixture.kind`. |
 | Navegador ↔ agente | Sempre via proxy Next | O token de serviço nunca chega ao navegador, e o agente fica só em loopback. |
 | Banco local | SQLite WAL, um writer com lock e `asyncio.to_thread` | Sem servidor extra e robusto offline. |
-| Sincronização | RPC `ingest_batch` com anon key + token do agente | Sem `service_role` na máquina, com upsert idempotente. |
+| Sincronização | RPC `ingest_batch` com anon key + token do agente | Sem `service_role` na máquina, com upsert idempotente. Eventos têm fila persistente por revisão, incluindo encerramentos e histórico anterior à atualização, até a retenção local. |
 | ESP32 | Listener separado, apenas 3 rotas HMAC | Superfície mínima na LAN. A API principal continua em loopback. |
 | IA | Loop manual de tools `strict`, somente leitura | O modelo não tem como executar ações. |
 

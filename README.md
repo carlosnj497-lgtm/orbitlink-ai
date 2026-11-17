@@ -217,13 +217,13 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 | Componente | Situação |
 |---|---|
 | Conector gRPC | Testado contra servidor gRPC sintético com reflection. **Ainda não validado em antenas reais**; a compatibilidade por modelo e firmware precisa ser confirmada. |
-| Agente | 169 testes pytest, ruff e mypy strict. Dependências travadas com hash. |
-| Painel | 56 testes Vitest e 9 E2E Playwright (incluindo acessibilidade com axe). |
+| Agente | Testes pytest, ruff e mypy strict. Dependências travadas com hash. |
+| Painel | Testes Vitest e E2E Playwright (incluindo acessibilidade com axe). |
 | Telegram e notificações | Comandos, fila de reenvio e resumo semanal testados com servidor simulado. |
 | IA (Groq) e Whisper | Testados com o endpoint real da Groq; áudio validado com voz sintética. |
-| Supabase | 11 testes de isolamento RLS em Postgres (PGlite). Ainda não aplicado a um projeto real. |
-| Firmware ESP32 | Compila (`esp32dev` e `esp32dev_sensors`). Ainda não gravado em placa. |
-| Implantação Linux | 51 testes dos scripts e instalação real num Ubuntu 24.04 limpo no CI. |
+| Supabase | Testes de isolamento RLS em Postgres (PGlite). Ainda não aplicado a um projeto real. |
+| Firmware ESP32 | A versão 0.2.0 com pareamento v2 ainda precisa de compilação nos dois ambientes e validação em placa. |
+| Implantação Linux | Testes dos scripts e instalação real num Ubuntu 24.04 limpo no CI. |
 | Painel na nuvem (Vercel + Supabase) | Login por e-mail, pareamento por código, Dashboard, Consumo, Qualidade, Eventos e Conta. Testado com Supabase simulado; falta publicar e aplicar o SQL no seu projeto. |
 
 ## Roteiro

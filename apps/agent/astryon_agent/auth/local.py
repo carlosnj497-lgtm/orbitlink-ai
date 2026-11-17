@@ -139,3 +139,16 @@ class RateLimiter:
     def reset(self, key: str) -> None:
         """Zera a contagem (login certo): o limite existe contra senhas erradas, não contra o próprio usuário."""
         self._hits.pop(key, None)
+
+
+def recover_admin(db: Database, username: str, password: str) -> None:
+    """Recuperação pelo console local de um administrador sem hash após backup sanitizado."""
+    if len(password) < MIN_PASSWORD_LEN:
+        raise ValueError(f"A senha precisa de pelo menos {MIN_PASSWORD_LEN} caracteres.")
+    with db.tx() as c:
+        row = c.execute("SELECT id FROM local_users WHERE username = ? AND role = 'admin' AND password_hash = ''",
+                        (username,)).fetchone()
+        if row is None:
+            raise ValueError("Administrador sem senha não encontrado. Use a troca de senha normal para contas ativas.")
+        c.execute("UPDATE local_users SET password_hash = ? WHERE id = ?", (hash_password(password), row["id"]))
+        c.execute("DELETE FROM sessions WHERE user_id = ?", (row["id"],))

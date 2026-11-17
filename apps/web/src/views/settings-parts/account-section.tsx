@@ -41,7 +41,16 @@ export function AccountSection() {
     }
   }
   return (
-    <Section id="conta" title="Conta e segurança" icon={UserRound} description="Usuário local deste painel. Trocar a senha encerra todas as sessões abertas.">
+    <Section
+      id="conta"
+      title="Conta e segurança"
+      icon={UserRound}
+      state={demo ? "off" : me.data ? "ok" : me.isLoading ? "loading" : "warn"}
+      stateLabel={demo ? "demonstração" : undefined}
+      value={demo ? "Visitante" : (me.data?.username ?? "—")}
+      detail={demo ? "Troca de senha indisponível" : me.data?.role === "admin" ? "Administrador local · trocar senha" : "Trocar senha"}
+      description="Usuário local deste painel. Trocar a senha encerra todas as sessões abertas."
+    >
       <dl className="mb-4">
         <Row label="Usuário" value={demo ? "Visitante (demonstração)" : (me.data?.username ?? "—")} />
         <Row label="Papel" value={demo ? "—" : me.data?.role === "admin" ? "Administrador local" : (me.data?.role ?? "—")} />
@@ -52,8 +61,8 @@ export function AccountSection() {
           <Input id="old" type="password" autoComplete="current-password" value={old} onChange={(e) => setOld(e.target.value)} />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="new">Nova senha (mín. 10)</Label>
-          <Input id="new" type="password" autoComplete="new-password" minLength={10} value={nw} onChange={(e) => setNw(e.target.value)} />
+          <Label htmlFor="new">Nova senha (mínimo de 10 caracteres)</Label>
+          <Input id="new" type="password" autoComplete="new-password" minLength={10} maxLength={256} value={nw} onChange={(e) => setNw(e.target.value)} />
         </div>
         <div className="space-y-1">
           <Label htmlFor="new2">Repita a nova senha</Label>

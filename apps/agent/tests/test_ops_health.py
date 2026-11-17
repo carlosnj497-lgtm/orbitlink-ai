@@ -217,3 +217,42 @@ async def test_telegram_backup_never_goes_to_group(tmp_path, db):
     t = httpx.MockTransport(lambda req: pytest.fail("não deveria enviar para grupo"))
     r = await backup.run_once(db, s, t)
     assert r["created"] and r["sent_telegram"] is False
+
+
+def test_sanitized_backup_recovery_preserves_user(tmp_path, db):
+    from astryon_agent.auth import local
+    uid = local.setup_admin(db, "admin", "senha-forte-123")
+    with pytest.raises(ValueError):
+        local.recover_admin(db, "admin", "nova-senha-forte")
+    clean = backup.make_sanitized(backup.make_backup(db, _settings(tmp_path)))
+    path = tmp_path / "restored.sqlite3"
+    path.write_bytes(gzip.decompress(clean.read_bytes()))
+    restored = Database(path)
+    try:
+        assert local.login(restored, "admin", "senha-forte-123") is None
+        with pytest.raises(ValueError):
+            local.recover_admin(restored, "admin", "a")
+        local.recover_admin(restored, "admin", "nova-senha-forte")
+        session, _ = local.login(restored, "admin", "nova-senha-forte")
+        assert local.validate_session(restored, session)["id"] == uid
+        with pytest.raises(ValueError):
+            local.recover_admin(restored, "admin", "outra-senha-forte")
+    finally:
+        restored.close()
+
+
+def test_recover_admin_cli_uses_explicit_database(tmp_path, db, monkeypatch, capsys):
+    import getpass
+    from argparse import Namespace
+
+    from astryon_agent.auth import local
+    from astryon_agent.cli import _cmd_recover_admin
+
+    uid = local.setup_admin(db, "admin", "senha-forte-123")
+    db.execute("UPDATE local_users SET password_hash = '' WHERE id = ?", (uid,))
+    monkeypatch.setattr(getpass, "getpass", lambda prompt: "nova-senha-forte")
+    args = Namespace(username="admin", database=db.path)
+    assert _cmd_recover_admin(args) == 0
+    assert local.login(db, "admin", "nova-senha-forte") is not None
+    assert "nova-senha-forte" not in capsys.readouterr().out
+    assert _cmd_recover_admin(args) == 1

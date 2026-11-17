@@ -21,7 +21,8 @@ def sync_state(c: Ctx, _u: User) -> dict[str, Any]:
     return {
         "configured": p["cloud_configured"] and p["paired"],
         "pairing": p,
-        "pending": c.db.scalar("SELECT COUNT(*) FROM sync_queue WHERE synced_at IS NULL"),
+        "pending": c.db.scalar("SELECT (SELECT COUNT(*) FROM sync_queue WHERE synced_at IS NULL) "
+                      "+ (SELECT COUNT(*) FROM event_sync WHERE synced_revision < revision)"),
         "failed_attempts": c.db.scalar("SELECT COALESCE(MAX(attempts),0) FROM sync_queue WHERE synced_at IS NULL"),
         "state": c.extras.get("sync_state", {}),
     }

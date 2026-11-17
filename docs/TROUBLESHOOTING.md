@@ -25,3 +25,20 @@
 | Acentos estranhos nos scripts | PowerShell 5.1 sem BOM | Os `.ps1` são salvos em UTF-8 com BOM. Não converta |
 
 Logs: `data\run\agent.log` (JSON: `ts`, `level`, `cid` = correlation id), `data\run\web.log`. Cada resposta do agente tem `X-Request-ID`.
+
+## Recuperar acesso após restaurar backup do Telegram
+
+A cópia sanitizada mantém os usuários e suas referências, mas remove senhas e sessões.
+Após restaurar o banco e com o agente parado, execute no console da máquina:
+
+```bash
+astryon-agent recover-admin --username SEU_USUARIO --database CAMINHO_DO_BANCO
+```
+
+No servidor Linux instalado, use `sudo astryonctl recover-admin --username SEU_USUARIO`.
+No ambiente de desenvolvimento, use `apps/agent/.venv/bin/python -m astryon_agent`
+(no Windows, `apps\agent\.venv\Scripts\python.exe -m astryon_agent`) no lugar de `astryon-agent`.
+A senha é solicitada sem aparecer na tela. O comando só recupera um administrador
+cujo hash está vazio; contas ativas continuam exigindo a troca normal de senha.
+Inicie o agente e entre com a nova senha. Pareie novamente ESP32 e nuvem.
+O procedimento também funciona com backups sanitizados de versões anteriores.

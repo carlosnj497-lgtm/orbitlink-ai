@@ -1,18 +1,19 @@
 "use client";
 
-import type { AgentInfo, MetricKey, StatusResponse, Telemetry } from "@astryon/shared";
-import { Activity, ArrowRight, Clock, Cpu, Navigation, Radar, RadioTower, RefreshCw, SatelliteDish, ShieldCheck, SlidersHorizontal, Zap } from "lucide-react";
+import type { AgentInfo, MetricKey, Source, StatusResponse, Telemetry } from "@astryon/shared";
+import { Activity, ArrowRight, Clock, Cpu, Radar, RadioTower, RefreshCw, SatelliteDish, ShieldCheck, SlidersHorizontal, Zap } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { DishArt } from "@/components/art/DishArt";
 import { TelemetryChart } from "@/components/charts";
 import { CoverageBar, PageHeader, QueryError, SourceBadge, StatePill } from "@/components/domain";
 import { hrefOf } from "@/components/shell/nav";
 import { Badge, Button, Callout, Card, CardBody, CardHeader, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { useAgent, useStatusInterval } from "@/lib/api";
 import { useBasePath } from "@/lib/demo-context";
-import { fmtDateTime, fmtDuration, fmtNumber, fmtPct } from "@/lib/format";
-import { num, StatTile } from "./dashboard/parts";
+import { fmtDateTime, fmtDuration, fmtNumber } from "@/lib/format";
+import { SectionHead } from "./antenna-parts/section";
+import { type PartState, StateLight, SystemDiagram } from "./antenna-parts/system-diagram";
+import { num } from "./dashboard/parts";
 import { RangeTabs } from "./shared";
 
 /** Leituras técnicas exibidas na tabela, na ordem em que aparecem (só as que o firmware informar). */
@@ -36,6 +37,8 @@ function techValue(v: unknown, unit: string | null | undefined, fmt?: "duration"
   return String(v);
 }
 
+const LINK_CLASS = "inline-flex h-8 items-center gap-2 rounded-md border border-accent-2/40 bg-accent-soft px-3 text-sm font-medium text-accent transition-colors hover:border-accent";
+
 export default function AntennaView() {
   const base = useBasePath();
   const [range, setRange] = useState("24h");
@@ -44,8 +47,6 @@ export default function AntennaView() {
   const tel = useAgent<Telemetry>(`telemetry?range=${range}`, { refetchInterval: 120_000 });
   const st = status.data?.available ? status.data.status : null;
   const m = st?.metrics;
-  const uptime = num(m?.uptime_s?.value);
-  const obst = num(m?.obstruction_pct?.value);
   const hasPower = tel.data?.points.some((p) => p.power_w !== null) ?? false;
   const lastPower = [...(tel.data?.points ?? [])].reverse().find((p) => p.power_w !== null)?.power_w ?? null;
   const unavailable = status.data ? ("indisponivel" as const) : null;
@@ -56,8 +57,34 @@ export default function AntennaView() {
   const signal = m?.snr_above_noise_floor?.value;
   const gps = m?.gps_valid?.value;
   const obstructed = m?.currently_obstructed?.value;
+  const gpsSats = num(m?.gps_sats?.value);
   const source = st ? (st.origin === "grpc" ? "real" : "demonstracao") : "indisponivel";
-  const refresh = () => { void status.refetch(); void agent.refetch(); void tel.refetch(); };
+  const refresh = () => {
+    void status.refetch();
+    void agent.refetch();
+    void tel.refetch();
+  };
+  // Leitura boa só conta como "ok" com dado novo; atrasada, vira neutra.
+  const light = (ok: boolean, warn: boolean): PartState => (warn ? "warn" : ok && !stale ? "ok" : "off");
+
+  const lat = num(m?.pop_latency_ms?.value);
+  const drop = num(m?.pop_drop_pct?.value);
+  const keyNumbers: { label: string; value: string | null; unit?: string; source: Source | null; loading: boolean; warn?: boolean }[] = [
+    { label: "Latência até o PoP", value: lat === null ? null : fmtNumber(lat, 0), unit: "ms", source: m?.pop_latency_ms?.source ?? unavailable, loading },
+    { label: "Perda de ping ao PoP", value: drop === null ? null : fmtNumber(drop, 2), unit: "%", source: m?.pop_drop_pct?.source ?? unavailable, loading, warn: drop !== null && drop > 5 },
+    {
+      label: "Última potência registrada",
+      value: lastPower === null ? null : fmtNumber(lastPower, 1),
+      unit: "W",
+      source: lastPower === null ? (tel.data ? "indisponivel" : null) : tel.data?.source === "demonstracao" ? "demonstracao" : "real",
+      loading: !tel.data && !tel.error,
+    },
+  ];
+  const conditions = [
+    { label: "Sinal de rádio", value: signal === true ? "Acima do piso de ruído" : signal === false ? "Abaixo do piso de ruído" : "Não informado", state: light(signal === true, signal === false), note: "Indicador reportado pela antena" },
+    { label: "Visibilidade do céu", value: obstructed === true ? "Obstrução neste momento" : obstructed === false ? "Sem obstrução no momento" : "Não informada", state: light(obstructed === false, obstructed === true), note: "Condição na última leitura" },
+    { label: "Posicionamento GPS", value: gps === true ? "Posição válida" : gps === false ? "Sem posição válida" : "Não informado", state: light(gps === true, gps === false), note: gpsSats !== null ? `${fmtNumber(gpsSats, 0)} satélites GPS em uso` : "Satélites GPS não informados" },
+  ];
 
   return (
     <>
@@ -66,12 +93,14 @@ export default function AntennaView() {
         icon={<SatelliteDish />}
         description="Uma visão completa do seu terminal: conexão, visibilidade do céu e energia."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={refresh} disabled={status.isFetching || agent.isFetching || tel.isFetching}><RefreshCw className="size-4" /> Atualizar</Button>
-            <Link href={hrefOf(base, "controle")} className="inline-flex h-8 items-center gap-2 rounded-lg border border-accent/30 bg-accent/10 px-3 text-sm font-medium text-accent hover:bg-accent/20">
+          <>
+            <Button size="sm" onClick={refresh} disabled={status.isFetching || agent.isFetching || tel.isFetching}>
+              <RefreshCw className="size-4" /> Atualizar
+            </Button>
+            <Link href={hrefOf(base, "controle")} className={LINK_CLASS}>
               <SlidersHorizontal className="size-4" /> Controle da antena
             </Link>
-          </div>
+          </>
         }
       />
       {status.error && (
@@ -80,80 +109,126 @@ export default function AntennaView() {
         </div>
       )}
 
-      <div className="space-y-5">
+      <SystemDiagram current="antena" />
+
+      {/* ---------------------------------------------------------- Agora */}
+      <section aria-labelledby="agora-t" className="mb-8 space-y-3">
+        <SectionHead id="agora-t" title="Agora">
+          Estado da antena na última leitura da API local
+        </SectionHead>
         {stale && <Callout tone="warn" title="Aguardando uma nova leitura">Os dados abaixo são da última comunicação e podem estar desatualizados.</Callout>}
-        <section className="relative isolate overflow-hidden ol-hud rounded-md border border-accent-2/30 bg-[radial-gradient(ellipse_at_25%_40%,rgb(0_82_136/0.28),transparent_65%)]">
-          <div className="grid lg:grid-cols-[1.1fr_1fr]">
-            <div className="relative flex min-h-80 flex-col justify-between overflow-hidden p-6 sm:p-8">
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                {status.data && <SourceBadge source={source} />}
-              </div>
-              <div className="flex flex-wrap items-center gap-5 py-5 sm:flex-nowrap">
-                <div className="relative grid size-44 shrink-0 place-items-center rounded-full border border-accent/15 bg-accent/5 sm:size-52">
-                  <div aria-hidden className="absolute inset-4 rounded-full border border-dashed border-accent/20" />
-                  <DishArt className="relative w-44 sm:w-52" dim={state !== "conectada" && state !== "degradada"} />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="break-words text-2xl font-semibold tracking-tight sm:text-3xl">{agent.data?.terminal_name ?? "Starlink Mini"}</h2>
-                  <div className="mt-3">{state ? <StatePill state={state} /> : loading ? <Skeleton className="h-6 w-28" /> : <Badge>Sem comunicação</Badge>}</div>
-                  <p className="mt-3 max-w-xs text-sm leading-relaxed text-fg-muted">{status.data && !status.data.available ? status.data.reason : "Telemetria do equipamento pela API local da Starlink."}</p>
-                </div>
-              </div>
-              <p className="flex items-center gap-2 text-xs text-fg-muted"><Clock className="size-3.5 shrink-0" /> Última leitura: {st ? fmtDateTime(Date.parse(st.observed_at) / 1000) : "aguardando dados"}</p>
+
+        <div className="ol-card">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+              <h3 className="break-words font-display text-[19px] font-semibold text-fg">{agent.data?.terminal_name ?? "Starlink Mini"}</h3>
+              {state ? <StatePill state={state} /> : loading ? <Skeleton className="h-6 w-28" /> : <Badge>Sem comunicação</Badge>}
+              {status.data && !status.data.available && <p className="w-full text-sm text-fg-muted sm:w-auto">{status.data.reason}</p>}
             </div>
-            <div className="flex flex-col justify-center gap-3 border-t border-border bg-bg-elev/40 p-5 sm:p-6 lg:border-l lg:border-t-0">
-              <h2 className="mb-1 text-sm font-semibold">Condições de recepção</h2>
-              {[
-                { icon: RadioTower, label: "Sinal de rádio", value: signal === true ? "Acima do piso de ruído" : signal === false ? "Abaixo do piso de ruído" : "Não informado", ok: signal === true, warn: signal === false, note: "Indicador reportado pela antena" },
-                { icon: Radar, label: "Visibilidade do céu", value: obstructed === true ? "Obstrução neste momento" : obstructed === false ? "Sem obstrução no momento" : "Não informada", ok: obstructed === false, warn: obstructed === true, note: "Condição na última leitura" },
-                { icon: Navigation, label: "Posicionamento GPS", value: gps === true ? "Posição válida" : gps === false ? "Sem posição válida" : "Não informado", ok: gps === true, warn: gps === false, note: num(m?.gps_sats?.value) !== null ? `${fmtNumber(num(m?.gps_sats?.value)!, 0)} satélites GPS em uso` : "Satélites GPS não informados" },
-              ].map(({ icon: Icon, label, value, ok, warn, note }) => (
-                <div key={label} className="flex items-center gap-3 rounded-md border border-border bg-surface/70 p-3.5">
-                  <span className={`grid size-10 shrink-0 place-items-center rounded-md ${!stale && ok ? "bg-ok/10 text-ok" : warn ? "bg-warn/10 text-warn" : "bg-surface-3 text-fg-muted"}`}><Icon className="size-5" /></span>
-                  <div className="min-w-0 flex-1"><p className="text-xs text-fg-muted">{label}</p>{loading ? <Skeleton className="mt-1 h-5 w-32" /> : <p className="mt-0.5 text-sm font-medium">{value}</p>}<p className="mt-0.5 text-[11px] text-fg-subtle">{note}</p></div>
-                </div>
-              ))}
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="flex items-center gap-2 text-xs text-fg-muted">
+                <Clock className="size-3.5 shrink-0" aria-hidden /> Última leitura: {st ? <span className="tabular">{fmtDateTime(Date.parse(st.observed_at) / 1000)}</span> : "aguardando dados"}
+              </p>
+              {status.data && <SourceBadge source={source} />}
             </div>
           </div>
-        </section>
-
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatTile label="Tempo ligada" icon={<Clock />} color="blue" value={uptime === null ? "—" : fmtDuration(uptime)} source={m?.uptime_s?.source ?? unavailable} loading={loading} footer="Desde a última reinicialização" />
-          <StatTile label="Latência até o PoP" icon={<Activity />} color="blue" value={num(m?.pop_latency_ms?.value) === null ? "—" : fmtNumber(num(m?.pop_latency_ms?.value)!, 0)} unit="ms" source={m?.pop_latency_ms?.source ?? unavailable} loading={loading} footer="Tempo de resposta da rede Starlink" />
-          <StatTile
-            label="Obstrução"
-            icon={<Radar />}
-            color="amber"
-            value={obst === null ? "—" : fmtPct(obst, 2)}
-            source={m?.obstruction_pct?.source ?? unavailable}
-            loading={loading}
-            tone={obst !== null && obst > 5 ? "warn" : undefined}
-            footer={
-              <Link href={hrefOf(base, "obstrucoes")} className="text-accent hover:underline">
-                Ver mapa do céu
-              </Link>
-            }
-          />
-          <StatTile
-            label="Última potência registrada"
-            icon={<Zap />}
-            color="green"
-            value={lastPower === null ? "—" : fmtNumber(lastPower, 1)}
-            unit={lastPower === null ? undefined : "W"}
-            source={lastPower === null ? (tel.data ? "indisponivel" : null) : tel.data?.source === "demonstracao" ? "demonstracao" : "real"}
-            loading={!tel.data && !tel.error}
-            footer={lastPower === null ? "Não informado por este firmware" : "Entrada de energia (power_in)"}
-          />
+          {/* Números-chave que o diagrama não mostra (estado, céu e tempo ligada já estão nele). */}
+          <dl className="grid grid-cols-1 divide-y divide-border border-t border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            {keyNumbers.map((k) => (
+              <div key={k.label} className="flex items-center justify-between gap-3 px-4 py-3 sm:flex-col sm:items-start sm:justify-start sm:gap-1.5">
+                <dt className="ol-label">{k.label}</dt>
+                <dd className="flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1 sm:justify-start">
+                  {k.loading ? (
+                    <Skeleton className="h-5 w-20" />
+                  ) : k.value === null ? (
+                    <span className="text-sm text-fg-subtle">sem leitura</span>
+                  ) : (
+                    <span className={k.warn ? "text-warn" : "text-fg"}>
+                      <span className="tabular text-[19px] font-medium tracking-[-0.03em]">{k.value}</span>
+                      {k.unit && <span className="ml-1 text-[11px] text-fg-muted">{k.unit}</span>}
+                    </span>
+                  )}
+                  {k.source && <SourceBadge source={k.source} className="self-center" />}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </div>
+        <div className="grid items-start gap-3 lg:grid-cols-[1.2fr_1fr]">
+          <Card className="min-w-0">
+            <CardHeader title="Condições de recepção" icon={<RadioTower />} subtitle="O que a antena informou sobre sinal, céu e GPS" />
+            <CardBody>
+              <ul className="divide-y divide-border/60">
+                {conditions.map((c) => (
+                  <li key={c.label} className="flex items-start justify-between gap-4 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-sm text-fg-muted">{c.label}</p>
+                      <p className="mt-0.5 text-[11px] text-fg-subtle">{c.note}</p>
+                    </div>
+                    {loading ? (
+                      <Skeleton className="h-5 w-32" />
+                    ) : (
+                      <span className="flex items-center gap-2 text-right text-sm font-medium text-fg">
+                        <StateLight state={c.state} label="" className="gap-0" />
+                        {c.value}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </CardBody>
+          </Card>
 
-        <div className="grid items-start gap-5 xl:grid-cols-[1.6fr_1fr]">
+          <Card className="min-w-0">
+            <CardHeader title="Saúde do equipamento" icon={<ShieldCheck />} subtitle="Alertas reportados na última comunicação" />
+            <CardBody>
+              {loading ? (
+                <Skeleton className="h-24 w-full" />
+              ) : !st ? (
+                <EmptyState title="Aguardando a antena" className="py-6">
+                  Os alertas aparecerão quando houver uma leitura disponível.
+                </EmptyState>
+              ) : (
+                <Callout tone={stale || st.alerts.length ? "warn" : "ok"} title={stale ? "Leitura desatualizada" : st.alerts.length ? `${st.alerts.length} alerta(s) da antena` : "Nenhum alerta reportado"}>
+                  {st.alerts.length ? (
+                    <ul className="list-inside list-disc break-words">
+                      {st.alerts.map((alert) => (
+                        <li key={alert}>{alert}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    "A última leitura não contém alertas do equipamento."
+                  )}
+                </Callout>
+              )}
+              <p className="mt-3 text-xs leading-relaxed text-fg-subtle">A API local não informa temperatura ou modo de energia. Superaquecimento, quando reportado, aparece nos alertas.</p>
+              <div className="mt-4 space-y-1 border-t border-border pt-3">
+                {[
+                  { slug: "obstrucoes" as const, title: "Explorar o mapa do céu", text: "Confira a visibilidade e as obstruções.", icon: Radar },
+                  { slug: "diagnosticos" as const, title: "Abrir diagnósticos", text: "Investigue a comunicação com a antena.", icon: Activity },
+                ].map(({ slug, title, text, icon: Icon }) => (
+                  <Link key={slug} href={hrefOf(base, slug)} className="group flex items-center gap-3 rounded-md p-2.5 transition-colors hover:bg-surface-2">
+                    <Icon className="size-4 shrink-0 stroke-[1.75] text-accent" aria-hidden />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-fg">{title}</p>
+                      <p className="mt-0.5 text-xs text-fg-muted">{text}</p>
+                    </div>
+                    <ArrowRight className="size-4 text-fg-subtle group-hover:text-accent" aria-hidden />
+                  </Link>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------- Tendência */}
+      <section aria-labelledby="tendencia-t" className="mb-8">
+        <SectionHead id="tendencia-t" title="Energia ao longo do tempo" actions={<RangeTabs value={range} onChange={setRange} options={[{ value: "1h", label: "1h" }, { value: "6h", label: "6h" }, { value: "24h", label: "24h" }, { value: "7d", label: "7d" }]} />}>
+          Potência de entrada reportada pela antena, em watts
+        </SectionHead>
         <Card className="min-w-0">
-          <CardHeader title="Histórico de energia" icon={<Zap />} subtitle="Potência de entrada reportada pela antena · watts" />
-          <CardBody>
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-fg-muted">Selecione o período</p>
-              <RangeTabs value={range} onChange={setRange} options={[{ value: "1h", label: "1h" }, { value: "6h", label: "6h" }, { value: "24h", label: "24h" }, { value: "7d", label: "7d" }]} />
-            </div>
+          <CardBody className="pt-4">
             {tel.isLoading && <Skeleton className="h-60 w-full" />}
             {tel.error && <QueryError error={tel.error} onRetry={() => tel.refetch()} />}
             {tel.data && !hasPower && (
@@ -172,86 +247,75 @@ export default function AntennaView() {
             )}
           </CardBody>
         </Card>
+      </section>
 
-        <Card className="min-w-0">
-          <CardHeader title="Saúde do equipamento" icon={<ShieldCheck />} subtitle="Alertas reportados na última comunicação" />
-          <CardBody>
-            {loading ? <Skeleton className="h-24 w-full" /> : !st ? <EmptyState title="Aguardando a antena" className="py-6">Os alertas aparecerão quando houver uma leitura disponível.</EmptyState> : (
-              <Callout tone={stale || st.alerts.length ? "warn" : "ok"} title={stale ? "Leitura desatualizada" : st.alerts.length ? `${st.alerts.length} alerta(s) da antena` : "Nenhum alerta reportado"}>
-                {st.alerts.length ? <ul className="list-inside list-disc break-words">{st.alerts.map((alert) => <li key={alert}>{alert}</li>)}</ul> : "A última leitura não contém alertas do equipamento."}
-              </Callout>
-            )}
-            <p className="mt-3 text-xs leading-relaxed text-fg-subtle">A API local não informa temperatura ou modo de energia. Superaquecimento, quando reportado, aparece nos alertas.</p>
-            <div className="mt-5 space-y-2 border-t border-border pt-4">
-              {[
-                { slug: "obstrucoes" as const, title: "Explorar o mapa do céu", text: "Confira a visibilidade e as obstruções.", icon: Radar },
-                { slug: "diagnosticos" as const, title: "Abrir diagnósticos", text: "Investigue a comunicação com a antena.", icon: Activity },
-              ].map(({ slug, title, text, icon: Icon }) => (
-                <Link key={slug} href={hrefOf(base, slug)} className="group flex items-center gap-3 rounded-md p-3 transition-colors hover:bg-surface-2">
-                  <Icon className="size-5 shrink-0 text-accent" /><div className="flex-1"><p className="text-sm font-medium">{title}</p><p className="mt-0.5 text-xs text-fg-muted">{text}</p></div><ArrowRight className="size-4 text-fg-subtle group-hover:text-accent" />
-                </Link>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
+      {/* ---------------------------------------------------------- Detalhes técnicos */}
+      <section aria-labelledby="detalhes-t" className="mb-4">
+        <SectionHead id="detalhes-t" title="Detalhes técnicos">
+          Identificação e leituras brutas, somente o que o firmware informou
+        </SectionHead>
+        <div className="grid items-start gap-3 xl:grid-cols-[1fr_1.6fr]">
+          <Card className="min-w-0">
+            <CardHeader title="Identificação do terminal" icon={<Cpu />} subtitle="Hardware, software e comunicação local" />
+            <CardBody>
+              {agent.error && <QueryError error={agent.error} onRetry={() => agent.refetch()} />}
+              <dl className="divide-y divide-border/60 text-sm">
+                {[
+                  ["Hardware", st?.device.hardware_version ?? agent.data?.hardware ?? "Não identificado"],
+                  ["Firmware", st?.device.software_version ?? agent.data?.firmware ?? "Não identificado"],
+                  ["Reinicializações", st?.device.bootcount != null ? fmtNumber(st.device.bootcount, 0) : "Não informado"],
+                  ["Endereço consultado", agent.data?.dish_target ?? "—"],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-start justify-between gap-4 py-2.5">
+                    <dt className="text-sm text-fg-muted">{label}</dt>
+                    <dd className="max-w-[60%] break-all text-right font-mono text-xs leading-relaxed text-fg">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </CardBody>
+          </Card>
+          <Card className="min-w-0">
+            <CardHeader title="Leituras técnicas" icon={<RadioTower />} subtitle="Somente o que a antena informou agora" />
+            <CardBody>
+              {loading ? (
+                <Skeleton className="h-48 w-full" />
+              ) : rows.length === 0 ? (
+                <EmptyState title="Sem leituras" className="py-8">
+                  A antena não está enviando dados no momento.
+                </EmptyState>
+              ) : (
+                <ul className="grid gap-x-6 sm:grid-cols-2">
+                  {rows.map((t) => {
+                    const metric = m![t.key]!;
+                    return (
+                      <li key={t.key} className="flex items-center justify-between gap-3 border-b border-border/60 py-2.5">
+                        <div className="min-w-0">
+                          <p className="text-xs text-fg-muted">{t.label}</p>
+                          <p className="tabular mt-0.5 text-sm font-medium text-fg">{techValue(metric.value, metric.unit, t.fmt)}</p>
+                        </div>
+                        <SourceBadge source={metric.source} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {st && st.fields_missing.length > 0 && (
+                <details className="mt-4 rounded-md border border-border bg-surface-2/40 p-3">
+                  <summary className="cursor-pointer text-xs text-fg-muted">Campos não fornecidos pelo firmware ({st.fields_missing.length})</summary>
+                  <p className="mt-1.5 flex flex-wrap gap-1.5">
+                    {st.fields_missing.map((f) => (
+                      <Badge key={f} className="font-mono text-[10.5px]">
+                        {f}
+                      </Badge>
+                    ))}
+                  </p>
+                </details>
+              )}
+            </CardBody>
+          </Card>
         </div>
-
-        <div className="grid items-start gap-5 xl:grid-cols-[1fr_1.6fr]">
-        <Card className="min-w-0">
-          <CardHeader title="Identificação do terminal" icon={<Cpu />} subtitle="Hardware, software e comunicação local" />
-          <CardBody>
-            {agent.error && <QueryError error={agent.error} onRetry={() => agent.refetch()} />}
-            <dl className="divide-y divide-border text-sm">
-              {[
-                ["Hardware", st?.device.hardware_version ?? agent.data?.hardware ?? "Não identificado"],
-                ["Firmware", st?.device.software_version ?? agent.data?.firmware ?? "Não identificado"],
-                ["Reinicializações", st?.device.bootcount != null ? fmtNumber(st.device.bootcount, 0) : "Não informado"],
-                ["Endereço consultado", agent.data?.dish_target ?? "—"],
-              ].map(([label, value]) => (
-                <div key={label} className="py-3"><dt className="text-xs text-fg-muted">{label}</dt><dd className="mt-1 break-all font-mono text-xs leading-relaxed">{value}</dd></div>
-              ))}
-            </dl>
-          </CardBody>
-        </Card>
-        <Card className="min-w-0">
-          <CardHeader title="Leituras técnicas" icon={<RadioTower />} subtitle="Somente o que a antena informou agora" />
-          <CardBody>
-            {loading ? (
-              <Skeleton className="h-48 w-full" />
-            ) : rows.length === 0 ? (
-              <EmptyState title="Sem leituras" className="py-8">
-                A antena não está enviando dados no momento.
-              </EmptyState>
-            ) : (
-              <ul className="grid gap-x-6 sm:grid-cols-2">
-                {rows.map((t) => {
-                  const metric = m![t.key]!;
-                  return (
-                    <li key={t.key} className="border-b border-border py-3">
-                      <p className="text-xs text-fg-muted">{t.label}</p>
-                      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2"><span className="tabular text-sm font-medium">{techValue(metric.value, metric.unit, t.fmt)}</span><SourceBadge source={metric.source} /></div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {st && st.fields_missing.length > 0 && (
-              <details className="mt-4 rounded-lg border border-border bg-surface-2/40 p-3">
-                <summary className="cursor-pointer text-xs text-fg-muted">Campos não fornecidos pelo firmware ({st.fields_missing.length})</summary>
-                <p className="mt-1.5 flex flex-wrap gap-1.5">
-                  {st.fields_missing.map((f) => (
-                    <Badge key={f} className="font-mono text-[10.5px]">
-                      {f}
-                    </Badge>
-                  ))}
-                </p>
-              </details>
-            )}
-          </CardBody>
-        </Card>
-        </div>
-        <p className="text-xs text-fg-subtle">Leituras da API local. Valores ausentes são indicados por “—”; a origem dos dados acompanha cada indicador.</p>
-      </div>
+      </section>
+      <p className="text-xs text-fg-subtle">Leituras da API local. Valores ausentes são indicados por “—”; a origem dos dados acompanha cada indicador.</p>
     </>
   );
 }

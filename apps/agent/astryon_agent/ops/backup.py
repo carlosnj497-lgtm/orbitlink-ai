@@ -5,7 +5,7 @@ Restaurar: pare o agente, descompacte o arquivo como `data/astryon.sqlite3` e in
 
 A cópia local é completa. A do Telegram (desligada por padrão, ASTRYON_BACKUP_TELEGRAM) é SANITIZADA: sem sessões,
 sem hashes de senha, sem segredos cifrados (ESP32, token da nuvem) e sem os hashes de código de controle. Ela
-nunca vai para chat de grupo. Restaurar a cópia do Telegram exige criar a senha de novo e reparear ESP32/nuvem.
+nunca vai para chat de grupo. Restaurar a cópia do Telegram exige recover-admin no console local e reparear ESP32/nuvem.
 """
 
 from __future__ import annotations
@@ -117,8 +117,9 @@ async def send_telegram(path: Path, settings: Settings, transport: httpx.AsyncBa
     token = settings.telegram_bot_token.get_secret_value()
     caption = (f"🗄️ Backup do ASTRYON ({size / 2**20:.1f} MB).\n"
                "Cópia sem senhas nem segredos: tem o histórico e as configurações do painel. Não compartilhe.\n"
-               "Para restaurar: pare o agente, descompacte como data/astryon.sqlite3, inicie de novo e crie a "
-               "senha do administrador (ESP32 e nuvem precisam ser pareados outra vez).")
+               "Para restaurar: pare o agente, descompacte como data/astryon.sqlite3, execute no console local "
+               "astryon-agent recover-admin --username SEU_USUARIO "
+               "--database CAMINHO_DO_BANCO e inicie de novo (ESP32 e nuvem precisam ser pareados outra vez).")
     content = await asyncio.to_thread(path.read_bytes)
     async with httpx.AsyncClient(timeout=120, transport=transport) as http:
         r = await http.post(f"https://api.telegram.org/bot{token}/sendDocument",

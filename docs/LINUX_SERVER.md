@@ -9,7 +9,7 @@ Instalação do ASTRYON num PC servidor **sem interface gráfica e sem Docker**,
 - **SSH** opcionalmente endurecido;
 - **Tailscale** opcional.
 
-> **Situação dos testes.** Os scripts foram verificados com `bash -n` e `shellcheck` (sem achados), e a parte Python nova (rotas via `ip -j`, Fernet, código de setup) tem testes automatizados. Eles **ainda não foram executados num Ubuntu 24.04 real** neste ambiente de desenvolvimento. Na primeira instalação, acompanhe a saída e rode `sudo astryonctl doctor` no fim.
+> **Situação dos testes.** Os scripts foram verificados com `bash -n` e `shellcheck` (sem achados), e a parte Python nova (rotas via `ip -j`, Fernet, código de setup) tem testes automatizados. O workflow `install-ubuntu` testa instalação, atualização, rollback e reinício em Ubuntu 24.04 no CI; o aceite registra execução em 13/11/2026. Confira o resultado do commit atual no GitHub Actions. A validação no seu servidor continua necessária. Na primeira instalação, acompanhe a saída e rode `sudo astryonctl doctor` no fim.
 
 ## 1. Como fica no servidor
 
@@ -135,7 +135,7 @@ systemctl show -p NRestarts astryon-agent   # quantas vezes reiniciou sozinho
 O próprio agente cuida disto, sem cron:
 
 - **Backup diário** do banco em `<pasta de dados>/backups/astryon-AAAAMMDD-HHMMSS.sqlite3.gz`. Mantém as
-  últimas `ASTRYON_BACKUP_KEEP` cópias (padrão 7). Com o Telegram configurado, uma cópia por semana
+  últimas `ASTRYON_BACKUP_KEEP` cópias (padrão 14). Com o Telegram configurado, uma cópia por semana
   (`ASTRYON_BACKUP_TELEGRAM_EVERY_DAYS`) vai para o seu chat do bot, para sobreviver se o disco falhar.
   O botão **Fazer backup agora** fica em Configurações → Servidor e backup.
 - **Restaurar:** pare o agente, descompacte a cópia como `astryon.sqlite3` na pasta de dados e inicie de novo:

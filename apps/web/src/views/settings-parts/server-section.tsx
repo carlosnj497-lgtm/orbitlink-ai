@@ -8,7 +8,7 @@ import { Badge, Button, Callout, Skeleton } from "@/components/ui/primitives";
 import { api, ApiError, useAgent } from "@/lib/api";
 import { useDemo } from "@/lib/demo-context";
 import { fmtAgo, fmtBytesStr, fmtDateTime, fmtNumber } from "@/lib/format";
-import { envName, fmtValue, Row, Section, type SettingsData } from "./shared";
+import { envName, fmtValue, type ModuleState, Num, Row, Section, type SettingsData } from "./shared";
 
 /* ----------------------------------------------------------------- Servidor e backup */
 export function ServerSection({ d }: { d: SettingsData }) {
@@ -20,11 +20,29 @@ export function ServerSection({ d }: { d: SettingsData }) {
     onSuccess: () => qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === "ops/health" }),
   });
   const s = h.data;
+  const free = s?.disk.free_pct ?? null;
+  const hot = s?.cpu_temp_c != null && s.cpu_temp_c >= 80;
+  const state: ModuleState = !s ? (h.error ? "warn" : "loading") : free !== null && free < 10 ? "crit" : (free !== null && free < 20) || hot || !s.last_backup_at ? "warn" : "ok";
+  const stateLabel = !s ? undefined : free !== null && free < 20 ? "pouco disco" : hot ? "quente" : !s.last_backup_at ? "sem backup" : undefined;
   return (
     <Section
       id="servidor"
       title="Servidor e backup"
       icon={HardDrive}
+      state={state}
+      stateLabel={stateLabel}
+      value={
+        !s ? (
+          "—"
+        ) : s.last_backup_at ? (
+          <>
+            Backup <Num>{fmtAgo(s.last_backup_at)}</Num>
+          </>
+        ) : (
+          "Nenhum backup ainda"
+        )
+      }
+      detail={!s ? undefined : `Disco ${free === null ? "—" : `${fmtNumber(free, 0)}% livre`} · ${s.cpu_temp_c === null ? "temperatura —" : `${fmtNumber(s.cpu_temp_c, 0)} °C`}`}
       description="A saúde do computador que roda o ASTRYON e as cópias de segurança do banco. Alertas avisam com pouco disco ou temperatura alta."
       actions={
         <Button size="sm" onClick={() => run.mutate()} loading={run.isPending} disabled={demo}>

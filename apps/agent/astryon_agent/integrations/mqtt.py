@@ -89,6 +89,7 @@ def node_id(db: Database) -> str:
 
 def state_payload(db: Database, settings: Settings, collector: Any) -> dict[str, Any]:
     st = collector.state.last_status if collector else None
+    reachable = collector.state.dish_reachable if collector else None
 
     def metric(k: str) -> Any:
         m = st.metrics.get(k) if st else None
@@ -105,7 +106,7 @@ def state_payload(db: Database, settings: Settings, collector: Any) -> dict[str,
         "download_mbps": metric("downlink_mbps"), "upload_mbps": metric("uplink_mbps"),
         "latency_ms": metric("pop_latency_ms"), "drop_pct": metric("pop_drop_pct"),
         "obstruction_pct": metric("obstruction_pct"), "state": st.state if st else "desconhecida",
-        "dish_reachable": "ON" if collector and collector.state.dish_reachable else "OFF",
+        "dish_reachable": None if reachable is None else "ON" if reachable else "OFF",
         "usage_cycle_pct": plan["pct_used"], "availability_24h": q["availability_pct"],
         "rain_mm": w["precipitation_mm"] if w else None, "updated_at": now,
     }

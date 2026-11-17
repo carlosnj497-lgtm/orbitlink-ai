@@ -1,11 +1,11 @@
 "use client";
 
 import type { EventsResponse, Source, StatusResponse, Telemetry, TelemetryPoint } from "@astryon/shared";
-import { Activity, ArrowDown, ArrowRight, ArrowUp, ChartArea, Clock, Download, Info, ListChecks, Pause, Play, Radar, RadioTower, RefreshCw, Timer, TrendingDown, TrendingUp, Waves } from "lucide-react";
+import { ArrowRight, ChartArea, Clock, Download, Info, ListChecks, Pause, Play, Radar, RadioTower, RefreshCw, Timer, TrendingDown, TrendingUp, Waves } from "lucide-react";
 import Link from "next/link";
 import { memo, type ReactNode, useId, useState } from "react";
 import { TelemetryChart } from "@/components/charts";
-import { CoverageBar, SourceBadge, STATE_META } from "@/components/domain";
+import { CoverageBar, SourceBadge } from "@/components/domain";
 import { hrefOf } from "@/components/shell/nav";
 import { Badge, Button, Callout, Card, CardBody, CardHeader, Skeleton, Tip } from "@/components/ui/primitives";
 import { saveBlob, useAgent, useAgentStream, useStatusInterval } from "@/lib/api";
@@ -16,6 +16,8 @@ import { type LiveReading, useLiveReadings } from "@/lib/live-buffer";
 import { sparkGeometry } from "@/lib/sparkline";
 import { useNow } from "@/lib/use-now";
 import { num } from "./dashboard/parts";
+import { liveVerdict, openEvents } from "./live-parts/live-verdict";
+import { N, Verdict } from "./overview-parts/verdict";
 import { EVENT_META, GapNote } from "./shared";
 
 export function downloadCsv(filename: string, header: string[], rows: (string | number | null)[][]) {
@@ -110,15 +112,9 @@ const Trace = memo(function Trace({ values, color }: { values: (number | null)[]
   );
 });
 
-/* ================================================================= Leitura atual */
-// Ícone de identificação, não de estado: o mesmo azul para todas as leituras.
-const TILE_ICON = "border-border bg-bg-elev text-accent";
-const TILE = { green: TILE_ICON, violet: TILE_ICON, blue: TILE_ICON, red: TILE_ICON } as const;
-
+/* ================================================================= Leitura atual (célula da faixa do veredito) */
 function Reading({
   label,
-  icon,
-  color,
   stroke,
   value,
   unit,
@@ -133,8 +129,6 @@ function Reading({
   higherIsBetter,
 }: {
   label: string;
-  icon: ReactNode;
-  color: keyof typeof TILE;
   stroke: string;
   value: string;
   unit: string;
@@ -150,10 +144,9 @@ function Reading({
 }) {
   const better = delta !== null && delta !== 0 && (delta > 0) === higherIsBetter;
   return (
-    <Card role="region" aria-label={label} className="flex min-w-0 flex-col p-3 sm:p-3.5">
-      <div className="flex items-center gap-2.5">
-        <span className={cn("grid size-8 shrink-0 place-items-center rounded-md border sm:size-9 [&>svg]:size-4 sm:[&>svg]:size-[18px]", TILE[color])}>{icon}</span>
-        <p className="min-w-0 flex-1 truncate text-xs font-medium text-fg-muted sm:text-[13px]">{label}</p>
+    <div role="region" aria-label={label} className="flex min-w-0 flex-col bg-surface px-4 py-3 sm:px-5">
+      <div className="flex items-center gap-1.5">
+        <p className="min-w-0 flex-1 truncate text-xs text-fg-muted">{label}</p>
         <Tip content={hint}>
           <button type="button" aria-label={`Sobre ${label}`} className="shrink-0 text-fg-subtle hover:text-fg">
             <Info className="size-3.5" />
@@ -161,12 +154,12 @@ function Reading({
         </Tip>
       </div>
       {loading ? (
-        <Skeleton className="mt-3 h-8 w-24" />
+        <Skeleton className="mt-1.5 h-7 w-24" />
       ) : (
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <p className={cn("tabular text-2xl font-semibold leading-none tracking-tight sm:text-[30px]", tone === "crit" ? "text-crit" : tone === "warn" ? "text-warn" : "text-fg")}>
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <p className={cn("tabular text-[24px] font-medium leading-none tracking-[-0.03em]", tone === "crit" ? "text-crit" : tone === "warn" ? "text-warn" : "text-fg")}>
             {value}
-            <span className="ml-1 text-sm font-medium text-fg-muted">{unit}</span>
+            <span className="ml-1 text-xs font-medium tracking-normal text-fg-muted">{unit}</span>
           </p>
           {delta !== null && delta !== 0 && (
             <span className={cn("tabular flex items-center gap-0.5 text-[11px] font-medium", better ? "text-ok" : "text-warn")} title="Variação desde a leitura anterior">
@@ -182,7 +175,7 @@ function Reading({
         <span className="text-[11px] text-fg-subtle">{note}</span>
         {loading ? <span className="text-[11px] text-fg-subtle">Consultando antena</span> : <SourceBadge source={source} />}
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -256,9 +249,6 @@ export default function LiveView() {
   const loss = num(m?.pop_drop_pct?.value);
   const obstructed = m?.currently_obstructed?.value;
   const loading = !paused && status.isLoading;
-  const stale = !!statusData?.available && statusData.stale;
-  const conn = st ? STATE_META[st.state] : statusData?.dish_reachable === false ? STATE_META.inalcancavel : STATE_META.desconhecida;
-  const connected = !!st && !stale && st.state === "conectada";
   const observed = st ? Date.parse(st.observed_at) / 1000 : null;
   const channelActive = !paused && (stream === "open" || stream === "demo");
   const stats = telemetry?.points.length ? windowStats(telemetry.points, telemetry.bucket_s) : null;
@@ -285,26 +275,35 @@ export default function LiveView() {
     );
   }
 
+  const verdict = liveVerdict(statusData, { paused, pausedAt: observed });
+  const rangeLabel = RANGES.find((r) => r.value === range)?.label ?? range;
+  const openNow = openEvents(winEvents);
+  const windowParts: ReactNode[] = [];
+  if (stats?.downAvg != null) windowParts.push(<>download médio de <N>{fmtMbps(stats.downAvg)} Mbps</N>{stats.downPeak != null && <> (pico <N>{fmtMbps(stats.downPeak)}</N>)</>}</>);
+  if (stats?.latP50 != null) windowParts.push(<>latência mediana de <N>{fmtNumber(stats.latP50, 0)} ms</N></>);
+  if (stats?.lossAvg != null) windowParts.push(<>perda média de <N>{fmtNumber(stats.lossAvg, 2)}%</N></>);
+  if (events) windowParts.push(winEvents.length ? <><N>{winEvents.length}</N> {winEvents.length === 1 ? "evento" : "eventos"}{openNow > 0 && <>, <N>{openNow}</N> em andamento</>}</> : <>nenhum evento</>);
+
   return (
     <>
-      <h1 className="mb-1 text-xl font-semibold tracking-tight lg:hidden">Monitoramento ao Vivo</h1>
+      <h1 className="mb-3 text-xl font-semibold tracking-tight lg:hidden">Monitoramento ao Vivo</h1>
 
-      {/* Barra de controle: estado do canal, última leitura, janela e ações */}
-      <div className="ol-card mb-4 flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className={cn("relative grid size-9 shrink-0 place-items-center rounded-full border", paused ? "border-warn/40 bg-warn/10 text-warn" : channelActive ? "border-ok/40 bg-ok/10 text-ok" : "border-border-strong bg-surface-2 text-fg-muted")}>
-            {paused ? <Pause className="size-4" aria-hidden /> : <RadioTower className="size-4" aria-hidden />}
-            {channelActive && <span className="absolute -right-0.5 -top-0.5 size-2.5 animate-pulse-dot rounded-full bg-ok ring-2 ring-bg-elev" aria-hidden />}
+      {/* Controles: canal de dados, janela do histórico, pausar e exportar */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className={cn("relative size-2 shrink-0 rounded-full", paused ? "bg-warn" : channelActive ? "bg-accent" : "border border-fg-subtle")} aria-hidden>
+            {channelActive && <span className="absolute inset-0 animate-pulse-dot rounded-full bg-accent" />}
           </span>
-          <div className="min-w-0 leading-tight">
-            <p className={cn("text-sm font-semibold", paused ? "text-warn" : "text-fg")}>{paused ? "Visualização pausada" : STREAM_LABEL[stream]}</p>
-            <p className="tabular text-xs text-fg-muted">
-              Última leitura: <span className="font-medium text-fg">{observed ? fmtTime(observed) : "—"}</span> · <SinceLast t={observed} />
-            </p>
-          </div>
+          <p className="min-w-0 text-sm leading-tight">
+            <span className={cn("font-medium", paused ? "text-warn" : "text-fg")}>{paused ? "Visualização pausada" : STREAM_LABEL[stream]}</span>
+            <span className="text-fg-muted">
+              {" "}
+              · última leitura <span className="tabular">{observed ? fmtTime(observed) : "—"}</span> · <SinceLast t={observed} />
+            </span>
+          </p>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <div role="group" aria-label="Janela de telemetria" className="inline-flex rounded-lg border border-border bg-bg-elev p-0.5">
+          <div role="group" aria-label="Janela de telemetria" className="inline-flex rounded-md border border-border bg-bg-elev p-0.5">
             {RANGES.map((r) => (
               <button
                 key={r.value}
@@ -312,7 +311,7 @@ export default function LiveView() {
                 aria-pressed={range === r.value}
                 disabled={paused}
                 onClick={() => setRange(r.value)}
-                className="rounded-md px-3 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg disabled:opacity-45 aria-pressed:bg-accent-soft aria-pressed:text-accent aria-pressed:shadow-[inset_0_0_0_1px_rgb(0_140_255/0.45)]"
+                className="rounded-[4px] px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg disabled:opacity-45 aria-pressed:bg-accent-soft aria-pressed:text-accent aria-pressed:shadow-[inset_0_0_0_1px_rgb(0_140_255/0.45)]"
               >
                 {r.label}
               </button>
@@ -327,11 +326,6 @@ export default function LiveView() {
         </div>
       </div>
 
-      {paused && (
-        <Callout tone="warn" icon={<Pause />} className="mb-4">
-          Visualização congelada. A coleta continua no agente; retome para atualizar os dados ou trocar a janela.
-        </Callout>
-      )}
       {!paused && (status.error || tel.error) && (
         <Callout tone="crit" icon={<Info />} className="mb-4" title="Falha ao atualizar">
           Não foi possível atualizar {status.error && tel.error ? "o status e o histórico" : status.error ? "o status da antena" : "o histórico de telemetria"}.
@@ -348,108 +342,129 @@ export default function LiveView() {
           </Button>
         </Callout>
       )}
-      {stale && (
-        <Callout tone="warn" icon={<Clock />} className="mb-4">
-          Dados atrasados · última leitura há {fmtDuration(statusData?.available ? statusData.age_s : null)}.
-        </Callout>
-      )}
 
-      {/* Leituras atuais com a tendência das leituras recebidas nesta aba */}
-      <section aria-label="Leituras atuais" className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Reading label="Download" icon={<ArrowDown />} color="green" stroke="var(--chart-down)" value={fmtMbps(down)} unit="Mbps" note={down === null ? "Sem leitura" : down === 0 ? "Conexão ociosa" : "Tráfego recebido agora"} loading={loading} source={m?.downlink_mbps?.source} hint="Tráfego corrente recebido pela antena. Não é a velocidade máxima da conexão nem um teste de velocidade." trace={series("down")} delta={delta("down")} deltaFmt={fmtMbps} higherIsBetter />
-        <Reading label="Upload" icon={<ArrowUp />} color="violet" stroke="var(--chart-up)" value={fmtMbps(up)} unit="Mbps" note={up === null ? "Sem leitura" : up === 0 ? "Conexão ociosa" : "Tráfego enviado agora"} loading={loading} source={m?.uplink_mbps?.source} hint="Tráfego corrente enviado pela antena. Zero indica ausência de tráfego no momento." trace={series("up")} delta={delta("up")} deltaFmt={fmtMbps} higherIsBetter />
-        <Reading label="Latência" icon={<Clock />} color="blue" stroke="var(--accent)" value={fmtNumber(latency, 1)} unit="ms" note="Até o PoP Starlink" loading={loading} source={m?.pop_latency_ms?.source} tone={latency !== null && latency > 100 ? "warn" : undefined} hint="Latência entre a antena e o ponto de presença (PoP) da Starlink. Não corresponde ao ping até sites da internet." trace={series("lat")} delta={delta("lat")} deltaFmt={(v) => `${fmtNumber(v, 1)} ms`} higherIsBetter={false} />
-        <Reading label="Perda de pacotes" icon={<Activity />} color="red" stroke="var(--chart-loss)" value={fmtNumber(loss, 2)} unit="%" note="Pings ao PoP sem resposta" loading={loading} source={m?.pop_drop_pct?.source} tone={loss !== null && loss >= 5 ? "crit" : loss !== null && loss > 1 ? "warn" : undefined} hint="Fração dos pings da antena ao PoP sem resposta na amostra mais recente." trace={series("loss")} delta={delta("loss")} deltaFmt={(v) => `${fmtNumber(v, 2)} pp`} higherIsBetter={false} />
-      </section>
-      <p className="-mt-2 mb-4 flex items-center gap-1.5 text-[11px] text-fg-subtle">
-        <Info className="size-3 shrink-0" aria-hidden />
-        Traços: {readings.length} leitura(s) recebidas nesta aba{sessionSpan > 0 ? ` nos últimos ${fmtDuration(sessionSpan)}` : ""} (até 15 min, só em memória). Os gráficos abaixo usam o histórico gravado pelo agente.
-      </p>
-
-      {/* Tráfego ao lado do estado do enlace; abaixo, latência, perda e eventos lado a lado (nenhuma coluna termina antes). */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
-          {/* Tráfego */}
-          <Card className="min-w-0">
-            <CardHeader
-              title={
-                <>
-                  Tráfego da conexão <span className="font-normal text-fg-muted">(Mbps)</span>
-                </>
-              }
-              icon={<ChartArea />}
-              subtitle={telemetry ? `${SERIES_LABEL[telemetry.series_source]} · resolução ${fmtDuration(telemetry.bucket_s)}` : undefined}
-              actions={
-                <div role="group" aria-label="Séries do gráfico" className="flex gap-1">
-                  {[
-                    { label: "Download", color: "var(--chart-down)", hidden: hideDown, toggle: () => setHideDown((v) => !v) },
-                    { label: "Upload", color: "var(--chart-up)", hidden: hideUp, toggle: () => setHideUp((v) => !v) },
-                  ].map((s) => (
-                    <button key={s.label} type="button" onClick={s.toggle} aria-pressed={!s.hidden} className={cn("flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-medium transition-colors hover:bg-surface-2", s.hidden ? "text-fg-subtle line-through" : "text-fg")}>
-                      <span className="size-2.5 rounded-full" style={{ background: s.hidden ? "var(--surface-3)" : s.color }} aria-hidden />
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              }
-            />
-            <CardBody>
-              <ChartBody data={telemetry} loading={!paused && tel.isLoading} error={!!tel.error} height={280}>
-                <TelemetryChart points={telemetry?.points ?? []} mode="traffic" start={telemetry?.start ?? 0} end={telemetry?.end ?? 0} gaps={telemetry?.gaps} height={280} hideDown={hideDown} hideUp={hideUp} syncId={syncId} />
-              </ChartBody>
-              <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3 sm:grid-cols-4">
-                <Stat label="Download médio" value={stats ? fmtMbps(stats.downAvg) : "—"} sub="Mbps" />
-                <Stat label="Pico de download" value={stats ? fmtMbps(stats.downPeak) : "—"} sub="Mbps" />
-                <Stat label="Upload médio" value={stats ? fmtMbps(stats.upAvg) : "—"} sub="Mbps" />
-                <Stat label="Pico de upload" value={stats ? fmtMbps(stats.upPeak) : "—"} sub="Mbps" />
-              </dl>
-              <p className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-fg-subtle">
-                <span>Tráfego observado, não capacidade da conexão.</span>
-                {telemetry && <SourceBadge source={telemetry.source} />}
-              </p>
-            </CardBody>
-          </Card>
-
-          <Card className="min-w-0">
-            <CardHeader title="Estado do enlace" icon={<RadioTower />} actions={statusData && <SourceBadge source={st ? (st.origin === "grpc" ? "real" : "demonstracao") : "indisponivel"} />} />
-            <CardBody>
-              <div className="flex items-center gap-3">
-                <span className={cn("grid size-11 shrink-0 place-items-center rounded-full border", connected ? "border-ok/40 bg-ok/10 text-ok" : stale ? "border-warn/40 bg-warn/10 text-warn" : st ? "border-warn/40 bg-warn/10 text-warn" : "border-crit/40 bg-crit/10 text-crit")}>
-                  <span className={cn("size-3 rounded-full", connected ? "bg-ok animate-pulse-dot" : stale || st ? "bg-warn" : "bg-crit")} aria-hidden />
-                </span>
-                <div className="min-w-0 leading-tight">
-                  <p className="text-base font-semibold text-fg">{loading ? "Consultando antena" : stale ? "Dados atrasados" : conn.label}</p>
-                  <p className="text-xs text-fg-muted">{stale ? "Aguardando uma leitura atualizada." : connected ? "Enlace reportado pela antena." : st ? "Estado informado pela antena." : "Aguardando comunicação com a antena."}</p>
-                </div>
-              </div>
-              <dl className="mt-3 divide-y divide-border text-sm">
-                {[
-                  [<Timer key="i" />, "Tempo ligada", fmtDuration(num(m?.uptime_s?.value))],
-                  [<Radar key="i" />, "Obstruída agora", typeof obstructed === "boolean" ? (obstructed ? "Sim" : "Não") : "Não informado"],
-                  [<RadioTower key="i" />, "Canal de dados", paused ? "Pausado na tela" : stream === "demo" ? "Demonstração" : stream === "open" ? "SSE ativo" : "Consulta periódica"],
-                  [<ListChecks key="i" />, "Registros na janela", telemetry ? fmtNumber(telemetry.points.length, 0) : "—"],
-                ].map(([icon, k, v]) => (
-                  <div key={k as string} className="flex items-center gap-2 py-2">
-                    <dt className="flex flex-1 items-center gap-2 text-fg-muted">
-                      <span className="text-fg-subtle [&>svg]:size-3.5" aria-hidden>
-                        {icon}
-                      </span>
-                      {k}
-                    </dt>
-                    <dd className="tabular font-medium">{v}</dd>
-                  </div>
+      <Verdict
+        label="O que está acontecendo neste momento?"
+        tone={verdict?.tone ?? "unknown"}
+        word={verdict?.word}
+        live={verdict?.live}
+        loading={loading}
+        headline={verdict?.headline}
+        detail={
+          <>
+            {windowParts.length > 0 ? (
+              <>
+                Nos últimos {rangeLabel}:{" "}
+                {windowParts.map((p, i) => (
+                  <span key={i}>
+                    {i > 0 && (i === windowParts.length - 1 ? " e " : ", ")}
+                    {p}
+                  </span>
                 ))}
-              </dl>
-              <div className="mt-3 border-t border-border pt-3">
-                <CoverageBar coverage={telemetry?.coverage ?? null} />
-                {telemetry && <GapNote gaps={telemetry.gaps} />}
+                .
+              </>
+            ) : (
+              <>Ainda não há histórico gravado nos últimos {rangeLabel}.</>
+            )}
+            {typeof obstructed === "boolean" && st && <> Céu {obstructed ? <span className="text-warn">obstruído agora</span> : "livre agora"}.</>}
+            {paused && " A coleta continua no agente enquanto a tela está pausada."}
+          </>
+        }
+        strip={
+          <section aria-label="Leituras atuais" className="grid grid-cols-2 gap-px border-y border-border bg-border xl:grid-cols-4">
+            <Reading label="Download" stroke="var(--chart-down)" value={fmtMbps(down)} unit="Mbps" note={down === null ? "Sem leitura" : down === 0 ? "Conexão ociosa" : "Tráfego recebido agora"} loading={loading} source={m?.downlink_mbps?.source} hint="Tráfego corrente recebido pela antena. Não é a velocidade máxima da conexão nem um teste de velocidade." trace={series("down")} delta={delta("down")} deltaFmt={fmtMbps} higherIsBetter />
+            <Reading label="Upload" stroke="var(--chart-up)" value={fmtMbps(up)} unit="Mbps" note={up === null ? "Sem leitura" : up === 0 ? "Conexão ociosa" : "Tráfego enviado agora"} loading={loading} source={m?.uplink_mbps?.source} hint="Tráfego corrente enviado pela antena. Zero indica ausência de tráfego no momento." trace={series("up")} delta={delta("up")} deltaFmt={fmtMbps} higherIsBetter />
+            <Reading label="Latência" stroke="var(--accent)" value={fmtNumber(latency, 1)} unit="ms" note="Até o PoP Starlink" loading={loading} source={m?.pop_latency_ms?.source} tone={latency !== null && latency > 100 ? "warn" : undefined} hint="Latência entre a antena e o ponto de presença (PoP) da Starlink. Não corresponde ao ping até sites da internet." trace={series("lat")} delta={delta("lat")} deltaFmt={(v) => `${fmtNumber(v, 1)} ms`} higherIsBetter={false} />
+            <Reading label="Perda de pacotes" stroke="var(--chart-loss)" value={fmtNumber(loss, 2)} unit="%" note="Pings ao PoP sem resposta" loading={loading} source={m?.pop_drop_pct?.source} tone={loss !== null && loss >= 5 ? "crit" : loss !== null && loss > 1 ? "warn" : undefined} hint="Fração dos pings da antena ao PoP sem resposta na amostra mais recente." trace={series("loss")} delta={delta("loss")} deltaFmt={(v) => `${fmtNumber(v, 2)} pp`} higherIsBetter={false} />
+          </section>
+        }
+        meta={
+          <>
+            <span>
+              Traços: <span className="tabular">{readings.length}</span> leitura(s) recebidas nesta aba{sessionSpan > 0 ? ` nos últimos ${fmtDuration(sessionSpan)}` : ""} (até 15 min, só em memória).
+            </span>
+            <span className="ml-auto flex items-center gap-3">
+              <CoverageBar coverage={telemetry?.coverage ?? null} />
+              {statusData && <SourceBadge source={st ? (st.origin === "grpc" ? "real" : "demonstracao") : "indisponivel"} />}
+            </span>
+          </>
+        }
+      />
+
+      {/* Evidências: tráfego da janela ao lado dos detalhes do enlace; abaixo, latência, perda e eventos. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <Card className="min-w-0">
+          <CardHeader
+            title={
+              <>
+                Tráfego da conexão <span className="font-normal text-fg-muted">(Mbps)</span>
+              </>
+            }
+            icon={<ChartArea />}
+            subtitle={telemetry ? `${SERIES_LABEL[telemetry.series_source]} · resolução ${fmtDuration(telemetry.bucket_s)}` : undefined}
+            actions={
+              <div role="group" aria-label="Séries do gráfico" className="flex gap-1">
+                {[
+                  { label: "Download", color: "var(--chart-down)", hidden: hideDown, toggle: () => setHideDown((v) => !v) },
+                  { label: "Upload", color: "var(--chart-up)", hidden: hideUp, toggle: () => setHideUp((v) => !v) },
+                ].map((s) => (
+                  <button key={s.label} type="button" onClick={s.toggle} aria-pressed={!s.hidden} className={cn("flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-medium transition-colors hover:bg-surface-2", s.hidden ? "text-fg-subtle line-through" : "text-fg")}>
+                    <span className="size-2.5 rounded-full" style={{ background: s.hidden ? "var(--surface-3)" : s.color }} aria-hidden />
+                    {s.label}
+                  </button>
+                ))}
               </div>
-              <Link href={hrefOf(base, "diagnosticos")} className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition-colors hover:bg-accent/15">
-                Abrir diagnóstico <ArrowRight className="size-3.5" aria-hidden />
-              </Link>
-            </CardBody>
-          </Card>
+            }
+          />
+          <CardBody>
+            <ChartBody data={telemetry} loading={!paused && tel.isLoading} error={!!tel.error} height={280}>
+              <TelemetryChart points={telemetry?.points ?? []} mode="traffic" start={telemetry?.start ?? 0} end={telemetry?.end ?? 0} gaps={telemetry?.gaps} height={280} hideDown={hideDown} hideUp={hideUp} syncId={syncId} />
+            </ChartBody>
+            <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3 sm:grid-cols-4">
+              <Stat label="Download médio" value={stats ? fmtMbps(stats.downAvg) : "—"} sub="Mbps" />
+              <Stat label="Pico de download" value={stats ? fmtMbps(stats.downPeak) : "—"} sub="Mbps" />
+              <Stat label="Upload médio" value={stats ? fmtMbps(stats.upAvg) : "—"} sub="Mbps" />
+              <Stat label="Pico de upload" value={stats ? fmtMbps(stats.upPeak) : "—"} sub="Mbps" />
+            </dl>
+            <p className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-fg-subtle">
+              <span>Tráfego observado, não capacidade da conexão.</span>
+              {telemetry && <SourceBadge source={telemetry.source} />}
+            </p>
+          </CardBody>
+        </Card>
+
+        <Card className="min-w-0">
+          <CardHeader title="Enlace e coleta" icon={<RadioTower />} />
+          <CardBody>
+            <dl className="divide-y divide-border text-sm">
+              {[
+                [<Timer key="i" />, "Tempo ligada", fmtDuration(num(m?.uptime_s?.value))],
+                [<Radar key="i" />, "Obstruída agora", typeof obstructed === "boolean" ? (obstructed ? "Sim" : "Não") : "Não informado"],
+                [<RadioTower key="i" />, "Canal de dados", paused ? "Pausado na tela" : stream === "demo" ? "Demonstração" : stream === "open" ? "SSE ativo" : "Consulta periódica"],
+                [<ListChecks key="i" />, "Registros na janela", telemetry ? fmtNumber(telemetry.points.length, 0) : "—"],
+              ].map(([icon, k, v]) => (
+                <div key={k as string} className="flex items-center gap-2 py-2">
+                  <dt className="flex flex-1 items-center gap-2 text-fg-muted">
+                    <span className="text-fg-subtle [&>svg]:size-3.5" aria-hidden>
+                      {icon}
+                    </span>
+                    {k}
+                  </dt>
+                  <dd className="tabular font-medium">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            {telemetry && telemetry.gaps.length > 0 && (
+              <div className="mt-3 border-t border-border pt-3">
+                <GapNote gaps={telemetry.gaps} />
+              </div>
+            )}
+            <Link href={hrefOf(base, "diagnosticos")} className="mt-3 flex items-center justify-center gap-1.5 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition-colors hover:bg-accent/15">
+              Abrir diagnóstico <ArrowRight className="size-3.5" aria-hidden />
+            </Link>
+          </CardBody>
+        </Card>
         <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:col-span-2 xl:grid-cols-3">
-          {/* Latência */}
           <Card>
             <CardHeader
               title={
@@ -471,7 +486,6 @@ export default function LiveView() {
             </CardBody>
           </Card>
 
-          {/* Perda */}
           <Card>
             <CardHeader
               title={
@@ -492,7 +506,7 @@ export default function LiveView() {
               </dl>
             </CardBody>
           </Card>
-          <Card>
+          <Card className="md:col-span-2 xl:col-span-1">
             <CardHeader
               title="Eventos na janela"
               icon={<ListChecks />}

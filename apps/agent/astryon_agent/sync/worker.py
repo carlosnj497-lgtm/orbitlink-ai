@@ -48,9 +48,7 @@ def build_batch_snapshot(db: Database, dish_reachable: bool, limit: int = BATCH,
                    (u["terminal_id"], u["minute_ts"]))
         if q:
             tel.append({**q, "terminal_local_id": str(u["terminal_id"])})
-    since = now_ts() - 48 * 3600
-    events = [] if not with_extras else db.query("""SELECT terminal_id, kind, cause, start_ts, end_ts, duration_s, confidence, evidence_json
-                         FROM connection_events WHERE start_ts >= ? OR end_ts IS NULL ORDER BY start_ts LIMIT 1000""", (since,))
+    events, _ = event_snapshot(db) if with_extras else ([], [])
     caps = [] if not with_extras else db.query(
         "SELECT key, label, status, detail, checked_at FROM capabilities WHERE device = 'dish'")
     first_tid = str(terminals[0]["id"]) if terminals else None
@@ -60,15 +58,29 @@ def build_batch_snapshot(db: Database, dish_reachable: bool, limit: int = BATCH,
         "usage_minutes": [{**{k: v for k, v in u.items() if k != "terminal_id"}, "terminal_local_id": str(u["terminal_id"])}
                           for u in usage],
         "telemetry_minutes": tel,
-        "events": [{"terminal_local_id": str(e["terminal_id"]) if e["terminal_id"] is not None else None,
-                    "kind": e["kind"], "cause": e["cause"], "start_ts": e["start_ts"], "end_ts": e["end_ts"],
-                    "duration_s": e["duration_s"], "confidence": e["confidence"],
-                    "evidence": json.loads(e["evidence_json"] or "{}")} for e in events],
+        "events": events,
         "capabilities": [{**c, "terminal_local_id": first_tid} for c in caps] if first_tid else [],
         "heartbeat": {"ts": now_ts(), "dish_reachable": dish_reachable, "version": __version__,
-                      "sync_pending": db.scalar("SELECT COUNT(*) FROM sync_queue WHERE synced_at IS NULL")},
+                      "sync_pending": db.scalar("SELECT (SELECT COUNT(*) FROM sync_queue WHERE synced_at IS NULL) "
+                      "+ (SELECT COUNT(*) FROM event_sync WHERE synced_revision < revision)")},
     }
     return batch, sent
+
+
+def event_snapshot(db: Database) -> tuple[list[dict[str, Any]], list[tuple[int, int]]]:
+    rows = db.query("""SELECT e.*, q.revision FROM connection_events e JOIN event_sync q ON q.event_id = e.id
+                       WHERE q.synced_revision < q.revision ORDER BY e.id LIMIT 1000""")
+    payloads = [{"terminal_local_id": str(e["terminal_id"]) if e["terminal_id"] is not None else None,
+                 **{k: e[k] for k in ("kind", "cause", "start_ts", "end_ts", "duration_s", "confidence")},
+                 "evidence": json.loads(e["evidence_json"] or "{}")} for e in rows]
+    return payloads, [(e["id"], e["revision"]) for e in rows]
+
+
+def confirm_events(db: Database, sent: list[tuple[int, int]]) -> None:
+    with db.tx() as c:
+        for event_id, revision in sent:
+            c.execute("UPDATE event_sync SET synced_revision = MAX(synced_revision, ?) WHERE event_id = ?",
+                      (revision, event_id))
 
 
 def mark_sent(db: Database, sent: list[tuple[int, str]]) -> int:
@@ -114,6 +126,8 @@ async def push_once(db: Database, settings: Settings, client: httpx.AsyncClient,
     if not (settings.supabase_url and settings.supabase_anon_key and token):
         raise RuntimeError("Supabase não configurado")
     batch, sent = await asyncio.to_thread(build_batch_snapshot, db, dish_reachable, limit, with_extras)
+    events, event_sent = await asyncio.to_thread(event_snapshot, db) if with_extras else ([], [])
+    batch["events"] = events
     ids = [i for i, _ in sent]
     has_extras = bool(batch["events"] or batch["capabilities"])
     anon = settings.supabase_anon_key.get_secret_value()
@@ -137,8 +151,9 @@ async def push_once(db: Database, settings: Settings, client: httpx.AsyncClient,
             raise Rejected(f"Supabase recusou o lote ({r.status_code})", len(ids), has_extras)
         raise RuntimeError(f"Supabase respondeu {r.status_code}")
     confirmed = await asyncio.to_thread(mark_sent, db, sent)
+    await asyncio.to_thread(confirm_events, db, event_sent)
     result: dict[str, Any] = r.json() if r.content else {}
-    return {"sent_usage": len(ids), "confirmed": confirmed, "server": result}
+    return {"sent_usage": len(ids), "confirmed": confirmed, "sent_events": len(event_sent), "server": result}
 
 
 async def run(db: Database, settings: Settings, state: dict[str, Any], reachable: Any) -> None:
@@ -159,7 +174,7 @@ async def run(db: Database, settings: Settings, state: dict[str, Any], reachable
                     extras_off_until = now_ts() + 3600
                     extras_suspect = False
                     log.warning("Supabase recusa eventos/capacidades; enviando só o consumo pela próxima hora")
-                delay = settings.sync_interval_s if res["sent_usage"] < limit else 2.0
+                delay = settings.sync_interval_s if res["sent_usage"] < limit and res["sent_events"] < 1000 else 2.0
                 limit = BATCH
             except Rejected as exc:
                 if exc.with_extras:

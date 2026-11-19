@@ -13,9 +13,13 @@ Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
 ![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows&logoColor=white)
-![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-22c55e)
+
 [![CI](https://github.com/carlosnj497-lgtm/orbitlink-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/carlosnj497-lgtm/orbitlink-ai/actions/workflows/ci.yml)
+![Último commit](https://img.shields.io/github/last-commit/carlosnj497-lgtm/orbitlink-ai)
+![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-22c55e)
 [![Instaladores](https://img.shields.io/badge/instaladores-Windows-blue?logo=windows)](https://github.com/carlosnj497-lgtm/astryon-releases)
+
+[📺 Ver telas](#-telas) · [📦 Download para Windows](https://github.com/carlosnj497-lgtm/astryon-releases) · [🐛 Reportar bug](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues) · [📚 Documentação](#-documentação)
 
 </div>
 
@@ -24,7 +28,7 @@ Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
   <sub>Tela Ao Vivo na demonstração (dados fictícios, acelerada 4×).</sub>
 </p>
 
-## Início rápido
+## 🚀 Início rápido
 
 ```bash
 git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/astryon && cd ~/astryon
@@ -32,8 +36,9 @@ sudo bash deploy/linux/install.sh
 sudo cat /etc/astryon/setup-code   # abra https://SEU-IP/ e crie o administrador
 ```
 
-Pronto: o agente passa a ler a sua antena. No Windows, veja [Instalação](#instalação). Sem antena por perto, abra `/demo`.
+Pronto: o agente passa a ler a sua antena. No Windows, veja [Instalação](#-instalação). Sem antena por perto, abra `/demo`.
 
+> [!NOTE]
 > **ASTRYON** é o nome do projeto, do painel e dos pacotes. As variáveis usam o prefixo `ASTRYON_*`,
 > os serviços usam `astryon-*` e o comando de administração é `astryonctl`.
 > Projeto independente, sem afiliação com a Starlink ou a SpaceX. Usa apenas a API local gRPC que a
@@ -48,27 +53,27 @@ Para atualizar uma instalação com o nome anterior, veja [Migração para ASTRY
 
 ---
 
-## Sumário
+## 📑 Sumário
 
 <p align="center">
-  <a href="#por-que-o-astryon"><img src="docs/nav/01.svg" alt="Por que o ASTRYON?" width="200"></a>
-  <a href="#início-rápido"><img src="docs/nav/05.svg" alt="Início rápido" width="200"></a>
-  <a href="#arquitetura"><img src="docs/nav/09.svg" alt="Arquitetura" width="200"></a>
+  <a href="#-por-que-o-astryon"><img src="docs/nav/01.svg" alt="Por que o ASTRYON?" width="200"></a>
+  <a href="#-início-rápido"><img src="docs/nav/05.svg" alt="Início rápido" width="200"></a>
+  <a href="#-arquitetura"><img src="docs/nav/09.svg" alt="Arquitetura" width="200"></a>
   <br>
-  <a href="#o-que-ele-faz"><img src="docs/nav/02.svg" alt="O que ele faz" width="200"></a>
-  <a href="#instalação"><img src="docs/nav/06.svg" alt="Instalação" width="200"></a>
-  <a href="#estado-do-projeto"><img src="docs/nav/10.svg" alt="Estado do projeto" width="200"></a>
+  <a href="#-o-que-ele-faz"><img src="docs/nav/02.svg" alt="O que ele faz" width="200"></a>
+  <a href="#-instalação"><img src="docs/nav/06.svg" alt="Instalação" width="200"></a>
+  <a href="#-estado-do-projeto"><img src="docs/nav/10.svg" alt="Estado do projeto" width="200"></a>
   <br>
-  <a href="#telas"><img src="docs/nav/03.svg" alt="Telas" width="200"></a>
-  <a href="#telegram-e-ia"><img src="docs/nav/07.svg" alt="Telegram e IA" width="200"></a>
-  <a href="#roteiro"><img src="docs/nav/11.svg" alt="Roteiro" width="200"></a>
+  <a href="#-telas"><img src="docs/nav/03.svg" alt="Telas" width="200"></a>
+  <a href="#-telegram-e-ia"><img src="docs/nav/07.svg" alt="Telegram e IA" width="200"></a>
+  <a href="#-roteiro"><img src="docs/nav/11.svg" alt="Roteiro" width="200"></a>
   <br>
-  <a href="#princípios"><img src="docs/nav/04.svg" alt="Princípios" width="200"></a>
-  <a href="#perguntas-frequentes"><img src="docs/nav/08.svg" alt="Perguntas frequentes" width="200"></a>
-  <a href="#documentação"><img src="docs/nav/12.svg" alt="Documentação" width="200"></a>
+  <a href="#-princípios"><img src="docs/nav/04.svg" alt="Princípios" width="200"></a>
+  <a href="#-perguntas-frequentes"><img src="docs/nav/08.svg" alt="Perguntas frequentes" width="200"></a>
+  <a href="#-documentação"><img src="docs/nav/12.svg" alt="Documentação" width="200"></a>
 </p>
 
-## Por que o ASTRYON?
+## 💡 Por que o ASTRYON?
 
 O app oficial da Starlink mostra como a antena está agora. O ASTRYON guarda tudo o que a antena reporta,
 segundo a segundo, e transforma isso em histórico, alertas e respostas.
@@ -83,7 +88,7 @@ segundo a segundo, e transforma isso em histórico, alertas e respostas.
 | 🗣️ **Pergunte em português** | "Minha internet ficou ruim ontem à noite?" Resposta com período, fonte e incerteza. |
 | 🔒 **Dados com você** | Tudo roda na sua rede. Nada sai sem você configurar, e a nuvem é opcional. |
 
-## O que ele faz
+## ✨ O que ele faz
 
 | | Recurso | Detalhes |
 |---|---|---|
@@ -100,7 +105,7 @@ segundo a segundo, e transforma isso em histórico, alertas e respostas.
 | 🏠 | **Home Assistant (opcional)** | Sensores da Starlink no Home Assistant via MQTT, com descoberta automática. Veja [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md). |
 | ☁️ | **Supabase (opcional)** | Sincronização com RLS. O painel continua lendo só o agente local. |
 
-## Telas
+## 📺 Telas
 
 <table>
   <tr>
@@ -125,7 +130,7 @@ segundo a segundo, e transforma isso em histórico, alertas e respostas.
 
 Todas as capturas vêm da rota `/demo`, com dados fictícios e a faixa de demonstração sempre visível.
 
-## Princípios
+## 💎 Princípios
 
 - **Funciona 100% local.** Sem Docker e sem serviço pago. Supabase, IA e ESP32 são opcionais.
 - **Toda métrica mostra a origem**: `real`, `calculada`, `estimada`, `importada`, `sensor_esp32`, `indisponível` ou `demonstração`.
@@ -133,13 +138,13 @@ Todas as capturas vêm da rota `/demo`, com dados fictícios e a faixa de demons
 - **Ações só com confirmação humana.** A IA tem ferramentas somente de leitura.
 - **Demonstração isolada.** Dados fictícios existem só em `/demo`, sempre sinalizados.
 
-## Instalação
+## 🔧 Instalação
 
 **Pré-requisitos:** Python 3.11+ e Node.js 20+ (LTS). Computador na mesma rede da antena (o agente precisa alcançar o IP local dela).
 
 ### Servidor Linux (Ubuntu Server 24.04 LTS), recomendado
 
-Siga os três comandos do [Início rápido](#início-rápido). O instalador configura systemd + Nginx (TLS) + UFW,
+Siga os três comandos do [Início rápido](#-início-rápido). O instalador configura systemd + Nginx (TLS) + UFW,
 e o código em `/etc/astryon/setup-code` cria o primeiro administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
 
 ```bash
@@ -160,9 +165,10 @@ Abra `http://localhost:3000` no próprio PC e crie o administrador. Para parar: 
 
 Prefere o instalador com ícone na bandeja? Baixe o `.exe` em [astryon-releases](https://github.com/carlosnj497-lgtm/astryon-releases) (em validação num Windows real).
 
+> [!TIP]
 > Sem antena por perto? Abra `/demo` para ver o painel com dados fictícios.
 
-## Telegram e IA
+## 🤖 Telegram e IA
 
 1. Crie um bot no [@BotFather](https://t.me/BotFather) e coloque o token em `ASTRYON_TELEGRAM_BOT_TOKEN`.
 2. Descubra o chat autorizado com `sudo astryonctl telegram-chat-id` (ou `python -m astryon_agent telegram-chat-id`) e preencha `ASTRYON_TELEGRAM_CHAT_ID`.
@@ -182,22 +188,27 @@ Prefere o instalador com ícone na bandeja? Baixe o `.exe` em [astryon-releases]
 
 Consultas por comando não gastam IA. Perguntas em texto ou voz usam a cota diária, compartilhada com o painel. Todos os comandos: [docs/TELEGRAM.md](docs/TELEGRAM.md).
 
-## Arquitetura
+## 🧩 Arquitetura
 
+```mermaid
+flowchart LR
+    Browser(["🌐 Navegador"]) -->|"HTTPS"| Nginx["Nginx (TLS)"]
+    Nginx --> Web["Painel Next.js<br/>local :3000"]
+    Web -->|"proxy autenticado + SSE"| Agent["Agente FastAPI<br/>local :8787"]
+    Agent -->|"gRPC :9200"| Dish[("🛰️ Antena Starlink")]
+    Agent --> DB[("💾 SQLite WAL")]
+    Agent --> TG["📲 Bot do Telegram"]
+    Agent --> AI["🤖 Groq + Whisper<br/>somente leitura"]
+    Agent -.->|"HTTPS opcional"| Meteo["🌦️ Open-Meteo"]
+    Agent -.->|"HTTPS opcional"| Supa[("☁️ Supabase RLS")]
+    ESP["🔌 Sensores ESP32"] -.->|"HMAC"| Agent
 ```
- Navegador ──HTTPS──▶ Nginx ──▶ Painel Next.js (local, porta 3000)
-                                  │  /api/auth/*   login → cookie httpOnly, SameSite=Strict
-                                  │  /api/agent/*  proxy autenticado (+ SSE), token nunca vai ao navegador
-                                  ▼
-                       Agente FastAPI (local, porta 8787) ──gRPC──▶ Antena Starlink (IP da antena, porta 9200)
-                         ├─ Coletor (status 10 s · histórico 30 s · obstrução 5 min)
-                         ├─ SQLite WAL + migrações + retenção automática
-                         ├─ Alertas · Diagnóstico por regras · Relatórios · Controle auditado
-                         ├─ Bot do Telegram · IA Groq (somente leitura) · Whisper
-                         ├─ Clima opcional ──HTTPS──▶ Open-Meteo (só as coordenadas da cidade)
-                         └─ Sync opcional ──HTTPS──▶ Supabase (RLS)
-                       Listener ESP32 (opcional, HMAC) ◀── sensores na LAN
-```
+
+O coletor lê o status a cada 10 s, o histórico a cada 30 s e as obstruções a cada 5 min, gravando no
+SQLite (WAL, migrações e retenção automática). O login usa cookie httpOnly (`SameSite=Strict`) e o painel
+fala com o agente por um proxy autenticado: o token nunca chega ao navegador. Alertas, diagnóstico por
+regras, relatórios e o controle auditado da antena rodam dentro do agente; o clima envia só as coordenadas
+da cidade, e a sincronização com o Supabase usa RLS. O listener ESP32 autentica os sensores por HMAC.
 
 | Pasta | Conteúdo |
 |---|---|
@@ -211,7 +222,7 @@ Consultas por comando não gastam IA. Perguntas em texto ou voz usam a cota diá
 
 Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Estado do projeto
+## 🚦 Estado do projeto
 
 | Componente | Situação |
 |---|---|
@@ -225,7 +236,7 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 | Implantação Linux | Testes dos scripts e instalação real num Ubuntu 24.04 limpo no CI. |
 | Painel na nuvem (Vercel + Supabase) | Login por e-mail, pareamento por código, Dashboard, Consumo, Qualidade, Eventos e Conta. Testado com Supabase simulado; falta publicar e aplicar o SQL no seu projeto. |
 
-## Roteiro
+## 🧭 Roteiro
 
 - [x] Coleta gRPC por reflection, histórico de 1 s e agregados por minuto
 - [x] Painel ASTRYON com Ao Vivo, Consumo, Qualidade, Antena, Obstruções, Eventos e Relatórios
@@ -240,7 +251,7 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - [ ] Aparelho pronto (Raspberry Pi) com página de configuração: script pronto, falta testar no hardware ([APARELHO.md](docs/APARELHO.md))
 - [ ] Instalador `.exe` para Windows com ícone na bandeja: gerado no GitHub Actions e publicado em [astryon-releases](https://github.com/carlosnj497-lgtm/astryon-releases), falta validar num Windows real
 
-## Perguntas frequentes
+## ❓ Perguntas frequentes
 
 <details>
 <summary><b>Quais modelos de antena Starlink posso usar?</b></summary>
@@ -298,7 +309,7 @@ Não. As ferramentas da IA são somente de leitura. Reiniciar exige um administr
 registrado na auditoria.
 </details>
 
-## Desenvolvimento
+## 💻 Desenvolvimento
 
 | Comando (na raiz) | O que faz |
 |---|---|
@@ -317,31 +328,44 @@ Ao mudar dependências em `apps/agent/pyproject.toml`, rode `npm run lock:agent`
 
 O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, painel, Supabase, E2E, scripts, auditoria de vulnerabilidades e uma instalação real no Ubuntu a cada push e pull request.
 
-## Contribuição
+## 🤝 Contribuição
 
 - Achou um problema ou tem uma sugestão? Abra uma [issue](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues).
 - Pull requests são bem-vindos: antes de enviar, rode `npm run test` e `npm run lint` (o CI reprova se algo falhar).
 - Se o projeto te ajudou, deixe uma ⭐ no repositório — isso ajuda outras pessoas a encontrá-lo.
 
-## Documentação
+## 📚 Documentação
 
-| Guia | Assunto |
+### 🚀 Começando
+
+| Guia | O que tem dentro |
 |---|---|
-| [LINUX_SERVER.md](docs/LINUX_SERVER.md) | Servidor Ubuntu: instalação, atualização, backup e rollback |
-| [WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md) | Instalação no Windows |
-| [TELEGRAM.md](docs/TELEGRAM.md) | Bot, comandos, voz e resumo semanal |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões e fluxo de dados |
-| [STARLINK_COMPATIBILITY.md](docs/STARLINK_COMPATIBILITY.md) | O que a API local informa e o que não informa |
-| [SECURITY.md](docs/SECURITY.md) | Modelo de segurança |
-| [ESP32_SETUP.md](docs/ESP32_SETUP.md) | Montagem e pareamento do ESP32 |
-| [SUPABASE.md](docs/SUPABASE.md) | Sincronização opcional com a nuvem |
-| [NUVEM.md](docs/NUVEM.md) | Serviço na nuvem: Supabase, Vercel e contas |
-| [APARELHO.md](docs/APARELHO.md) | Aparelho pronto (Raspberry Pi) |
-| [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md) | Sensores no Home Assistant via MQTT |
-| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Solução de problemas |
-| [ACCEPTANCE_TESTS.md](docs/ACCEPTANCE_TESTS.md) | Testes de aceitação |
+| [🐧 Servidor Ubuntu](docs/LINUX_SERVER.md) | Instalação, atualização, backup e rollback |
+| [🪟 Windows 10/11](docs/WINDOWS_SETUP.md) | Instalação e scripts no Windows |
+| [🔄 Migração para ASTRYON](docs/MIGRATION_ASTRYON.md) | Atualização de instalações com o nome anterior |
+| [🔍 Solução de problemas](docs/TROUBLESHOOTING.md) | Diagnóstico da rede, da antena e dos serviços |
 
-## Créditos
+### 🔌 Integrações
+
+| Guia | O que tem dentro |
+|---|---|
+| [📲 Telegram](docs/TELEGRAM.md) | Bot, comandos, voz e resumo semanal |
+| [📡 ESP32](docs/ESP32_SETUP.md) | Montagem e pareamento do nó de sensores |
+| [🏠 Home Assistant](docs/HOME_ASSISTANT.md) | Sensores via MQTT com descoberta automática |
+| [☁️ Nuvem (Vercel + Supabase)](docs/NUVEM.md) | Contas por e-mail, pareamento e painel na nuvem |
+| [🔄 Supabase](docs/SUPABASE.md) | Sincronização opcional com RLS |
+| [🍓 Aparelho pronto](docs/APARELHO.md) | Raspberry Pi com página de configuração |
+
+### 🧠 Referência técnica
+
+| Guia | O que tem dentro |
+|---|---|
+| [🧩 Arquitetura](docs/ARCHITECTURE.md) | Decisões de projeto e fluxo de dados |
+| [🛰️ Compatibilidade Starlink](docs/STARLINK_COMPATIBILITY.md) | O que a API local informa — e o que não informa |
+| [🛡️ Segurança](docs/SECURITY.md) | Modelo de segurança |
+| [✅ Testes de aceitação](docs/ACCEPTANCE_TESTS.md) | Roteiro de validação ponta a ponta |
+
+## 🙏 Créditos
 
 Desenvolvido por [@carlosnj497-lgtm](https://github.com/carlosnj497-lgtm). Distribuído sob a [licença MIT](LICENSE).
 

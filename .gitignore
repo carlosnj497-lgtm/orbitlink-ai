@@ -51,3 +51,11 @@ packaging/windows/astryon.ico
 
 # Script pessoal (IPs da LAN/Tailscale e usuário do servidor): nunca versionar
 ssh-vscode-windows.ps1
+
+# Protótipo mobile-gateway: dados locais, builds e secrets
+prototypes/**/gateway.db
+prototypes/**/.env
+prototypes/**/build/
+prototypes/**/.dart_tool/
+prototypes/**/.flutter-plugins*
+prototypes/**/pubspec.lock

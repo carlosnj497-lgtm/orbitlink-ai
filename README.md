@@ -74,18 +74,18 @@ Pronto — o agente já está lendo a sua antena. 📡 No projeto inteiro vale o
 
 ## 💡 Por que o ASTRYON?
 
-O app oficial da Starlink mostra como a antena está agora. O ASTRYON guarda tudo o que a antena reporta,
-segundo a segundo, e transforma isso em histórico, alertas e respostas.
+O app oficial da Starlink mostra como a antena está **agora**. O ASTRYON guarda **tudo** o que a antena
+reporta, segundo a segundo, e transforma em histórico, alertas e respostas:
 
-| | O que você ganha |
+| 📱 App oficial | 🛰️ Com o ASTRYON |
 |---|---|
-| 🗂️ **Histórico seu** | Amostras de 1 s guardadas no seu computador, com agregados por minuto mantidos por mais de um ano. |
-| 🌙 **Quedas de madrugada** | Cada interrupção fica registrada com horário e duração (e a causa, quando a antena informa), mesmo com ninguém olhando. |
-| 📦 **Franquia sob controle** | Consumo do ciclo, projeção do mês e aviso no Telegram em 80% e 100% do plano. |
-| 📲 **Avisos no celular** | Alertas, resumo semanal e consultas por comando no Telegram, sem abrir o painel. |
-| 🌧️ **Foi a chuva?** | O clima da sua cidade aparece junto da conexão: dá para ver se uma queda coincidiu com chuva forte. |
-| 🗣️ **Pergunte em português** | "Minha internet ficou ruim ontem à noite?" Resposta com período, fonte e incerteza. |
-| 🔒 **Dados com você** | Tudo roda na sua rede. Nada sai sem você configurar, e a nuvem é opcional. |
+| Só o momento atual | 🗂️ **Histórico seu** — amostras de 1 s no seu computador e agregados por mais de um ano |
+| Quedas passam despercebidas | 🌙 **Quedas de madrugada** registradas com horário, duração e causa (quando a antena informa) |
+| Sem visão da franquia | 📦 **Franquia sob controle** — consumo do ciclo, projeção do mês e aviso em 80% e 100% do plano |
+| Precisa abrir o app | 📲 **Avisos no celular** — alertas, resumo semanal e consultas no Telegram, sem abrir o painel |
+| Só dados da antena | 🌧️ **Foi a chuva?** — o clima da sua cidade aparece junto da conexão, para comparar |
+| Só gráficos prontos | 🗣️ **Pergunte em português** — "minha internet ficou ruim ontem à noite?", com fonte e incerteza |
+| Dados na nuvem deles | 🔒 **Dados com você** — tudo roda na sua rede; a nuvem só entra se você configurar |
 
 ## ✨ O que ele faz
 

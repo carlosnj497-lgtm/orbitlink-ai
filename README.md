@@ -2,13 +2,15 @@
 
 <img src="docs/screenshots/banner.webp" alt="ASTRYON">
 
+# ASTRYON
+
 ### 📡 Monitoramento local das antenas Starlink
 
 **Painel em tempo real · Alertas no Telegram · Assistente de IA · Controle seguro da antena**
 
 Tudo rodando na sua rede — sem nuvem obrigatória, sem dado inventado.
 
-<!-- Stack -->
+<!-- Badges de stack -->
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-agente-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
@@ -18,19 +20,30 @@ Tudo rodando na sua rede — sem nuvem obrigatória, sem dado inventado.
 
 <!-- Status do projeto -->
 [![CI](https://img.shields.io/github/actions/workflow/status/carlosnj497-lgtm/orbitlink-ai/ci.yml?style=for-the-badge&label=CI)](https://github.com/carlosnj497-lgtm/orbitlink-ai/actions/workflows/ci.yml)
-[![Estrelas](https://img.shields.io/github/stars/carlosnj497-lgtm/orbitlink-ai?style=for-the-badge&logo=github)](https://github.com/carlosnj497-lgtm/orbitlink-ai/stargazers)
-![Último commit](https://img.shields.io/github/last-commit/carlosnj497-lgtm/orbitlink-ai?style=for-the-badge&label=%C3%BAltimo%20commit)
-![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-22c55e?style=for-the-badge)
-[![Instaladores](https://img.shields.io/badge/instaladores-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/carlosnj497-lgtm/astryon-releases)
+[![Stars](https://img.shields.io/github/stars/carlosnj497-lgtm/orbitlink-ai?style=for-the-badge&logo=github)](https://github.com/carlosnj497-lgtm/orbitlink-ai/stargazers)
+![Last commit](https://img.shields.io/github/last-commit/carlosnj497-lgtm/orbitlink-ai?style=for-the-badge&label=last%20commit)
+![License MIT](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
+[![Installers](https://img.shields.io/badge/installers-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/carlosnj497-lgtm/astryon-releases)
 
-[📺 **Ver telas**](#-telas) · [📦 **Download para Windows**](https://github.com/carlosnj497-lgtm/astryon-releases) · [🐛 **Reportar bug**](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues) · [📚 **Documentação**](#-documentação)
+[🎬 **See English version**](#-english) · [📺 **Ver telas**](#-telas) · [📦 **Download para Windows**](https://github.com/carlosnj497-lgtm/astryon-releases) · [🐛 **Reportar bug**](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues) · [📚 **Documentação**](#-documentação)
 
 </div>
 
 <p align="center">
   <img src="docs/screenshots/ao-vivo.webp" alt="Tela Ao Vivo do ASTRYON em funcionamento" width="900"><br>
-  <sub>Tela Ao Vivo na demonstração (dados fictícios, acelerada 4×).</sub>
+  <sub>Tela Ao Vivo na demonstração (dados fictícios, acelerada 4×) / Live screen in demo mode (fictitious data, 4× speed).</sub>
 </p>
+
+---
+
+## 🌐 Idiomas / Languages
+
+- 🇧🇷 [Português](#-português)
+- 🇺🇸 [English](#-english)
+
+---
+
+# 🇧🇷 Português
 
 ## 🚀 Início rápido
 
@@ -43,8 +56,7 @@ sudo cat /etc/astryon/setup-code     # 2️⃣ copie o código de configuração
 # 3️⃣ abra https://SEU-IP/ e crie o administrador com esse código
 ```
 
-Pronto — o agente já está lendo a sua antena. 📡 No projeto inteiro vale o mesmo nome: variáveis
-`ASTRYON_*`, serviços `astryon-*` e o comando `astryonctl`.
+Pronto — o agente já está lendo a sua antena. 📡 No projeto inteiro vale o mesmo nome: variáveis `ASTRYON_*`, serviços `astryon-*` e o comando `astryonctl`.
 
 🪟 **No Windows?** Veja [Instalação](#-instalação) · 🎮 **Sem antena por perto?** Abra `/demo` · 🔄 **Vindo do nome antigo?** Veja [Migração para ASTRYON](docs/MIGRATION_ASTRYON.md)
 
@@ -58,28 +70,24 @@ Pronto — o agente já está lendo a sua antena. 📡 No projeto inteiro vale o
 
 ## 📑 Sumário
 
-<p align="center">
-  <a href="#-por-que-o-astryon"><img src="docs/nav/01.svg" alt="Por que o ASTRYON?" width="200"></a>
-  <a href="#-início-rápido"><img src="docs/nav/05.svg" alt="Início rápido" width="200"></a>
-  <a href="#-arquitetura"><img src="docs/nav/09.svg" alt="Arquitetura" width="200"></a>
-  <br>
-  <a href="#-o-que-ele-faz"><img src="docs/nav/02.svg" alt="O que ele faz" width="200"></a>
-  <a href="#-instalação"><img src="docs/nav/06.svg" alt="Instalação" width="200"></a>
-  <a href="#-estado-do-projeto"><img src="docs/nav/10.svg" alt="Estado do projeto" width="200"></a>
-  <br>
-  <a href="#-telas"><img src="docs/nav/03.svg" alt="Telas" width="200"></a>
-  <a href="#-telegram-e-ia"><img src="docs/nav/07.svg" alt="Telegram e IA" width="200"></a>
-  <a href="#-roteiro"><img src="docs/nav/11.svg" alt="Roteiro" width="200"></a>
-  <br>
-  <a href="#-princípios"><img src="docs/nav/04.svg" alt="Princípios" width="200"></a>
-  <a href="#-perguntas-frequentes"><img src="docs/nav/08.svg" alt="Perguntas frequentes" width="200"></a>
-  <a href="#-documentação"><img src="docs/nav/12.svg" alt="Documentação" width="200"></a>
-</p>
+- [💡 Por que o ASTRYON?](#-por-que-o-astryon)
+- [✨ O que ele faz](#-o-que-ele-faz)
+- [📺 Telas](#-telas)
+- [💎 Princípios](#-princípios)
+- [🔧 Instalação](#-instalação)
+- [🤖 Telegram e IA](#-telegram-e-ia)
+- [🧩 Arquitetura](#-arquitetura)
+- [🚦 Estado do projeto](#-estado-do-projeto)
+- [🧭 Roteiro](#-roteiro)
+- [❓ Perguntas frequentes](#-perguntas-frequentes)
+- [💻 Desenvolvimento](#-desenvolvimento)
+- [🤝 Contribuição](#-contribuição)
+- [📚 Documentação](#-documentação)
+- [🙏 Créditos](#-créditos)
 
 ## 💡 Por que o ASTRYON?
 
-O app oficial da Starlink mostra como a antena está **agora**. O ASTRYON guarda **tudo** o que a antena
-reporta, segundo a segundo, e transforma em histórico, alertas e respostas:
+O app oficial da Starlink mostra como a antena está **agora**. O ASTRYON guarda **tudo** o que a antena reporta, segundo a segundo, e transforma em histórico, alertas e respostas:
 
 | 📱 App oficial | 🛰️ Com o ASTRYON |
 |---|---|
@@ -147,8 +155,7 @@ Todas as capturas vêm da rota `/demo`, com dados fictícios e a faixa de demons
 
 ### Servidor Linux (Ubuntu Server 24.04 LTS), recomendado
 
-Siga os três comandos do [Início rápido](#-início-rápido). O instalador configura systemd + Nginx (TLS) + UFW,
-e o código em `/etc/astryon/setup-code` cria o primeiro administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
+Siga os três comandos do [Início rápido](#-início-rápido). O instalador configura systemd + Nginx (TLS) + UFW, e o código em `/etc/astryon/setup-code` cria o primeiro administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
 
 ```bash
 sudo astryonctl status | logs agent -f | diagnose | doctor | restart | update --git-pull | rollback | backup
@@ -207,11 +214,7 @@ flowchart LR
     ESP["🔌 Sensores ESP32"] -.->|"HMAC"| Agent
 ```
 
-O coletor lê o status a cada 10 s, o histórico a cada 30 s e as obstruções a cada 5 min, gravando no
-SQLite (WAL, migrações e retenção automática). O login usa cookie httpOnly (`SameSite=Strict`) e o painel
-fala com o agente por um proxy autenticado: o token nunca chega ao navegador. Alertas, diagnóstico por
-regras, relatórios e o controle auditado da antena rodam dentro do agente; o clima envia só as coordenadas
-da cidade, e a sincronização com o Supabase usa RLS. O listener ESP32 autentica os sensores por HMAC.
+O coletor lê o status a cada 10 s, o histórico a cada 30 s e as obstruções a cada 5 min, gravando no SQLite (WAL, migrações e retenção automática). O login usa cookie httpOnly (`SameSite=Strict`) e o painel fala com o agente por um proxy autenticado: o token nunca chega ao navegador. Alertas, diagnóstico por regras, relatórios e o controle auditado da antena rodam dentro do agente; o clima envia só as coordenadas da cidade, e a sincronização com o Supabase usa RLS. O listener ESP32 autentica os sensores por HMAC.
 
 | Pasta | Conteúdo |
 |---|---|
@@ -368,9 +371,337 @@ O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, paine
 | [🛡️ Segurança](docs/SECURITY.md) | Modelo de segurança |
 | [✅ Testes de aceitação](docs/ACCEPTANCE_TESTS.md) | Roteiro de validação ponta a ponta |
 
-## 🙏 Créditos
+---
 
-Desenvolvido por [@carlosnj497-lgtm](https://github.com/carlosnj497-lgtm). Distribuído sob a [licença MIT](LICENSE).
+# 🇺🇸 English
 
-A leitura do histórico circular da antena segue o modelo documentado pela
-[starlink-grpc-tools](https://github.com/sparky8512/starlink-grpc-tools) (Unlicense). O código foi reescrito, não copiado.
+## 🚀 Quick start
+
+**Prerequisites:** Python 3.11+ and Node.js 20+ on a computer connected to the same network as the dish.
+
+```bash
+git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/astryon && cd ~/astryon
+sudo bash deploy/linux/install.sh    # 1️⃣ installs and starts services (systemd + Nginx + UFW)
+sudo cat /etc/astryon/setup-code     # 2️⃣ copy the setup code
+# 3️⃣ open https://YOUR-IP/ and create the administrator with that code
+```
+
+Done — the agent is already reading your dish. 📡 The whole project uses the same naming: `ASTRYON_*` variables, `astryon-*` services, and the `astryonctl` command.
+
+🪟 **On Windows?** See [Installation](#-installation-1) · 🎮 **No dish nearby?** Open `/demo` · 🔄 **Coming from the old name?** See [Migration to ASTRYON](docs/MIGRATION_ASTRYON.md)
+
+> [!IMPORTANT]
+> Independent project, **not affiliated with Starlink or SpaceX** — it only uses the local gRPC API that the dish
+> exposes on your network. Targeted at **Mini, Standard (and previous generations), Standard Actuated, High Performance
+> and Flat High Performance** models: compatibility depends on each dish's firmware, and validation on real hardware
+> is still pending.
+
+---
+
+## 📑 Table of contents
+
+- [💡 Why ASTRYON?](#-why-astryon)
+- [✨ What it does](#-what-it-does)
+- [📺 Screenshots](#-screenshots)
+- [💎 Principles](#-principles)
+- [🔧 Installation](#-installation)
+- [🤖 Telegram and AI](#-telegram-and-ai)
+- [🧩 Architecture](#-architecture)
+- [🚦 Project status](#-project-status)
+- [🧭 Roadmap](#-roadmap)
+- [❓ FAQ](#-faq)
+- [💻 Development](#-development)
+- [🤝 Contributing](#-contributing)
+- [📚 Documentation](#-documentation)
+- [🙏 Credits](#-credits)
+
+## 💡 Why ASTRYON?
+
+The official Starlink app shows how your dish is doing **right now**. ASTRYON stores **everything** the dish reports, second by second, and turns it into history, alerts, and answers:
+
+| 📱 Official app | 🛰️ With ASTRYON |
+|---|---|
+| Only the current moment | 🗂️ **Your history** — 1-second samples on your computer and aggregates for over a year |
+| Outages go unnoticed | 🌙 **Overnight outages** logged with time, duration, and cause (when the dish reports it) |
+| No data-cap view | 📦 **Data cap under control** — cycle usage, monthly projection, and alerts at 80% and 100% of the plan |
+| Need to open the app | 📲 **Phone notifications** — alerts, weekly summary, and Telegram queries without opening the dashboard |
+| Dish data only | 🌧️ **Was it the rain?** — your city's weather appears alongside the connection, for comparison |
+| Only pre-built charts | 🗣️ **Ask in Portuguese** — "was my internet bad last night?", with source and uncertainty |
+| Data on their cloud | 🔒 **Data stays with you** — everything runs on your network; cloud is opt-in only |
+
+## ✨ What it does
+
+| | Feature | Details |
+|---|---|---|
+| 📡 | **Live** | Download, upload, latency, and packet loss every second, with history, pause, and CSV export. |
+| 📊 | **Usage and data cap** | Cycle usage, monthly projection, and alerts at 80% and 100% of the plan (local estimate from dish traffic). |
+| ✅ | **Quality** | Availability, loss, jitter, and latency percentiles per hour, comparison with the previous period (with and without rain), and the best times of day. Seconds without measurement are excluded. |
+| 🛰️ | **Dish and obstructions** | Status, firmware, sky map as seen by the dish, and obstruction percentage. |
+| 🔔 | **Alerts** | Rules with debounce, hysteresis, and cooldown, delivered via Telegram or webhook, with a queue that survives internet outages. |
+| 🤖 | **AI hub** | Questions in Portuguese answered with data from the agent (Groq). Without a key, it answers by rules. |
+| 💬 | **Telegram bot** | `/menu`, command queries without spending AI, text or voice questions, and weekly summary. |
+| 🔁 | **Safe control** | Rebooting the dish requires an administrator, a single-use code, and is audited. AI only suggests. |
+| 🌦️ | **Weather (optional)** | City weather from Open-Meteo (free): card on the Dashboard, rain bands in charts, and weather at each outage in Events. |
+| 🔌 | **ESP32 (optional)** | Voltage, power outage, and temperature sensors, authenticated by HMAC. |
+| 🏠 | **Home Assistant (optional)** | Starlink sensors in Home Assistant via MQTT, with auto-discovery. See [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md). |
+| ☁️ | **Supabase (optional)** | Sync with RLS. The dashboard keeps reading only the local agent. |
+
+## 📺 Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/consumo.png" alt="Usage"><br><sub><b>Usage</b>: cycle, projection, and daily evolution.</sub></td>
+    <td width="50%"><img src="docs/screenshots/antena.png" alt="Dish and Signal"><br><sub><b>Dish and Signal</b>: status, firmware, and obstructions.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/central-ia.png" alt="AI Hub"><br><sub><b>AI Hub</b>: questions about the connection with conversation history.</sub></td>
+    <td><img src="docs/screenshots/login.png" alt="Login"><br><sub><b>Login</b>: local administrator created during installation.</sub></td>
+  </tr>
+</table>
+
+<details>
+<summary><b>Full dashboard and mobile version</b></summary>
+<br>
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Full dashboard" width="720">
+  &nbsp;
+  <img src="docs/screenshots/celular.png" alt="Dashboard on mobile" width="260">
+</p>
+</details>
+
+All screenshots come from the `/demo` route, with fictitious data and the demo banner always visible.
+
+## 💎 Principles
+
+- **Works 100% locally.** No Docker and no paid service. Supabase, AI, and ESP32 are optional.
+- **Every metric shows its origin**: `real`, `calculated`, `estimated`, `imported`, `sensor_esp32`, `unavailable`, or `demo`.
+- **Nothing is made up.** Any field the firmware does not report appears as unavailable. Observation gaps never become zero, and current traffic is never called a speed test.
+- **Actions require human confirmation.** AI tools are read-only.
+- **Demo isolated.** Fictitious data exists only in `/demo`, always labeled.
+
+## 🔧 Installation
+
+**Prerequisites:** Python 3.11+ and Node.js 20+ (LTS). Computer on the same network as the dish (the agent must reach the dish's local IP).
+
+### Linux server (Ubuntu Server 24.04 LTS), recommended
+
+Follow the three commands in [Quick start](#-quick-start). The installer configures systemd + Nginx (TLS) + UFW, and the code in `/etc/astryon/setup-code` creates the first administrator. Installer options: `--with-tailscale`, `--esp32`, and `--harden-ssh`.
+
+```bash
+sudo astryonctl status | logs agent -f | diagnose | doctor | restart | update --git-pull | rollback | backup
+```
+
+The `astryon-agent` and `astryon-web` services self-restart on failures and log to journald. Agent and dashboard listen only on loopback; Nginx exposes the dashboard only to the LAN and Tailnet. Full guide: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
+
+### Windows 10/11 (PowerShell)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1    # venv, npm, .env with token, build
+powershell -ExecutionPolicy Bypass -File scripts\diagnose.ps1   # network + dish (read-only)
+powershell -ExecutionPolicy Bypass -File scripts\start.ps1      # agent :8787 + dashboard :3000
+```
+
+Open `http://localhost:3000` on the same PC and create the administrator. To stop: `scripts\stop.ps1`. Guide: [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
+
+Prefer the installer with a tray icon? Download the `.exe` from [astryon-releases](https://github.com/carlosnj497-lgtm/astryon-releases) (being validated on real Windows).
+
+> [!TIP]
+> No dish nearby? Open `/demo` to see the dashboard with fictitious data.
+
+## 🤖 Telegram and AI
+
+1. Create a bot with [@BotFather](https://t.me/BotFather) and put the token in `ASTRYON_TELEGRAM_BOT_TOKEN`.
+2. Discover the authorized chat with `sudo astryonctl telegram-chat-id` (or `python -m astryon_agent telegram-chat-id`) and fill in `ASTRYON_TELEGRAM_CHAT_ID`.
+3. Optional: add a [Groq](https://console.groq.com/keys) key in `ASTRYON_GROQ_API_KEY` for AI answers and voice-note transcription (Whisper).
+
+| Command | What it shows |
+|---|---|
+| `/menu` | Hub with buttons |
+| `/status` | Diagnosis of the last 24 h |
+| `/consumo 7d` | Download, upload, and coverage for the period |
+| `/franquia` | Limit, estimated balance, and cycle projection |
+| `/qualidade` · `/quedas` · `/alertas` | Quality, interruptions (with weather for each), and active alerts |
+| `/clima` | Weather now, next hours, and heavy-rain warning |
+| `/horario` | Best times for downloads and calls |
+| `/resumo` | Summary of the last 7 days |
+| `/relatorio` | PDF of the last 30 days, with comparison and weather |
+
+Command queries do not consume AI. Text or voice questions use the daily quota, shared with the dashboard. All commands: [docs/TELEGRAM.md](docs/TELEGRAM.md).
+
+## 🧩 Architecture
+
+```mermaid
+flowchart LR
+    Browser(["🌐 Browser"]) -->|"HTTPS"| Nginx["Nginx (TLS)"]
+    Nginx --> Web["ASTRYON Dashboard Next.js<br/>local :3000"]
+    Web -->|"authenticated proxy + SSE"| Agent["FastAPI agent<br/>local :8787"]
+    Agent -->|"gRPC :9200"| Dish[("🛰️ Starlink dish")]
+    Agent --> DB[("💾 SQLite WAL")]
+    Agent --> TG["📲 Telegram bot"]
+    Agent --> AI["🤖 Groq + Whisper<br/>read-only"]
+    Agent -.->|"optional HTTPS"| Meteo["🌦️ Open-Meteo"]
+    Agent -.->|"optional HTTPS"| Supa[("☁️ Supabase RLS")]
+    ESP["🔌 ESP32 sensors"] -.->|"HMAC"| Agent
+```
+
+The collector reads status every 10 s, history every 30 s, and obstructions every 5 min, writing to SQLite (WAL, migrations, and automatic retention). Login uses an httpOnly cookie (`SameSite=Strict`) and the dashboard talks to the agent via an authenticated proxy: the token never reaches the browser. Alerts, rule-based diagnosis, reports, and audited dish control run inside the agent; weather sends only the city coordinates, and Supabase sync uses RLS. The ESP32 listener authenticates sensors by HMAC.
+
+| Folder | Content |
+|---|---|
+| `apps/agent/` | Python agent: FastAPI, gRPC via reflection, SQLite, SSE, alerts, AI, Telegram, and sync |
+| `apps/web/` | ASTRYON dashboard: Next.js 16 (App Router), Tailwind 4, TanStack Query, Recharts |
+| `apps/esp32-firmware/` | PlatformIO/Arduino firmware for the ESP32 node |
+| `packages/shared/` | TS contracts and types generated from the agent's OpenAPI |
+| `supabase/` | SQL migrations with RLS and isolation tests (PGlite) |
+| `deploy/linux/` | Installer, systemd, Nginx, UFW, and `astryonctl` |
+| `scripts/` | Windows scripts and ESP32 emulator |
+
+Project decisions and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## 🚦 Project status
+
+| Component | Status |
+|---|---|
+| gRPC connector | Tested against a synthetic gRPC server with reflection. **Not yet validated on real dishes**; compatibility per model and firmware needs confirmation. |
+| Agent | pytest, ruff, and mypy strict tests. Dependencies locked with hashes. |
+| Dashboard | Vitest and Playwright E2E tests (including accessibility with axe). |
+| Telegram and notifications | Commands, retry queue, and weekly summary tested with a simulated server. |
+| AI (Groq) and Whisper | Tested with the real Groq endpoint; audio validated with synthetic voice. |
+| Supabase | RLS isolation tests in Postgres (PGlite). Not yet applied to a real project. |
+| ESP32 firmware | Version 0.2.0 with v2 pairing still needs compilation in both environments and validation on a board. |
+| Linux deployment | Script tests and real installation on a clean Ubuntu 24.04 in CI. |
+| Cloud dashboard (Vercel + Supabase) | Email login, pairing code, Dashboard, Usage, Quality, Events, and Account. Tested with simulated Supabase; needs publishing and SQL applied to your project. |
+
+## 🧭 Roadmap
+
+- [x] gRPC reflection collection, 1-second history, and per-minute aggregates
+- [x] ASTRYON dashboard with Live, Usage, Quality, Dish, Obstructions, Events, and Reports
+- [x] Alerts with retry queue, Telegram bot, and weekly summary
+- [x] AI hub (Groq) and voice notes transcribed by Whisper
+- [x] Ubuntu installation with systemd, Nginx, and UFW, tested in CI
+- [x] City weather (Open-Meteo) correlated with quality and outages
+- [x] Heavy-rain warning on Telegram and `/clima` command
+- [ ] Validation on real Starlink dishes across different models and generations
+- [ ] ESP32 node flashed and tested on a board
+- [x] Cloud service: email accounts, pairing code, and dashboard reading Supabase ([NUVEM.md](docs/NUVEM.md))
+- [ ] Ready device (Raspberry Pi) with config page: script ready, hardware test pending ([APARELHO.md](docs/APARELHO.md))
+- [ ] `.exe` installer for Windows with tray icon: built in GitHub Actions and published in [astryon-releases](https://github.com/carlosnj497-lgtm/astryon-releases), pending validation on real Windows
+
+## ❓ FAQ
+
+<details>
+<summary><b>Which Starlink dish models are supported?</b></summary>
+<br>
+The project targets Starlink models in general, including <b>Mini, Standard (and previous generations),
+Standard Actuated, High Performance, and Flat High Performance</b>, as long as they expose the local gRPC API
+accessible to the agent (dish IP, port 9200). The agent discovers at runtime which calls the firmware offers;
+anything not reported appears as unavailable. Real-hardware validation is still pending, so there is no guarantee
+of full compatibility with every model and firmware.
+Details in <a href="docs/STARLINK_COMPATIBILITY.md">STARLINK_COMPATIBILITY.md</a>.
+</details>
+
+<details>
+<summary><b>Do I need a server running 24/7?</b></summary>
+<br>
+To monitor 24/7, yes: any mini PC or old computer with Ubuntu works. On Windows, monitoring runs while the computer is on.
+</details>
+
+<details>
+<summary><b>Does my data go anywhere?</b></summary>
+<br>
+Not by default. Everything stays in the local SQLite. Data only leaves if you enable Telegram, Groq AI (the question and
+necessary data to answer it), bot voice replies (the response text goes to Microsoft's voice service), weather (only the
+chosen city's coordinates, rounded to about 1 km, go to Open-Meteo), or sync with your own Supabase project.
+</details>
+
+<details>
+<summary><b>Does the weather say rain caused my internet outage?</b></summary>
+<br>
+No. It shows that both events happened at the same time, which helps investigate, but does not prove causation. The weather
+comes from a meteorological model for your region, not a sensor on your roof, so it appears as <b>estimated</b> data.
+To enable, choose the city in Settings → Weather; without a city, nothing is fetched.
+</details>
+
+<details>
+<summary><b>How much does it cost?</b></summary>
+<br>
+The project has no cost. Telegram and weather (Open-Meteo) are free. AI uses your own Groq key, which has a free plan; without a key,
+the assistant answers by rules. There are configurable daily quotas for text and audio.
+</details>
+
+<details>
+<summary><b>Is the shown usage the same as my bill?</b></summary>
+<br>
+Not necessarily. Usage is estimated from the traffic the dish reports every second, and the dashboard makes this clear.
+Periods without observation are excluded. To compare, import the CSV from your Starlink account.
+</details>
+
+<details>
+<summary><b>Can the AI reboot my dish?</b></summary>
+<br>
+No. AI tools are read-only. Rebooting requires an administrator, a single-use code, and is recorded in the audit log.
+</details>
+
+## 💻 Development
+
+| Command (from root) | What it does |
+|---|---|
+| `npm run dev` | Dashboard in development mode |
+| `npm run test` | pytest + Vitest + RLS tests |
+| `npm run test:e2e` | Playwright: agent in fixture mode + dashboard in production |
+| `npm run lint` · `npm run typecheck` | ESLint + ruff · tsc + mypy strict |
+| `npm run build` | Production build of the dashboard |
+| `npm run diagnose` | Network and dish diagnosis |
+| `npm run gen:types` | Regenerates TS types from the agent's OpenAPI |
+| `npm run lock:agent` | Regenerates Python `.lock` files (requires `uv`) |
+| `npm run audit` | Known vulnerabilities (`npm audit` + `pip-audit`) |
+| `npm run test:deploy` | Tests for the Linux server scripts |
+
+When changing dependencies in `apps/agent/pyproject.toml`, run `npm run lock:agent` and commit both `.lock` files: CI fails if they are out of date.
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs agent, dashboard, Supabase, E2E, scripts, vulnerability audit, and a real Ubuntu installation on every push and pull request.
+
+## 🤝 Contributing
+
+- Found a problem or have a suggestion? Open an [issue](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues).
+- Pull requests are welcome: before submitting, run `npm run test` and `npm run lint` (CI will reject if anything fails).
+- If the project helped you, leave a ⭐ on the repository — it helps others find it.
+
+## 📚 Documentation
+
+### 🚀 Getting started
+
+| Guide | What's inside |
+|---|---|
+| [🐧 Ubuntu Server](docs/LINUX_SERVER.md) | Installation, update, backup, and rollback |
+| [🪟 Windows 10/11](docs/WINDOWS_SETUP.md) | Installation and scripts on Windows |
+| [🔄 Migration to ASTRYON](docs/MIGRATION_ASTRYON.md) | Updating installations with the previous name |
+| [🔍 Troubleshooting](docs/TROUBLESHOOTING.md) | Network, dish, and service diagnosis |
+
+### 🔌 Integrations
+
+| Guide | What's inside |
+|---|---|
+| [📲 Telegram](docs/TELEGRAM.md) | Bot, commands, voice, and weekly summary |
+| [📡 ESP32](docs/ESP32_SETUP.md) | Assembly and pairing of the sensor node |
+| [🏠 Home Assistant](docs/HOME_ASSISTANT.md) | Sensors via MQTT with auto-discovery |
+| [☁️ Cloud (Vercel + Supabase)](docs/NUVEM.md) | Email accounts, pairing, and cloud dashboard |
+| [🔄 Supabase](docs/SUPABASE.md) | Optional sync with RLS |
+| [🍓 Ready device](docs/APARELHO.md) | Raspberry Pi with configuration page |
+
+### 🧠 Technical reference
+
+| Guide | What's inside |
+|---|---|
+| [🧩 Architecture](docs/ARCHITECTURE.md) | Project decisions and data flow |
+| [🛰️ Starlink compatibility](docs/STARLINK_COMPATIBILITY.md) | What the local API reports — and what it doesn't |
+| [🛡️ Security](docs/SECURITY.md) | Security model |
+| [✅ Acceptance tests](docs/ACCEPTANCE_TESTS.md) | End-to-end validation checklist |
+
+---
+
+# 🙏 Créditos / Credits
+
+Desenvolvido por / Developed by [@carlosnj497-lgtm](https://github.com/carlosnj497-lgtm). Distribuído sob a licença / Distributed under the [MIT License](LICENSE).
+
+A leitura do histórico circular da antena segue o modelo documentado pela / The circular history reading follows the model documented by [starlink-grpc-tools](https://github.com/sparky8512/starlink-grpc-tools) (Unlicense). O código foi reescrito, não copiado. / The code was rewritten, not copied.

@@ -30,26 +30,25 @@ Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
 
 ## 🚀 Início rápido
 
+**Pré-requisitos:** Python 3.11+ e Node.js 20+ num computador ligado na mesma rede da antena.
+
 ```bash
 git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/astryon && cd ~/astryon
-sudo bash deploy/linux/install.sh
-sudo cat /etc/astryon/setup-code   # abra https://SEU-IP/ e crie o administrador
+sudo bash deploy/linux/install.sh    # 1️⃣ instala e sobe os serviços (systemd + Nginx + UFW)
+sudo cat /etc/astryon/setup-code     # 2️⃣ copie o código de configuração
+# 3️⃣ abra https://SEU-IP/ e crie o administrador com esse código
 ```
 
-Pronto: o agente passa a ler a sua antena. No Windows, veja [Instalação](#-instalação). Sem antena por perto, abra `/demo`.
+Pronto — o agente já está lendo a sua antena. 📡 No projeto inteiro vale o mesmo nome: variáveis
+`ASTRYON_*`, serviços `astryon-*` e o comando `astryonctl`.
 
-> [!NOTE]
-> **ASTRYON** é o nome do projeto, do painel e dos pacotes. As variáveis usam o prefixo `ASTRYON_*`,
-> os serviços usam `astryon-*` e o comando de administração é `astryonctl`.
-> Projeto independente, sem afiliação com a Starlink ou a SpaceX. Usa apenas a API local gRPC que a
-> própria antena expõe na sua rede.
->
-> Voltado aos diferentes modelos de antena Starlink: **Mini, Standard (incluindo gerações anteriores),
-> Standard Actuated, High Performance e Flat High Performance**. A compatibilidade e os recursos
-> disponíveis dependem da API local gRPC exposta por cada modelo e firmware. A validação em antenas
-> reais ainda está pendente.
+🪟 **No Windows?** Veja [Instalação](#-instalação) · 🎮 **Sem antena por perto?** Abra `/demo` · 🔄 **Vindo do nome antigo?** Veja [Migração para ASTRYON](docs/MIGRATION_ASTRYON.md)
 
-Para atualizar uma instalação com o nome anterior, veja [Migração para ASTRYON](docs/MIGRATION_ASTRYON.md).
+> [!IMPORTANT]
+> Projeto independente, **sem afiliação com a Starlink ou a SpaceX** — usa apenas a API local gRPC que a
+> própria antena expõe na sua rede. Voltado aos modelos **Mini, Standard (e gerações anteriores),
+> Standard Actuated, High Performance e Flat High Performance**: a compatibilidade depende do firmware
+> de cada antena, e a validação em hardware real ainda está pendente.
 
 ---
 

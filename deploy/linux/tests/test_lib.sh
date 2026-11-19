@@ -179,6 +179,7 @@ check "env_lines tira aspas" "$(grep '^ASTRYON_NOME=' <<<"${out}")" "ASTRYON_NOM
 check "env_lines ignora comentário e lixo" "$(wc -l <<<"${out}" | tr -d ' ')" "3"
 check "env_lines com prefixo" "$(env_lines "${ENVF}" NEXT_PUBLIC_)" "NEXT_PUBLIC_A=1"
 check "env_lines não executa nada" "$(test -e "${TMP}/pwned2" && echo executou || echo nao)" "nao"
+# shellcheck disable=SC2016  # $ literal na expressão regular
 check "astryonctl não executa o arquivo de ambiente" \
   "$(grep -cE '(^|[;[:space:]])(\.|source)[[:space:]]+"?\$(0|\{?OL_ENV_FILE)' "${HERE}/../astryonctl" || true)" "0"
 

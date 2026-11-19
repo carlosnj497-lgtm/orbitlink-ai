@@ -12,6 +12,12 @@ KEEP="${ASTRYON_BACKUP_KEEP:-14}"
 mkdir -p "${DEST}"
 chmod 0700 "${DEST}"
 out="${DEST}/astryon-$(date -u +%Y%m%dT%H%M%SZ).sqlite3"
+# Dois backups no mesmo segundo (ex.: "astryonctl backup" logo antes de "astryonctl update") colidiriam
+# no nome e o gzip se recusaria a sobrescrever, derrubando o update — nesses casos, usa um sufixo.
+n=1
+while [[ -e "${out}" || -e "${out}.gz" ]]; do
+  out="${DEST}/astryon-$(date -u +%Y%m%dT%H%M%SZ)-$((n++)).sqlite3"
+done
 sqlite3 "${DB}" ".timeout 10000" ".backup '${out}'"
 sqlite3 "${out}" "PRAGMA integrity_check;" | grep -qx ok || { echo "integridade falhou em ${out}" >&2; rm -f "${out}"; exit 1; }
 gzip -9 "${out}"

@@ -73,7 +73,7 @@ ok "Nginx $(nginx -v 2>&1 | sed 's/.*\///')"
 install -d -o root -g root -m 0755 /etc/astryon "${TLS_DIR}"
 left="$(cert_days_left "${TLS_DIR}/astryon.crt")"
 if [[ -z "${left}" || ${left} -lt 30 ]]; then
-  san="$(cert_san)"
+  san="$(cert_san "")"
   OL_TLS="${TLS_DIR}" cert_create "$(hostname)" "${san}" || die "não foi possível gerar o certificado"
   ok "certificado autoassinado da LAN (${san}); para renovar, rode este script de novo quando faltar < 30 dias"
 else

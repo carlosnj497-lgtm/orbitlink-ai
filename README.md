@@ -14,6 +14,8 @@ Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows&logoColor=white)
 ![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-22c55e)
+[![CI](https://github.com/carlosnj497-lgtm/orbitlink-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/carlosnj497-lgtm/orbitlink-ai/actions/workflows/ci.yml)
+[![Instaladores](https://img.shields.io/badge/instaladores-Windows-blue?logo=windows)](https://github.com/carlosnj497-lgtm/astryon-releases)
 
 </div>
 
@@ -137,13 +139,8 @@ Todas as capturas vêm da rota `/demo`, com dados fictícios e a faixa de demons
 
 ### Servidor Linux (Ubuntu Server 24.04 LTS), recomendado
 
-```bash
-git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/astryon && cd ~/astryon
-sudo bash deploy/linux/install.sh        # systemd + Nginx (TLS) + UFW
-sudo cat /etc/astryon/setup-code       # código para criar o 1º administrador
-```
-
-Depois abra `https://SEU-IP/` (o IP do servidor na sua rede) e crie o administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
+Siga os três comandos do [Início rápido](#início-rápido). O instalador configura systemd + Nginx (TLS) + UFW,
+e o código em `/etc/astryon/setup-code` cria o primeiro administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
 
 ```bash
 sudo astryonctl status | logs agent -f | diagnose | doctor | restart | update --git-pull | rollback | backup
@@ -160,6 +157,8 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1      # agente :8787 +
 ```
 
 Abra `http://localhost:3000` no próprio PC e crie o administrador. Para parar: `scripts\stop.ps1`. Guia: [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
+
+Prefere o instalador com ícone na bandeja? Baixe o `.exe` em [astryon-releases](https://github.com/carlosnj497-lgtm/astryon-releases) (em validação num Windows real).
 
 > Sem antena por perto? Abra `/demo` para ver o painel com dados fictícios.
 
@@ -239,7 +238,7 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - [ ] Nó ESP32 gravado e testado numa placa
 - [x] Serviço na nuvem: conta por e-mail, código de pareamento e painel lendo o Supabase ([NUVEM.md](docs/NUVEM.md))
 - [ ] Aparelho pronto (Raspberry Pi) com página de configuração: script pronto, falta testar no hardware ([APARELHO.md](docs/APARELHO.md))
-- [ ] Instalador `.exe` para Windows com ícone na bandeja: pronto para gerar no GitHub Actions, falta validar num Windows real
+- [ ] Instalador `.exe` para Windows com ícone na bandeja: gerado no GitHub Actions e publicado em [astryon-releases](https://github.com/carlosnj497-lgtm/astryon-releases), falta validar num Windows real
 
 ## Perguntas frequentes
 
@@ -317,6 +316,12 @@ registrado na auditoria.
 Ao mudar dependências em `apps/agent/pyproject.toml`, rode `npm run lock:agent` e faça commit dos dois `.lock`: o CI falha se estiverem desatualizados.
 
 O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, painel, Supabase, E2E, scripts, auditoria de vulnerabilidades e uma instalação real no Ubuntu a cada push e pull request.
+
+## Contribuição
+
+- Achou um problema ou tem uma sugestão? Abra uma [issue](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues).
+- Pull requests são bem-vindos: antes de enviar, rode `npm run test` e `npm run lint` (o CI reprova se algo falhar).
+- Se o projeto te ajudou, deixe uma ⭐ no repositório — isso ajuda outras pessoas a encontrá-lo.
 
 ## Documentação
 

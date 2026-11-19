@@ -2,24 +2,28 @@
 
 <img src="docs/screenshots/banner.webp" alt="ASTRYON">
 
-### Monitoramento local das antenas Starlink
+### 📡 Monitoramento local das antenas Starlink
 
-Painel em tempo real, alertas no Telegram, assistente de IA e controle seguro da antena.
-Tudo rodando na sua rede, sem nuvem obrigatória e sem dado inventado.
+**Painel em tempo real · Alertas no Telegram · Assistente de IA · Controle seguro da antena**
 
-![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-agente-009688?logo=fastapi&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?logo=sqlite&logoColor=white)
-![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white)
-![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows&logoColor=white)
+Tudo rodando na sua rede — sem nuvem obrigatória, sem dado inventado.
 
-[![CI](https://github.com/carlosnj497-lgtm/orbitlink-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/carlosnj497-lgtm/orbitlink-ai/actions/workflows/ci.yml)
-![Último commit](https://img.shields.io/github/last-commit/carlosnj497-lgtm/orbitlink-ai)
-![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-22c55e)
-[![Instaladores](https://img.shields.io/badge/instaladores-Windows-blue?logo=windows)](https://github.com/carlosnj497-lgtm/astryon-releases)
+<!-- Stack -->
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-agente-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 
-[📺 Ver telas](#-telas) · [📦 Download para Windows](https://github.com/carlosnj497-lgtm/astryon-releases) · [🐛 Reportar bug](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues) · [📚 Documentação](#-documentação)
+<!-- Status do projeto -->
+[![CI](https://img.shields.io/github/actions/workflow/status/carlosnj497-lgtm/orbitlink-ai/ci.yml?style=for-the-badge&label=CI)](https://github.com/carlosnj497-lgtm/orbitlink-ai/actions/workflows/ci.yml)
+[![Estrelas](https://img.shields.io/github/stars/carlosnj497-lgtm/orbitlink-ai?style=for-the-badge&logo=github)](https://github.com/carlosnj497-lgtm/orbitlink-ai/stargazers)
+![Último commit](https://img.shields.io/github/last-commit/carlosnj497-lgtm/orbitlink-ai?style=for-the-badge&label=%C3%BAltimo%20commit)
+![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-22c55e?style=for-the-badge)
+[![Instaladores](https://img.shields.io/badge/instaladores-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/carlosnj497-lgtm/astryon-releases)
+
+[📺 **Ver telas**](#-telas) · [📦 **Download para Windows**](https://github.com/carlosnj497-lgtm/astryon-releases) · [🐛 **Reportar bug**](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues) · [📚 **Documentação**](#-documentação)
 
 </div>
 

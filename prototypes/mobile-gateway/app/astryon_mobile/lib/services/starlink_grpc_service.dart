@@ -4,8 +4,17 @@
 //
 //   bash tool/gen_protos.sh
 //
-// Depois, importe este serviço no dashboard e substitua
-// StarlinkService.readTelemetryStub() por StarlinkGrpcService.readStatus().
+// Depois, importe este serviço no dashboard e substitua o retorno de
+// `StarlinkService.readTelemetry()` por `StarlinkGrpcService.readStatus()`.
+//
+// Enquanto os protobufs não forem gerados, o arquivo fica fora da análise
+// estática (ver `analysis_options.yaml`); as linhas de ignore abaixo mantêm a
+// análise limpa mesmo se o arquivo for reabilitado sem o código gerado.
+//
+// ignore_for_file: uri_does_not_exist, undefined_class, undefined_identifier
+// ignore_for_file: undefined_method, undefined_getter, undefined_function
+// ignore_for_file: undefined_setter, non_type_as_type_argument, not_a_type
+// ignore_for_file: creation_with_non_type, extends_non_class
 
 import 'package:grpc/grpc.dart';
 

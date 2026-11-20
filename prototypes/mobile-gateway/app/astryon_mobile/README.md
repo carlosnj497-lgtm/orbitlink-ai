@@ -6,10 +6,29 @@ Protótipo Flutter para validar o conceito de gateway mobile.
 
 - Pareamento guiado com QR Code ou código manual e revisão antes do registro
 - Permissão de câmera solicitada somente ao abrir o leitor de QR Code
-- Registro do dispositivo no backend
+- Registro do dispositivo no backend, com token guardado no armazenamento seguro do Android
+- URL do backend configurável em **Configurações → Servidor** (ou `--dart-define=ASTRYON_API_BASE_URL=...`)
 - Verificação de acessibilidade da antena Starlink (`192.168.100.1:9200`)
-- Envio de telemetria para o backend
-- Coleta periódica em background (Workmanager, 15 min)
+- Envio de amostra de demonstração, sempre marcada como demonstração
+- Coleta periódica em background (Workmanager, 15 min), só com leitura real
+- Despareamento manual e retorno ao pareamento quando o token é inválido
+- Atualização do app pelo backend (Configurações → Atualizações): baixa o novo APK,
+  confere o sha256 e abre o instalador do Android
+
+## 🔄 Atualização do app
+
+O backend publica a versão mais recente em `GET /api/v1/app/latest`
+(`{version, url, sha256, size, filename, notes}`) e serve o APK em
+`GET /api/v1/app/download`. Em **Configurações → Atualizações**, o app compara a
+versão instalada com a publicada; se houver uma mais nova, baixa o APK, confere
+o `sha256` e abre o instalador do Android.
+
+Publicar uma versão: envie uma tag `vX.Y.Z` (`git tag v0.3.1 && git push origin
+v0.3.1`) e o workflow publica o APK e o `latest.json` numa GitHub Release do
+repositório público de releases (`astryon-releases`, via secret
+`RELEASES_TOKEN`). Aponte o backend para `ASTRYON_RELEASE_MANIFEST_URL`. Como
+alternativa, copie o `.apk` para `backend/releases/` (a versão sai do nome do
+arquivo ou de `ASTRYON_APP_VERSION`).
 
 ## 📱 Como obter o APK Android
 
@@ -44,7 +63,9 @@ flutter create . --platforms=android
 <uses-permission android:name="android.permission.CAMERA"/>
 ```
 
-4. Ajuste a URL do backend em `lib/services/api_service.dart`.
+4. Ajuste a URL do backend em **Configurações → Servidor** no app (a engrenagem
+   no canto do dashboard). Como alternativa, compile com
+   `--dart-define=ASTRYON_API_BASE_URL=https://seu.servidor/api/v1`.
 
 ### Formato do QR Code de pareamento
 
@@ -86,8 +107,11 @@ keytool -genkey -v -keystore astryon.jks -keyalg RSA -keysize 2048 -validity 100
 
 - O APK gerado pelo workflow é para testes internos.
 - O app precisa estar conectado ao Wi-Fi da antena para ler os dados locais.
-- A leitura gRPC real requer gerar os protobufs com `tool/gen_protos.sh`.
-- O background no Android tem frequência mínima de 15 minutos.
+- A leitura gRPC real requer gerar os protobufs com `tool/gen_protos.sh`; até lá o
+  app não envia dado real — o botão do dashboard envia uma amostra marcada como
+  demonstração.
+- O background no Android tem frequência mínima de 15 minutos e só envia quando
+  há leitura real disponível.
 
 ## Próximos passos
 

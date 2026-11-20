@@ -1,0 +1,9 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # O serviço gRPC só compila depois que `tool/gen_protos.sh` gera os
+    # protobufs. Enquanto isso, fica fora da análise estática.
+    - lib/services/starlink_grpc_service.dart
+    - lib/generated/**
+    - build/**

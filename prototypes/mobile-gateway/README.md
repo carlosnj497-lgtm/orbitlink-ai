@@ -41,16 +41,26 @@ O usuário baixa o app no celular, conecta o celular no Wi-Fi da antena Starlink
 - `GET /api/v1/devices` — lista dispositivos
 - `GET /api/v1/devices/{id}/telemetry` — últimos registros de um dispositivo
 - `GET /api/v1/summary` — resumo agregado para o dashboard
+- `GET /api/v1/app/latest` — manifesto da atualização do app (`{version, url, sha256, size, filename, notes}`)
+- `GET /api/v1/app/download` — baixa o APK mais recente publicado em `backend/releases/`
 - `GET /api/v1/health` — health check
 - `GET /dashboard` — dashboard web com gráfico em tempo real
 
+> As rotas de leitura agregada (`/devices`, `/devices/{id}/telemetry` e
+> `/summary`) exigem o header `X-Admin-Token` **quando** a variável
+> `ASTRYON_ADMIN_TOKEN` está definida; sem ela, o acesso continua aberto para o
+> protótipo. O CORS é configurável por `ASTRYON_CORS_ORIGINS`.
+
 ### App Flutter (`app/astryon_mobile/`)
 
-- Login por código de pareamento
-- Registro do dispositivo no backend
+- Pareamento guiado por código de pareamento ou QR Code, com revisão antes do registro
+- URL do backend configurável em **Configurações → Servidor** (ou `--dart-define=ASTRYON_API_BASE_URL=...`)
+- Token do dispositivo no armazenamento seguro do Android (`flutter_secure_storage`)
 - Verificação TCP da antena (`192.168.100.1:9200`)
-- Envio de telemetria
-- Coleta periódica em background com Workmanager (15 min)
+- Envio de **amostra de demonstração** explicitamente marcada como tal (nunca como dado real)
+- Coleta periódica em background com Workmanager (15 min), só com leitura real disponível
+- Despareamento manual e saída automática para o pareamento quando o token é inválido
+- Atualização do app pelo backend (Configurações → Atualizações): baixa o APK, confere o sha256 e abre o instalador do Android
 - Serviço gRPC pronto para leitura real (requer geração dos protobufs)
 
 ### Deploy (`deploy/`)
@@ -223,17 +233,57 @@ prototypes/mobile-gateway/
     │   └── gen_protos.sh
     └── lib/
         ├── main.dart
+        ├── pairing_code.dart
+        ├── models/
+        │   ├── telemetry.dart
+        │   └── app_release.dart
         ├── services/
         │   ├── api_service.dart
+        │   ├── api_exception.dart
+        │   ├── app_config.dart
+        │   ├── app_updater.dart
+        │   ├── token_store.dart
+        │   ├── version_compare.dart
         │   ├── starlink_service.dart
         │   ├── starlink_grpc_service.dart
         │   └── background_service.dart
         └── screens/
             ├── pairing_screen.dart
-            └── dashboard_screen.dart
+            ├── pairing_scanner_screen.dart
+            ├── dashboard_screen.dart
+            └── settings_screen.dart
 ```
 
 ---
+
+## 🔄 Publicar uma atualização do app
+
+Há dois caminhos; o **automático** é o recomendado:
+
+**1. Automático (tag `v*`)** — crie e envie uma tag de versão:
+
+```bash
+git tag v0.3.1 && git push origin v0.3.1
+```
+
+O workflow **Build Mobile Gateway APK** compila o APK com a versão da tag e
+publica, no repositório **público** de releases (`astryon-releases`, ajustável
+por `ASTRYON_RELEASES_REPO`, via secret `RELEASES_TOKEN`), uma GitHub Release com
+`astryon-mobile-<versão>.apk` e um `latest.json`
+(`{version, url, sha256, size, filename}`). Aponte o backend para esse manifesto:
+
+```
+ASTRYON_RELEASE_MANIFEST_URL=https://github.com/carlosnj497-lgtm/astryon-releases/releases/latest/download/latest.json
+```
+
+O backend então serve esse manifesto em `/api/v1/app/latest` e faz o **proxy** do
+download em `/api/v1/app/download`.
+
+**2. Manual (arquivo local)** — copie o APK para `backend/releases/` (a versão
+sai do nome do arquivo ou de `ASTRYON_APP_VERSION`) e reinicie/rode novamente o
+backend. Não precisa configurar nada.
+
+Em ambos os casos, o app vê a atualização em Configurações → Atualizações.
 
 ## ▶️ Como rodar o backend localmente
 
@@ -274,7 +324,8 @@ cd prototypes/mobile-gateway/app/astryon_mobile
 flutter create .
 ```
 
-3. Ajuste a URL do backend em `lib/services/api_service.dart`.
+3. Informe a URL do backend em **Configurações → Servidor** no app (ou compile
+   com `--dart-define=ASTRYON_API_BASE_URL=https://seu.servidor/api/v1`).
 4. Gere o código Dart dos protobufs (opcional, para leitura real):
 
 ```bash

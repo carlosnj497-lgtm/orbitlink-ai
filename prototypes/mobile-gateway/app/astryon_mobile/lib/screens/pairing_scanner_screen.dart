@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../pairing_code.dart';
@@ -21,6 +21,7 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
   );
 
   StreamSubscription<Object?>? _subscription;
+  Timer? _unrecognizedTimer;
   bool _handlingCode = false;
 
   @override
@@ -75,7 +76,10 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
             ),
           ),
         );
-      Timer(const Duration(seconds: 2), () => _handlingCode = false);
+      _unrecognizedTimer?.cancel();
+      _unrecognizedTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted) _handlingCode = false;
+      });
     }
   }
 
@@ -181,6 +185,7 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
   @override
   Future<void> dispose() async {
     WidgetsBinding.instance.removeObserver(this);
+    _unrecognizedTimer?.cancel();
     unawaited(_subscription?.cancel());
     _subscription = null;
     super.dispose();

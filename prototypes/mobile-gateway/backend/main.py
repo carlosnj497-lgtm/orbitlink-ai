@@ -5,9 +5,14 @@ FastAPI simples que recebe telemetria de apps mobile conectados na rede local
 da antena Starlink.
 """
 
+import hashlib
+import json
 import os
+import re
 import secrets
 import sqlite3
+import urllib.error
+import urllib.request
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,13 +20,138 @@ from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 DB_PATH = Path(
     os.environ.get("ASTRYON_DB_PATH", str(Path(__file__).with_name("gateway.db")))
 )
+
+# Token opcional para as rotas de leitura agregada (protótipo). Sem ele
+# configurado, o acesso continua aberto.
+ADMIN_TOKEN = os.environ.get("ASTRYON_ADMIN_TOKEN", "").strip()
+
+# Diretório onde ficam os APKs publicados e metadados da atualização do app.
+APK_DIR = Path(
+    os.environ.get("ASTRYON_APK_DIR", str(Path(__file__).with_name("releases")))
+)
+APP_VERSION = os.environ.get("ASTRYON_APP_VERSION", "").strip()
+APP_NOTES = os.environ.get("ASTRYON_APP_NOTES", "").strip()
+PUBLIC_URL = os.environ.get("ASTRYON_PUBLIC_URL", "").strip()
+
+# Manifesto remoto da atualização (ex.: o latest.json de uma GitHub Release).
+# Quando definido, tem prioridade sobre os APKs locais de APK_DIR.
+RELEASE_MANIFEST_URL = os.environ.get("ASTRYON_RELEASE_MANIFEST_URL", "").strip()
+
+
+def cors_origins() -> list[str]:
+    """Origens permitidas no CORS, configuráveis por variável de ambiente."""
+    raw = os.environ.get("ASTRYON_CORS_ORIGINS", "*")
+    origins = [item.strip() for item in raw.split(",") if item.strip()]
+    return origins or ["*"]
+
+
+def require_admin(x_admin_token: str | None) -> None:
+    """Exige o token de administrador quando configurado."""
+    if not ADMIN_TOKEN:
+        return
+    if x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(status_code=401, detail="Admin token inválido")
+
+
+_VERSION_RE = re.compile(r"(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)")
+
+
+def sha256_file(path: Path) -> str:
+    """Hash sha256 do arquivo, lido em blocos."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def latest_apk() -> Path | None:
+    """APK mais recente publicado (por data de modificação)."""
+    if not APK_DIR.is_dir():
+        return None
+    apks = sorted(
+        APK_DIR.glob("*.apk"), key=lambda item: item.stat().st_mtime, reverse=True
+    )
+    return apks[0] if apks else None
+
+
+def apk_version(path: Path) -> str:
+    """Versão do APK: da variável de ambiente ou do nome do arquivo."""
+    if APP_VERSION:
+        return APP_VERSION
+    match = _VERSION_RE.search(path.stem)
+    return match.group(1) if match else "0.0.0"
+
+
+def public_base(request: Request) -> str:
+    """URL base pública usada no manifesto de atualização."""
+    if PUBLIC_URL:
+        return PUBLIC_URL.rstrip("/")
+    return str(request.base_url).rstrip("/")
+
+
+def remote_manifest() -> dict[str, Any] | None:
+    """Lê o manifesto remoto da atualização, quando configurado."""
+    if not RELEASE_MANIFEST_URL:
+        return None
+    request = urllib.request.Request(
+        RELEASE_MANIFEST_URL, headers={"User-Agent": "ASTRYON-mobile-updater"}
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310
+            data = json.loads(response.read().decode("utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def release_from_remote(remote: dict[str, Any], base: str) -> "AppRelease | None":
+    """Normaliza o manifesto remoto para o formato do /app/latest."""
+    version = str(remote.get("version", "")).strip()
+    sha256 = str(remote.get("sha256", "")).strip().lower()
+    if not version or not sha256:
+        return None
+    return AppRelease(
+        version=version,
+        url=f"{base}/api/v1/app/download",
+        sha256=sha256,
+        size=int(remote.get("size", 0) or 0),
+        filename=str(remote.get("filename") or "astryon-mobile.apk"),
+        notes=str(remote["notes"]) if remote.get("notes") else None,
+    )
+
+
+def iter_remote(response: Any):
+    """Itera os blocos do APK remoto e fecha a conexão ao terminar."""
+    try:
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            yield chunk
+    finally:
+        response.close()
+
+
+def stream_remote(url: str, filename: str) -> StreamingResponse:
+    """Serve o APK remoto pelo backend, para o app falar só com ele."""
+    request = urllib.request.Request(url, headers={"User-Agent": "ASTRYON-mobile-updater"})
+    try:
+        response = urllib.request.urlopen(request, timeout=30)  # noqa: S310
+    except (OSError, ValueError) as error:
+        raise HTTPException(status_code=502, detail="Falha ao baixar do servidor de releases") from error
+    return StreamingResponse(
+        iter_remote(response),
+        media_type="application/vnd.android.package-archive",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +197,15 @@ class DeviceOut(BaseModel):
     name: str
     status: str
     last_seen: str | None
+
+
+class AppRelease(BaseModel):
+    version: str
+    url: str
+    sha256: str
+    size: int
+    filename: str
+    notes: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +307,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Protótipo — restrinja em produção.
+    allow_origins=cors_origins(),
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -300,7 +439,7 @@ def receive_telemetry(
                 device["user_id"],
                 payload.timestamp,
                 payload.source,
-                __import__("json").dumps(payload.data),
+                json.dumps(payload.data),
                 received_at,
             ),
         )
@@ -314,8 +453,9 @@ def receive_telemetry(
 
 
 @app.get("/api/v1/devices")
-def list_devices():
+def list_devices(x_admin_token: str | None = Header(None, alias="X-Admin-Token")):
     """Lista todos os dispositivos cadastrados (protótipo — em produção filtre por usuário)."""
+    require_admin(x_admin_token)
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
@@ -338,8 +478,12 @@ def list_devices():
 
 
 @app.get("/api/v1/devices/{device_id}/telemetry")
-def get_device_telemetry(device_id: str):
+def get_device_telemetry(
+    device_id: str,
+    x_admin_token: str | None = Header(None, alias="X-Admin-Token"),
+):
     """Retorna os últimos registros de telemetria de um dispositivo."""
+    require_admin(x_admin_token)
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
@@ -358,7 +502,7 @@ def get_device_telemetry(device_id: str):
             {
                 "timestamp": row["timestamp"],
                 "source": row["source"],
-                "payload": __import__("json").loads(row["payload"]),
+                "payload": json.loads(row["payload"]),
                 "received_at": row["received_at"],
             }
             for row in rows
@@ -367,8 +511,9 @@ def get_device_telemetry(device_id: str):
 
 
 @app.get("/api/v1/summary")
-def summary():
+def summary(x_admin_token: str | None = Header(None, alias="X-Admin-Token")):
     """Resumo agregado para o dashboard web."""
+    require_admin(x_admin_token)
     online_window = timedelta(minutes=5)
     cutoff = datetime.now(timezone.utc) - online_window
 
@@ -416,7 +561,7 @@ def summary():
     recent_telemetry = []
     for row in reversed(recent_rows):
         try:
-            payload = __import__("json").loads(row["payload"])
+            payload = json.loads(row["payload"])
         except (ValueError, TypeError):
             payload = {}
         recent_telemetry.append(
@@ -436,6 +581,50 @@ def summary():
         "devices": device_list,
         "recent_telemetry": recent_telemetry,
     }
+
+
+@app.get("/api/v1/app/latest", response_model=AppRelease)
+def app_latest(request: Request):
+    """Versão mais recente do app mobile publicada neste backend."""
+    base = public_base(request)
+
+    remote = remote_manifest()
+    if remote is not None:
+        release = release_from_remote(remote, base)
+        if release is not None:
+            return release
+
+    apk = latest_apk()
+    if apk is None:
+        raise HTTPException(status_code=404, detail="Nenhuma versão publicada")
+    return AppRelease(
+        version=apk_version(apk),
+        url=f"{base}/api/v1/app/download",
+        sha256=sha256_file(apk),
+        size=apk.stat().st_size,
+        filename=apk.name,
+        notes=APP_NOTES or None,
+    )
+
+
+@app.get("/api/v1/app/download")
+def app_download():
+    """Baixa o APK mais recente publicado (local ou do manifesto remoto)."""
+    remote = remote_manifest()
+    if remote is not None and remote.get("url"):
+        return stream_remote(
+            str(remote["url"]),
+            str(remote.get("filename") or "astryon-mobile.apk"),
+        )
+
+    apk = latest_apk()
+    if apk is None:
+        raise HTTPException(status_code=404, detail="Nenhuma versão publicada")
+    return FileResponse(
+        apk,
+        media_type="application/vnd.android.package-archive",
+        filename=apk.name,
+    )
 
 
 @app.get("/api/v1/health")

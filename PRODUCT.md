@@ -30,11 +30,11 @@ O produto usa o próprio celular como gateway entre a API local da antena (`192.
 ## Capabilities and Constraints
 
 - Entrada manual do código de pareamento e do nome do dispositivo.
-- Pareamento pelo endpoint existente de registro, com token e ID do dispositivo salvos localmente.
+- Pareamento pelo endpoint existente de registro, com token e ID do dispositivo salvos no armazenamento seguro do aparelho.
 - QR Code deve entrar no fluxo como nova forma de obter o código, com as integrações necessárias no aplicativo.
 - A experiência deve cobrir orientação, validação, progresso, falha e sucesso sem prometer conexões que ainda não foram verificadas.
-- O backend de protótipo usa uma URL HTTP local configurada no código; tráfego cleartext Android está habilitado para esse ambiente.
-- A leitura gRPC real depende da geração dos protobufs; o serviço pronto ainda não substitui a telemetria stub no fluxo principal.
+- A URL do backend é configurável no aplicativo (Configurações) e por `--dart-define`; o protótipo aceita HTTP na rede local e permite HTTPS fora dela.
+- A leitura gRPC real depende da geração dos protobufs; até lá o app não envia telemetria inventada — a amostra de demonstração é sempre rotulada como demonstração.
 
 ## Brand Commitments
 

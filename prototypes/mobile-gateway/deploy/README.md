@@ -30,11 +30,11 @@ curl https://api.seudominio.com/api/v1/health
 https://api.seudominio.com/dashboard
 ```
 
-5. No app Flutter, ajuste `API_BASE_URL` em
-   `app/astryon_mobile/lib/services/api_service.dart` para:
+5. No app Flutter, informe a URL do backend em **Configurações → Servidor**
+   (engrenagem no dashboard). Como alternativa, compile com:
 
-```
-https://api.seudominio.com/api/v1
+```bash
+flutter build apk --release --dart-define=ASTRYON_API_BASE_URL=https://api.seudominio.com/api/v1
 ```
 
 ## Persistência
@@ -54,11 +54,37 @@ git pull
 docker compose up -d --build
 ```
 
+## Publicar uma atualização do app
+
+**Automático (recomendado):** crie uma tag `vX.Y.Z` no repositório. O workflow
+**Build Mobile Gateway APK** publica o APK e o `latest.json` numa GitHub Release
+do repositório **público** de releases (`astryon-releases`, ajustável por
+`ASTRYON_RELEASES_REPO`; a publicação usa o secret `RELEASES_TOKEN`). Depois,
+aponte o backend para esse manifesto:
+
+```
+ASTRYON_RELEASE_MANIFEST_URL=https://github.com/carlosnj497-lgtm/astryon-releases/releases/latest/download/latest.json
+```
+
+O backend serve o manifesto em `/api/v1/app/latest` e faz o proxy do download em
+`/api/v1/app/download`.
+
+**Manual:** coloque o APK em `backend/releases/` (a versão sai do nome do arquivo
+ou de `ASTRYON_APP_VERSION`) e reinicie o serviço:
+
+```bash
+docker compose up -d --build
+```
+
+Para não reconstruir a imagem a cada release, monte um volume e aponte
+`ASTRYON_APK_DIR` para ele.
+
 ## ⚠️ Produção
 
 Este deploy é um protótipo. Antes de expor publicamente:
 
-- Troque CORS de `*` para origens específicas.
+- Defina `ASTRYON_CORS_ORIGINS` com origens específicas e `ASTRYON_ADMIN_TOKEN`
+  para proteger as rotas de leitura agregada.
 - Adicione autenticação de usuário (Supabase Auth, OAuth, etc.).
 - Use Postgres gerenciado em vez de SQLite.
 - Adicione rate limiting, logs estruturados e monitoramento.

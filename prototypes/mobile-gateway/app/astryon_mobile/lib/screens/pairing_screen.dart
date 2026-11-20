@@ -1,15 +1,19 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../pairing_code.dart';
+import '../services/api_exception.dart';
 import '../services/api_service.dart';
 import 'dashboard_screen.dart';
 import 'pairing_scanner_screen.dart';
 
 class PairingScreen extends StatefulWidget {
-  const PairingScreen({super.key});
+  const PairingScreen({super.key, this.onPaired});
+
+  /// Chamado quando o registro termina com sucesso. Sem callback, o app navega
+  /// para o dashboard diretamente.
+  final VoidCallback? onPaired;
 
   @override
   State<PairingScreen> createState() => _PairingScreenState();
@@ -105,21 +109,25 @@ class _PairingScreenState extends State<PairingScreen> {
     try {
       await ApiService.registerDevice(pairingCode: _code, deviceName: _name);
       if (!mounted || attempt != _attempt) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-      );
-    } catch (error) {
+      if (widget.onPaired != null) {
+        widget.onPaired!();
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        );
+      }
+    } on ApiException catch (error) {
       if (!mounted || attempt != _attempt) return;
       setState(() {
         _error = _messageFor(error);
-        if (error is HttpException) {
-          final status = RegExp(r'Erro (\d{3})').firstMatch(error.message)?.group(1);
-          if (status == '400' || status == '404') {
-            _forward = false;
-            _currentStep = 0;
-          }
+        if (error.statusCode == 400 || error.statusCode == 404) {
+          _forward = false;
+          _currentStep = 0;
         }
       });
+    } catch (error) {
+      if (!mounted || attempt != _attempt) return;
+      setState(() => _error = _messageFor(error));
     } finally {
       if (mounted && attempt == _attempt) {
         setState(() => _loading = false);
@@ -128,20 +136,19 @@ class _PairingScreenState extends State<PairingScreen> {
   }
 
   String _messageFor(Object error) {
-    if (error is TimeoutException) {
+    if (error is ApiTimeoutException) {
       return 'O servidor demorou para responder. Verifique a conexão e tente novamente.';
     }
-    if (error is HttpException) {
-      final status = RegExp(r'Erro (\d{3})').firstMatch(error.message)?.group(1);
-      if (status == '404') {
+    if (error is ApiNetworkException) {
+      return 'Não foi possível alcançar o servidor. Confira a URL em Configurações e a rede do ASTRYON.';
+    }
+    if (error is ApiException) {
+      if (error.statusCode == 404) {
         return 'Código não encontrado. Gere um novo código no dashboard e tente novamente.';
       }
-      if (status == '400') {
+      if (error.statusCode == 400) {
         return 'Este código expirou ou já foi usado. Gere um novo código no dashboard.';
       }
-    }
-    if (error is SocketException) {
-      return 'Não foi possível alcançar o servidor. Verifique sua conexão com a rede do ASTRYON.';
     }
     return 'Não foi possível concluir o registro. Verifique a conexão e tente novamente.';
   }

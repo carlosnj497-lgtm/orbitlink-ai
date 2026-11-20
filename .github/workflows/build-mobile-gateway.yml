@@ -1,11 +1,35 @@
+# Compila o APK do app-gateway mobile.
+# - Manual (Actions → "Build Mobile Gateway APK" → Run workflow): APK como artefato.
+# - Tag v* (ex.: git tag v0.3.1 && git push origin v0.3.1): também publica o APK e um
+#   latest.json no repositório PÚBLICO de releases (este é privado). O app lê esse
+#   latest.json pelo backend para se atualizar (ASTRYON_RELEASE_MANIFEST_URL).
+#
+# Configuração (Settings → Secrets and variables → Actions):
+#   secret   RELEASES_TOKEN          token com "Contents: read and write" só no repo público de releases
+#   variável ASTRYON_RELEASES_REPO   repo público (padrão carlosnj497-lgtm/astryon-releases)
+#
+# Segurança: o build (que gera pastas de plataforma e roda flutter) só tem leitura. A publicação roda num job
+# separado, sem o Flutter, e é o único com acesso ao secret de release.
+# Actions fixadas por SHA (comentário = tag de origem); atualize com o Dependabot ou `git ls-remote`.
 name: Build Mobile Gateway APK
 
 on:
   workflow_dispatch:
   push:
+    # `paths` só é avaliado em pushes de branch; tags disparam sempre.
+    branches:
+      - "**"
+    tags:
+      - "v*"
     paths:
       - "prototypes/mobile-gateway/app/**"
       - ".github/workflows/build-mobile-gateway.yml"
+
+permissions:
+  contents: read
+
+env:
+  RELEASES_REPO: ${{ vars.ASTRYON_RELEASES_REPO || 'carlosnj497-lgtm/astryon-releases' }}
 
 jobs:
   build:
@@ -13,13 +37,16 @@ jobs:
     defaults:
       run:
         working-directory: prototypes/mobile-gateway/app/astryon_mobile
-
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          persist-credentials: false
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2  # v2
         with:
           flutter-version: "3.50.0"
           channel: stable
@@ -31,7 +58,7 @@ jobs:
       - name: Configure Android manifest
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.CAMERA"/>' "$MANIFEST"
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>' "$MANIFEST"
           # O protótipo usa HTTP na rede local; habilita tráfego não criptografado.
           sed -i 's|<application|<application android:usesCleartextTraffic="true"|' "$MANIFEST"
 
@@ -41,15 +68,87 @@ jobs:
       - name: Remove generated template test
         run: rm -f test/widget_test.dart
 
+      - name: Analyze
+        run: flutter analyze
+
       - name: Run tests
         run: flutter test
 
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(sed -nE 's/^version:[[:space:]]*([^+ ]+).*/\1/p' pubspec.yaml | head -n1)"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
       - name: Build release APK
-        run: flutter build apk --release
+        run: >-
+          flutter build apk --release
+          --build-name=${{ steps.version.outputs.version }}
+          --build-number=${{ github.run_number }}
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: astryon-mobile-gateway-apk
           path: prototypes/mobile-gateway/app/astryon_mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Download APK
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: astryon-mobile-gateway-apk
+          path: dist
+
+      - name: Publish release (APK + latest.json) no repo público de releases
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::Falta o secret RELEASES_TOKEN: release do app não publicada."
+            exit 0
+          fi
+
+          apk="$(find dist -name '*.apk' | head -n1)"
+          if [ -z "$apk" ]; then
+            echo "::error::APK não encontrado no artefato."
+            exit 1
+          fi
+
+          asset="astryon-mobile-${VERSION}.apk"
+          cp "$apk" "$asset"
+          sha="$(sha256sum "$asset" | awk '{print $1}')"
+          size="$(stat -c %s "$asset")"
+          url="https://github.com/${RELEASES_REPO}/releases/download/${TAG}/${asset}"
+
+          cat > latest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "url": "${url}",
+            "sha256": "${sha}",
+            "size": ${size},
+            "filename": "${asset}"
+          }
+          EOF
+
+          gh release view "$TAG" -R "$RELEASES_REPO" >/dev/null 2>&1 \
+            || gh release create "$TAG" -R "$RELEASES_REPO" \
+                 --title "ASTRYON Mobile Gateway ${VERSION}" \
+                 --notes "App-gateway ASTRYON ${VERSION} para Android."
+          # O APK primeiro; o latest.json por último, para ninguém ver a versão nova antes do arquivo existir.
+          gh release upload "$TAG" -R "$RELEASES_REPO" "$asset" --clobber
+          gh release upload "$TAG" -R "$RELEASES_REPO" latest.json --clobber
+          echo "Publicado $asset e latest.json na release $TAG de $RELEASES_REPO"

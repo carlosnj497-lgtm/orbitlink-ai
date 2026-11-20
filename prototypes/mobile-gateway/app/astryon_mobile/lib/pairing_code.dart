@@ -1,5 +1,3 @@
-library;
-
 final _codePattern = RegExp(r'^[A-Z0-9]{4}-[A-Z0-9]{4}$');
 
 String normalizePairingCode(String value) => value.trim().toUpperCase();

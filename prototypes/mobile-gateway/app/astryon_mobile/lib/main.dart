@@ -1,18 +1,19 @@
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 
 import 'screens/dashboard_screen.dart';
 import 'screens/pairing_screen.dart';
 import 'services/background_service.dart';
+import 'services/token_store.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await BackgroundService.init();
 
-  final prefs = await SharedPreferences.getInstance();
-  final hasToken = prefs.getString('device_token') != null;
+  final isPaired = await TokenStore.hasToken();
 
-  runApp(ASTRYONMobileApp(isPaired: hasToken));
+  runApp(ASTRYONMobileApp(initiallyPaired: isPaired));
 }
 
 ThemeData buildASTRYONTheme(Brightness brightness) {
@@ -69,10 +70,33 @@ ThemeData buildASTRYONTheme(Brightness brightness) {
   );
 }
 
-class ASTRYONMobileApp extends StatelessWidget {
-  final bool isPaired;
+class ASTRYONMobileApp extends StatefulWidget {
+  const ASTRYONMobileApp({super.key, required this.initiallyPaired});
 
-  const ASTRYONMobileApp({super.key, required this.isPaired});
+  final bool initiallyPaired;
+
+  @override
+  State<ASTRYONMobileApp> createState() => _ASTRYONMobileAppState();
+}
+
+class _ASTRYONMobileAppState extends State<ASTRYONMobileApp> {
+  late bool _paired;
+
+  @override
+  void initState() {
+    super.initState();
+    _paired = widget.initiallyPaired;
+  }
+
+  void _showPairing() {
+    if (!_paired) return;
+    setState(() => _paired = false);
+  }
+
+  void _showDashboard() {
+    if (_paired) return;
+    setState(() => _paired = true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +106,9 @@ class ASTRYONMobileApp extends StatelessWidget {
       theme: buildASTRYONTheme(Brightness.light),
       darkTheme: buildASTRYONTheme(Brightness.dark),
       themeMode: ThemeMode.system,
-      home: isPaired ? const DashboardScreen() : const PairingScreen(),
+      home: _paired
+          ? DashboardScreen(onUnpaired: _showPairing)
+          : PairingScreen(onPaired: _showDashboard),
     );
   }
 }

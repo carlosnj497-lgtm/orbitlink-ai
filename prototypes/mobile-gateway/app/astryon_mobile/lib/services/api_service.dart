@@ -3,97 +3,117 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// URL base do backend.
-/// No protótipo, aponte para o IP da máquina onde o FastAPI está rodando.
-/// Para testar com celular físico, não use localhost — use o IP da rede local.
-// ignore: constant_identifier_names
-const String API_BASE_URL = 'http://192.168.1.100:8000/api/v1';
+import '../models/telemetry.dart';
+import 'api_exception.dart';
+import 'app_config.dart';
+import 'starlink_service.dart';
+import 'token_store.dart';
 
+/// Cliente HTTP do backend ASTRYON.
+///
+/// A URL base vem de [AppConfig] (configurável em Configurações ou via
+/// `--dart-define=ASTRYON_API_BASE_URL=...`). O token do dispositivo fica no
+/// armazenamento seguro ([TokenStore]) e nunca é exposto à interface.
 class ApiService {
   static final http.Client _client = http.Client();
+  static const Duration _timeout = Duration(seconds: 20);
 
-  /// Cria um código de pareamento (normalmente chamado pelo servidor/web).
-  static Future<Map<String, dynamic>> createPairingCode(String userId) async {
-    final response = await _client.post(
-      Uri.parse('$API_BASE_URL/auth/pairing'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'user_id': userId}),
-    );
-    return _handleResponse(response);
-  }
-
-  /// Registra o dispositivo mobile usando o código de pareamento.
+  /// Registra o dispositivo e guarda o token no armazenamento seguro.
   static Future<Map<String, dynamic>> registerDevice({
     required String pairingCode,
     required String deviceName,
   }) async {
-    final response = await _client
-        .post(
-          Uri.parse('$API_BASE_URL/devices/register'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'pairing_code': pairingCode,
-            'device_name': deviceName,
-            'starlink_ip': '192.168.100.1',
-            'starlink_model': 'unknown',
-          }),
-        )
-        .timeout(const Duration(seconds: 20));
-    final data = _handleResponse(response);
-
-    // Salva o token localmente.
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('device_token', data['device_token']);
-    await prefs.setString('device_id', data['device_id']);
-
+    final base = await AppConfig.apiBaseUrl();
+    final response = await _post(
+      '$base/devices/register',
+      {
+        'pairing_code': pairingCode,
+        'device_name': deviceName,
+        'starlink_ip': StarlinkService.defaultStarlinkIp,
+        'starlink_model': 'unknown',
+      },
+    );
+    final data = _decode(response);
+    await TokenStore.save(
+      token: data['device_token'] as String,
+      deviceId: data['device_id'] as String,
+    );
     return data;
   }
 
-  /// Envia um pacote de telemetria para o backend.
+  /// Envia uma amostra de telemetria com a origem explícita.
+  ///
+  /// A origem (`real`, `demo`, `unavailable`) acompanha o payload para que o
+  /// backend e a interface nunca tratem um dado fictício como real.
   static Future<Map<String, dynamic>> sendTelemetry(
-    Map<String, dynamic> telemetryData,
+    TelemetrySample sample,
   ) async {
-    final token = await _getDeviceToken();
+    final token = await TokenStore.readToken();
     if (token == null) {
-      throw Exception('Dispositivo não registrado.');
+      throw ApiException('Dispositivo não registrado.', statusCode: 401);
     }
 
-    final response = await _client.post(
-      Uri.parse('$API_BASE_URL/telemetry'),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Device-Token': token,
-      },
-      body: jsonEncode({
+    final base = await AppConfig.apiBaseUrl();
+    final isDemo = sample.origin == TelemetryOrigin.demo;
+    final response = await _post(
+      '$base/telemetry',
+      {
         'timestamp': DateTime.now().toUtc().toIso8601String(),
-        'source': 'mobile_gateway',
-        'data': telemetryData,
-      }),
+        'source': isDemo ? 'mobile_gateway_demo' : 'mobile_gateway',
+        'origin': sample.origin.name,
+        'data': sample.data,
+      },
+      headers: {'X-Device-Token': token},
     );
-    return _handleResponse(response);
+    return _decode(response);
   }
 
-  /// Lista dispositivos cadastrados (útil para debug).
-  static Future<List<dynamic>> listDevices() async {
-    final response = await _client.get(Uri.parse('$API_BASE_URL/devices'));
-    final data = _handleResponse(response);
-    return data['devices'] as List<dynamic>;
-  }
+  /// Apaga o token e o identificador do dispositivo.
+  static Future<void> clearCredentials() => TokenStore.clear();
 
-  static Future<String?> _getDeviceToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('device_token');
-  }
-
-  static Map<String, dynamic> _handleResponse(http.Response response) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
+  static Future<http.Response> _post(
+    String url,
+    Map<String, dynamic> body, {
+    Map<String, String>? headers,
+  }) async {
+    try {
+      return await _client
+          .post(
+            Uri.parse(url),
+            headers: {
+              'Content-Type': 'application/json',
+              ...?headers,
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout);
+    } on TimeoutException {
+      throw ApiTimeoutException();
+    } on SocketException {
+      throw ApiNetworkException();
+    } on http.ClientException {
+      throw ApiNetworkException();
     }
-    throw HttpException(
-      'Erro ${response.statusCode}: ${response.body}',
-      uri: response.request?.url,
+  }
+
+  static Map<String, dynamic> _decode(http.Response response) {
+    Map<String, dynamic>? json;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) json = decoded;
+    } on FormatException {
+      json = null;
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json ?? <String, dynamic>{};
+    }
+
+    final detail = json?['detail'];
+    throw ApiException(
+      detail is String ? detail : 'Falha na comunicação com o servidor.',
+      statusCode: response.statusCode,
     );
   }
 }

@@ -4,7 +4,7 @@ Protótipo Flutter para validar o conceito de gateway mobile.
 
 ## Funcionalidades atuais
 
-- Login com código de pareamento
+- Pareamento guiado com QR Code ou código manual e revisão antes do registro
 - Registro do dispositivo no backend
 - Verificação de acessibilidade da antena Starlink (`192.168.100.1:9200`)
 - Envio de telemetria para o backend
@@ -40,13 +40,23 @@ flutter create . --platforms=android
 <uses-permission android:name="android.permission.INTERNET"/>
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 <uses-permission android:name="android.permission.WAKE_LOCK"/>
+<uses-permission android:name="android.permission.CAMERA"/>
 ```
 
 4. Ajuste a URL do backend em `lib/services/api_service.dart`.
+
+### Formato do QR Code de pareamento
+
+O leitor aceita o código impresso diretamente (por exemplo, `A3B7-X9K2`) ou um link
+`astryon://pair?code=A3B7-X9K2`. URLs HTTPS com os parâmetros `code` ou
+`pairing_code` também funcionam. Após a leitura, o app sempre mostra uma revisão
+antes de registrar o dispositivo.
+
 5. Gere e instale:
 
 ```bash
 flutter pub get
+flutter test
 flutter build apk --release
 ```
 

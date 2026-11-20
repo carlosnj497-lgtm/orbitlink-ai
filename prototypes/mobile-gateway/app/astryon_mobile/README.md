@@ -5,6 +5,7 @@ Protótipo Flutter para validar o conceito de gateway mobile.
 ## Funcionalidades atuais
 
 - Pareamento guiado com QR Code ou código manual e revisão antes do registro
+- Permissão de câmera solicitada somente ao abrir o leitor de QR Code
 - Registro do dispositivo no backend
 - Verificação de acessibilidade da antena Starlink (`192.168.100.1:9200`)
 - Envio de telemetria para o backend

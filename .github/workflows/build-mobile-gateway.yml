@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "prototypes/mobile-gateway/app/**"
+      - ".github/workflows/build-mobile-gateway.yml"
 
 jobs:
   build:

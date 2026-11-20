@@ -43,7 +43,7 @@ class BackgroundService {
       telemetryTaskName,
       frequency: frequency,
       constraints: Constraints(networkType: NetworkType.connected),
-      existingWorkPolicy: ExistingWorkPolicy.replace,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
     );
   }
 

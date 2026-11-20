@@ -136,20 +136,34 @@ jobs:
           size="$(stat -c %s "$asset")"
           url="https://github.com/${RELEASES_REPO}/releases/download/${TAG}/${asset}"
 
-          cat > latest.json <<EOF
-          {
-            "version": "${VERSION}",
-            "url": "${url}",
-            "sha256": "${sha}",
-            "size": ${size},
-            "filename": "${asset}"
-          }
-          EOF
+          # Notas da release: mensagem da tag anotada; senão, um texto padrão.
+          notes="$(git tag -l --format='%(contents)' "$TAG")"
+          if [ -z "$notes" ]; then
+            notes="App-gateway ASTRYON ${VERSION} para Android."
+          fi
+          printf '%s\n' "$notes" > release-notes.md
+
+          python3 - "$VERSION" "$url" "$sha" "$size" "$asset" "$notes" > latest.json <<'PY'
+          import json, sys
+          version, url, sha256, size, filename, notes = sys.argv[1:7]
+          print(json.dumps(
+              {
+                  "version": version,
+                  "url": url,
+                  "sha256": sha256,
+                  "size": int(size),
+                  "filename": filename,
+                  "notes": notes.strip(),
+              },
+              ensure_ascii=False,
+              indent=2,
+          ))
+          PY
 
           gh release view "$TAG" -R "$RELEASES_REPO" >/dev/null 2>&1 \
             || gh release create "$TAG" -R "$RELEASES_REPO" \
                  --title "ASTRYON Mobile Gateway ${VERSION}" \
-                 --notes "App-gateway ASTRYON ${VERSION} para Android."
+                 --notes-file release-notes.md
           # O APK primeiro; o latest.json por último, para ninguém ver a versão nova antes do arquivo existir.
           gh release upload "$TAG" -R "$RELEASES_REPO" "$asset" --clobber
           gh release upload "$TAG" -R "$RELEASES_REPO" latest.json --clobber

@@ -59,3 +59,4 @@ prototypes/**/build/
 prototypes/**/.dart_tool/
 prototypes/**/.flutter-plugins*
 prototypes/**/pubspec.lock
+prototypes/**/lib/generated/

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../services/background_service.dart';
 import '../services/starlink_service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _reachable = false;
   bool _checking = false;
   bool _sending = false;
+  bool _backgroundEnabled = false;
   String? _lastResult;
 
   Future<void> _checkAntenna() async {
@@ -38,6 +40,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _toggleBackground(bool enabled) async {
+    setState(() => _backgroundEnabled = enabled);
+    if (enabled) {
+      await BackgroundService.startPeriodic();
+    } else {
+      await BackgroundService.stop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -59,12 +70,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: _reachable ? Colors.green : Colors.red,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  _reachable
-                      ? 'Antena acessível em 192.168.100.1:9200'
-                      : 'Antena não acessível. Verifique o Wi-Fi.',
-                  style: TextStyle(
-                    color: _reachable ? Colors.green : Colors.red,
+                Expanded(
+                  child: Text(
+                    _reachable
+                        ? 'Antena acessível em 192.168.100.1:9200'
+                        : 'Antena não acessível. Verifique o Wi-Fi.',
+                    style: TextStyle(
+                      color: _reachable ? Colors.green : Colors.red,
+                    ),
                   ),
                 ),
               ],
@@ -100,14 +113,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Coleta automática em background'),
+              subtitle: const Text(
+                'Envia dados a cada 15 minutos (mínimo do Android).',
+              ),
+              value: _backgroundEnabled,
+              onChanged: _toggleBackground,
+            ),
+            const SizedBox(height: 16),
             if (_lastResult != null)
-              Text(
-                'Último resultado:\n$_lastResult',
-                style: Theme.of(context).textTheme.bodyMedium,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Último resultado:\n$_lastResult',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ),
             const Spacer(),
             const Text(
-              '💡 Dica: para testar a leitura real, conecte o celular ao Wi-Fi da antena Starlink.',
+              '💡 Para leitura real via gRPC, gere os protobufs com tool/gen_protos.sh '
+              'e importe o StarlinkGrpcService.',
               style: TextStyle(color: Colors.grey),
             ),
           ],

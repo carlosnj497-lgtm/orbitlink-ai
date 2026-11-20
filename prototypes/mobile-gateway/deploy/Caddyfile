@@ -1,0 +1,5 @@
+# Troque pelo seu domínio real antes de subir.
+# O Caddy obtém e renova o certificado TLS automaticamente.
+api.seudominio.com {
+    reverse_proxy api:8000
+}

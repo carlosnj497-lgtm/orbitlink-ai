@@ -5,6 +5,7 @@ FastAPI simples que recebe telemetria de apps mobile conectados na rede local
 da antena Starlink.
 """
 
+import os
 import secrets
 import sqlite3
 from contextlib import asynccontextmanager
@@ -13,10 +14,14 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-DB_PATH = Path(__file__).with_name("gateway.db")
+DB_PATH = Path(
+    os.environ.get("ASTRYON_DB_PATH", str(Path(__file__).with_name("gateway.db")))
+)
 
 
 # ---------------------------------------------------------------------------
@@ -152,12 +157,30 @@ async def lifespan(app: FastAPI):
     yield
 
 
+STATIC_DIR = Path(__file__).with_name("static")
+
 app = FastAPI(
     title="ASTRYON Mobile Gateway API",
     version="0.1.0",
     description="Backend de protótipo para o app-gateway ASTRYON.",
     lifespan=lifespan,
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Protótipo — restrinja em produção.
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/dashboard", include_in_schema=False)
+def dashboard():
+    """Serve o dashboard web de protótipo."""
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.exception_handler(Exception)
@@ -340,6 +363,78 @@ def get_device_telemetry(device_id: str):
             }
             for row in rows
         ]
+    }
+
+
+@app.get("/api/v1/summary")
+def summary():
+    """Resumo agregado para o dashboard web."""
+    online_window = timedelta(minutes=5)
+    cutoff = datetime.now(timezone.utc) - online_window
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        devices = conn.execute(
+            "SELECT id, name, status, last_seen FROM devices ORDER BY created_at DESC"
+        ).fetchall()
+
+        sample_count = conn.execute(
+            "SELECT COUNT(*) FROM telemetry"
+        ).fetchone()[0]
+
+        recent_rows = conn.execute(
+            """
+            SELECT device_id, timestamp, payload, received_at
+            FROM telemetry
+            ORDER BY received_at DESC
+            LIMIT 60
+            """
+        ).fetchall()
+
+    device_list = []
+    online_count = 0
+    for row in devices:
+        last_seen = row["last_seen"]
+        online = False
+        if last_seen:
+            try:
+                online = datetime.fromisoformat(last_seen) >= cutoff
+            except ValueError:
+                online = False
+        if online:
+            online_count += 1
+        device_list.append(
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "status": row["status"],
+                "last_seen": last_seen,
+                "online": online,
+            }
+        )
+
+    recent_telemetry = []
+    for row in reversed(recent_rows):
+        try:
+            payload = __import__("json").loads(row["payload"])
+        except (ValueError, TypeError):
+            payload = {}
+        recent_telemetry.append(
+            {
+                "device_id": row["device_id"],
+                "timestamp": row["timestamp"],
+                "payload": payload,
+                "received_at": row["received_at"],
+            }
+        )
+
+    return {
+        "generated_at": now_iso(),
+        "device_count": len(device_list),
+        "online_count": online_count,
+        "sample_count": sample_count,
+        "devices": device_list,
+        "recent_telemetry": recent_telemetry,
     }
 
 

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASTRYON Cloud — Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1120;
+      --card: #111a2e;
+      --border: #1e2d4a;
+      --text: #e6edf7;
+      --muted: #8ba0bf;
+      --accent: #22c55e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(circle at top, #14213d 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 28px 24px 8px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
+    header p { color: var(--muted); margin: 8px 0 0; }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      gap: 20px;
+      grid-template-columns: repeat(12, 1fr);
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent), var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+    .kpis { grid-column: span 12; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+    .kpi small { color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
+    .kpi strong { display: block; font-size: 26px; margin-top: 8px; }
+    .devices { grid-column: span 5; }
+    .chart { grid-column: span 7; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); font-size: 14px; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; margin-right: 6px; background: #64748b; }
+    .dot.on { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .muted { color: var(--muted); }
+    @media (max-width: 850px) {
+      .devices, .chart { grid-column: span 12; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🛰️ ASTRYON Cloud</h1>
+    <p>Painel de protótipo — dados recebidos dos apps-gateway.</p>
+  </header>
+
+  <main>
+    <section class="kpis">
+      <div class="kpi"><small>Dispositivos</small><strong id="kpi-devices">—</strong></div>
+      <div class="kpi"><small>Online agora</small><strong id="kpi-online">—</strong></div>
+      <div class="kpi"><small>Amostras recebidas</small><strong id="kpi-samples">—</strong></div>
+      <div class="kpi"><small>Última atualização</small><strong id="kpi-updated" style="font-size:16px">—</strong></div>
+    </section>
+
+    <section class="card devices">
+      <h2 style="margin-top:0">Dispositivos</h2>
+      <table>
+        <thead>
+          <tr><th>Nome</th><th>Status</th><th>Visto por último</th></tr>
+        </thead>
+        <tbody id="devices-body">
+          <tr><td colspan="3" class="muted">Carregando…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card chart">
+      <h2 style="margin-top:0">Download recente (Mbps)</h2>
+      <canvas id="chart" height="220"></canvas>
+    </section>
+  </main>
+
+  <script>
+    const API = '/api/v1';
+    let chart;
+
+    async function load() {
+      try {
+        const res = await fetch(`${API}/summary`);
+        const data = await res.json();
+
+        document.getElementById('kpi-devices').textContent = data.device_count;
+        document.getElementById('kpi-online').textContent = data.online_count;
+        document.getElementById('kpi-samples').textContent = data.sample_count;
+        document.getElementById('kpi-updated').textContent =
+          new Date(data.generated_at).toLocaleString('pt-BR');
+
+        const tbody = document.getElementById('devices-body');
+        if (data.devices.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" class="muted">Nenhum dispositivo pareado ainda.</td></tr>';
+        } else {
+          tbody.innerHTML = data.devices.map(d => `
+            <tr>
+              <td>${escapeHtml(d.name)}</td>
+              <td><span class="dot ${d.online ? 'on' : ''}"></span>${d.online ? 'online' : 'offline'}</td>
+              <td class="muted">${d.last_seen ? new Date(d.last_seen).toLocaleString('pt-BR') : '—'}</td>
+            </tr>
+          `).join('');
+        }
+
+        drawChart(data.recent_telemetry || []);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function drawChart(points) {
+      const labels = points.map((_, i) => `${i + 1}`);
+      const values = points.map(p => {
+        const payload = p.payload || {};
+        const bps = payload.downlink_throughput_bps ?? (payload.download_mbps ? payload.download_mbps * 1e6 : 0);
+        return (bps / 1e6).toFixed(1);
+      });
+
+      if (chart) chart.destroy();
+      chart = new Chart(document.getElementById('chart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Mbps',
+            data: values,
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34,197,94,0.12)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { display: false },
+            y: { grid: { color: 'rgba(139,160,191,0.12)' }, ticks: { color: '#8ba0bf' } },
+          },
+        },
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
+    load();
+    setInterval(load, 10000);
+  </script>
+</body>
+</html>

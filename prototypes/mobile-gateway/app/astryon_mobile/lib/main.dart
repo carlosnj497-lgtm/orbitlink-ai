@@ -3,9 +3,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/dashboard_screen.dart';
 import 'screens/pairing_screen.dart';
+import 'services/background_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await BackgroundService.init();
+
   final prefs = await SharedPreferences.getInstance();
   final hasToken = prefs.getString('device_token') != null;
 

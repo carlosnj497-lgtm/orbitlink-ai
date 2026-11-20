@@ -1,20 +1,20 @@
 # ASTRYON Mobile Gateway — Protótipo
 
-Protótipo de um app mobile que funciona como gateway leve: lê a API local da antena Starlink (`192.168.100.1:9200`) e envia os dados para um backend central.
+Protótipo funcional de um app mobile que funciona como gateway leve: lê a API local da antena Starlink (`192.168.100.1:9200`) e envia os dados para um backend central com dashboard web.
 
-> ⚠️ Este é um protótipo de validação. Não use em produção sem adicionar autenticação forte, mTLS, criptografia, controle de erros e compliance (LGPD/GDPR).
+> ⚠️ Este é um protótipo de validação. Não use em produção sem adicionar autenticação forte, mTLS, rate limiting, criptografia e compliance (LGPD/GDPR).
 
 ---
 
 ## 🎯 Conceito
 
-O usuário baixa o app no celular, conecta o celular no Wi-Fi da antena Starlink e faz login. O app passa a ler a API local da antena periodicamente e envia os dados para o servidor ASTRYON via conexão outbound (HTTPS).
+O usuário baixa o app no celular, conecta o celular no Wi-Fi da antena Starlink e faz login. O app lê a API local da antena e envia os dados para o servidor ASTRYON via conexão outbound (HTTPS).
 
 ```
 ┌─────────────────┐         Wi-Fi LAN         ┌─────────────────┐
 │  Celular do     │  ───────────────────────► │  Antena Starlink│
-│  usuário (app)  │   gRPC :9200 / TCP        │  192.168.100.1  │
-└─────────────────┘                           └─────────────────┘
+│  usuário (app)  │   gRPC :9200               │  192.168.100.1  │
+└─────────────────┘                            └─────────────────┘
          │
          │ HTTPS/MQTTS outbound
          ▼
@@ -25,9 +25,44 @@ O usuário baixa o app no celular, conecta o celular no Wi-Fi da antena Starlink
          │
          ▼
 ┌─────────────────┐
-│ Dashboard SaaS  │  ← Next.js / web / mobile
+│ Dashboard web   │  ← HTML/JS + Chart.js (protótipo)
 └─────────────────┘
 ```
+
+---
+
+## ✅ O que está implementado
+
+### Backend (`backend/`)
+
+- `POST /api/v1/auth/pairing` — gera código de pareamento
+- `POST /api/v1/devices/register` — registra dispositivo e emite token
+- `POST /api/v1/telemetry` — recebe telemetria autenticada por token
+- `GET /api/v1/devices` — lista dispositivos
+- `GET /api/v1/devices/{id}/telemetry` — últimos registros de um dispositivo
+- `GET /api/v1/summary` — resumo agregado para o dashboard
+- `GET /api/v1/health` — health check
+- `GET /dashboard` — dashboard web com gráfico em tempo real
+
+### App Flutter (`app/astryon_mobile/`)
+
+- Login por código de pareamento
+- Registro do dispositivo no backend
+- Verificação TCP da antena (`192.168.100.1:9200`)
+- Envio de telemetria
+- Coleta periódica em background com Workmanager (15 min)
+- Serviço gRPC pronto para leitura real (requer geração dos protobufs)
+
+### Deploy (`deploy/`)
+
+- Docker Compose com FastAPI + Caddy
+- HTTPS automático via Let's Encrypt
+- Volume persistente para o SQLite
+
+### Protobufs (`app/astryon_mobile/protos/`)
+
+- Definições `.proto` da API Starlink (device, dish, wifi, etc.)
+- Script `tool/gen_protos.sh` para gerar o código Dart
 
 ---
 
@@ -38,7 +73,7 @@ O usuário baixa o app no celular, conecta o celular no Wi-Fi da antena Starlink
 3. Usuário abre o app mobile e digita o token (ou escaneia QR).
 4. O app verifica se consegue alcançar `192.168.100.1:9200` na rede local.
 5. Se sim, o app registra o dispositivo no servidor e começa a enviar telemetria.
-6. Usuário vê os dados no dashboard.
+6. Usuário vê os dados no dashboard web.
 
 ---
 
@@ -50,7 +85,7 @@ O usuário baixa o app no celular, conecta o celular no Wi-Fi da antena Starlink
 https://api.astryon.example.com/api/v1
 ```
 
-No protótipo, use `http://localhost:8000/api/v1`.
+No protótipo local, use `http://localhost:8000/api/v1`.
 
 ### Autenticação
 
@@ -78,11 +113,11 @@ Resposta:
 ```json
 {
   "pairing_code": "A3B7-X9K2",
-  "expires_at": "2026-11-20T10:00:00Z"
+  "expires_at": "2026-11-21T10:00:00Z"
 }
 ```
 
-#### 2. Registrar dispositivo (chamado pelo app)
+#### 2. Registrar dispositivo
 
 ```http
 POST /devices/register
@@ -118,10 +153,11 @@ X-Device-Token: tok_seguro_aqui
   "source": "mobile_gateway",
   "data": {
     "reachable": true,
-    "snr": 42.0,
-    "download_mbps": 120.5,
-    "upload_mbps": 15.2,
-    "latency_ms": 38.0
+    "downlink_throughput_bps": 120500000,
+    "uplink_throughput_bps": 15200000,
+    "pop_ping_latency_ms": 38.0,
+    "pop_ping_drop_rate": 0.0,
+    "obstruction_fraction": 0.01
   }
 }
 ```
@@ -135,24 +171,30 @@ Resposta:
 }
 ```
 
-#### 4. Listar dispositivos
+#### 4. Resumo para dashboard
 
 ```http
-GET /devices
+GET /summary
 ```
 
 Resposta:
 
 ```json
 {
+  "generated_at": "2026-11-19T14:30:01Z",
+  "device_count": 1,
+  "online_count": 1,
+  "sample_count": 42,
   "devices": [
     {
       "id": "dev_abc123",
       "name": "Celular do Carlos",
-      "status": "online",
-      "last_seen": "2026-11-19T14:30:01Z"
+      "status": "active",
+      "last_seen": "2026-11-19T14:30:01Z",
+      "online": true
     }
-  ]
+  ],
+  "recent_telemetry": []
 }
 ```
 
@@ -162,19 +204,30 @@ Resposta:
 
 ```
 prototypes/mobile-gateway/
-├── README.md                 # este arquivo
-├── backend/                  # FastAPI de protótipo
+├── README.md
+├── backend/
 │   ├── main.py
 │   ├── requirements.txt
-│   └── .env.example
-└── app/astryon_mobile/       # Flutter app de protótipo
+│   ├── .env.example
+│   ├── Dockerfile
+│   └── static/
+│       └── index.html          # dashboard web
+├── deploy/
+│   ├── docker-compose.yml
+│   ├── Caddyfile
+│   └── README.md
+└── app/astryon_mobile/
     ├── pubspec.yaml
+    ├── prototypes/             # arquivos .proto da Starlink
+    ├── tool/
+    │   └── gen_protos.sh
     └── lib/
         ├── main.dart
         ├── services/
-        │   ├── auth_service.dart
+        │   ├── api_service.dart
         │   ├── starlink_service.dart
-        │   └── telemetry_service.dart
+        │   ├── starlink_grpc_service.dart
+        │   └── background_service.dart
         └── screens/
             ├── pairing_screen.dart
             └── dashboard_screen.dart
@@ -182,49 +235,102 @@ prototypes/mobile-gateway/
 
 ---
 
-## ▶️ Como rodar o backend
+## ▶️ Como rodar o backend localmente
 
 ```bash
 cd prototypes/mobile-gateway/backend
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Acesse a documentação interativa em `http://localhost:8000/docs`.
+- Documentação interativa: `http://localhost:8000/docs`
+- Dashboard web: `http://localhost:8000/dashboard`
+
+---
+
+## 🐳 Deploy com HTTPS
+
+Veja o guia completo em [`deploy/README.md`](deploy/README.md).
+
+Resumo:
+
+```bash
+cd prototypes/mobile-gateway/deploy
+# edite o Caddyfile com seu domínio
+docker compose up -d --build
+```
 
 ---
 
 ## 📱 Como rodar o app
 
 1. Instale o Flutter: https://docs.flutter.dev/get-started/install
-2. Conecte um celular Android ou iOS (ou use emulador, lembrando que emulador não acessa rede local da antena).
-3. Execute:
+2. Gere as pastas de plataforma:
 
 ```bash
 cd prototypes/mobile-gateway/app/astryon_mobile
+flutter create .
+```
+
+3. Ajuste a URL do backend em `lib/services/api_service.dart`.
+4. Gere o código Dart dos protobufs (opcional, para leitura real):
+
+```bash
+bash tool/gen_protos.sh
+```
+
+5. Conecte um celular físico ao Wi-Fi da antena Starlink e execute:
+
+```bash
 flutter pub get
 flutter run
 ```
 
-> Para testar a leitura real da antena, o celular precisa estar conectado ao Wi-Fi do roteador Starlink.
+> Emuladores não conseguem acessar a rede local da antena. Use um celular físico.
+
+### Configuração Android (Workmanager)
+
+No `android/app/src/main/AndroidManifest.xml`, adicione:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+<uses-permission android:name="android.permission.WAKE_LOCK"/>
+```
+
+### Configuração iOS (background)
+
+No `ios/Runner/Info.plist`, adicione:
+
+```xml
+<key>UIBackgroundModes</key>
+<array>
+  <string>fetch</string>
+  <string>processing</string>
+</array>
+```
+
+> O iOS limita a execução em background. Para produção, considere notificações push para acordar o app.
 
 ---
 
 ## ⚠️ Limitações conhecidas
 
-- **Background no iOS:** o iOS limita execução contínua em segundo plano. Para leituras frequentes, use WorkManager no Android ou notificações/push no iOS.
+- **Background no iOS:** o iOS limita execução contínua em segundo plano. No Android, o Workmanager tem frequência mínima de 15 minutos.
 - **Disponibilidade:** se o usuário sair de casa, o celular não consegue mais ler a antena.
-- **API gRPC real:** este protótipo faz apenas verificação TCP de acessibilidade. A leitura gRPC com os protobufs requer integração com `grpc-dart` e os arquivos `.proto` da antena.
+- **API gRPC real:** o serviço `starlink_grpc_service.dart` está pronto, mas depende da geração dos protobufs com `protoc`.
 - **Segurança:** tokens simples em SQLite. Em produção, use mTLS, criptografia e banco seguro.
+- **Escala:** SQLite não é adequado para múltiplos servidores. Migre para Postgres antes de escalar.
 
 ---
 
 ## 🔜 Próximos passos
 
 1. Validar se o celular consegue acessar `192.168.100.1:9200` na rede Starlink.
-2. Integrar `grpc-dart` com os arquivos `.proto` da antena.
-3. Adicionar envio em background com WorkManager/Background Fetch.
+2. Integrar `starlink_grpc_service.dart` ao dashboard após gerar os protobufs.
+3. Adicionar envio em background com Workmanager (já implementado, requer configurar Android/iOS).
 4. Evoluir o backend para Postgres multi-tenant + Row Level Security.
-5. Adicionar mTLS e criptografia de dados em trânsito e em repouso.
+5. Adicionar mTLS e autenticação de usuários.
+6. Criar dashboard SaaS de produção (Next.js) com autenticação.

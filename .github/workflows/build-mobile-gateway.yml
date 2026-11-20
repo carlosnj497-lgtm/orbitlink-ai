@@ -1,0 +1,45 @@
+name: Build Mobile Gateway APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "prototypes/mobile-gateway/app/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prototypes/mobile-gateway/app/astryon_mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate platform folders
+        run: flutter create . --platforms=android
+
+      - name: Add Android permissions
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>' "$MANIFEST"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: astryon-mobile-gateway-apk
+          path: prototypes/mobile-gateway/app/astryon_mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

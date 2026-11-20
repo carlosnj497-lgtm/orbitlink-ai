@@ -15,7 +15,7 @@ void main() async {
   runApp(ASTRYONMobileApp(isPaired: hasToken));
 }
 
-ThemeData _buildTheme(Brightness brightness) {
+ThemeData buildASTRYONTheme(Brightness brightness) {
   final isDark = brightness == Brightness.dark;
   final colorScheme = ColorScheme.fromSeed(
     seedColor: const Color(0xFF2F80ED),
@@ -79,8 +79,8 @@ class ASTRYONMobileApp extends StatelessWidget {
     return MaterialApp(
       title: 'ASTRYON Mobile Gateway',
       debugShowCheckedModeBanner: false,
-      theme: _buildTheme(Brightness.light),
-      darkTheme: _buildTheme(Brightness.dark),
+      theme: buildASTRYONTheme(Brightness.light),
+      darkTheme: buildASTRYONTheme(Brightness.dark),
       themeMode: ThemeMode.system,
       home: isPaired ? const DashboardScreen() : const PairingScreen(),
     );

@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-20T00:00:00Z",
+  "title": "Design System: ASTRYON Mobile Gateway — Pareamento",
+  "extensions": {
+    "colorMeta": {
+      "signal-blue": {
+        "role": "primary",
+        "displayName": "Signal Blue",
+        "canonical": "#2F80ED",
+        "tonalRamp": [
+          "oklch(15% 0.10 258)",
+          "oklch(25% 0.13 258)",
+          "oklch(35% 0.16 258)",
+          "oklch(45% 0.18 258)",
+          "oklch(58% 0.19 258)",
+          "oklch(70% 0.15 258)",
+          "oklch(82% 0.10 258)",
+          "oklch(93% 0.05 258)"
+        ]
+      },
+      "guide-amber": {
+        "role": "secondary",
+        "displayName": "Guide Amber",
+        "canonical": "#F2C94C",
+        "tonalRamp": [
+          "oklch(20% 0.05 92)",
+          "oklch(38% 0.08 92)",
+          "oklch(55% 0.11 92)",
+          "oklch(68% 0.12 92)",
+          "oklch(85% 0.13 92)",
+          "oklch(90% 0.11 92)",
+          "oklch(94% 0.07 92)",
+          "oklch(97% 0.03 92)"
+        ]
+      },
+      "navy-shell": {
+        "role": "neutral",
+        "displayName": "Navy Shell",
+        "canonical": "#102A43",
+        "tonalRamp": [
+          "oklch(15% 0.040 250)",
+          "oklch(22% 0.050 250)",
+          "oklch(30% 0.055 250)",
+          "oklch(40% 0.050 250)",
+          "oklch(52% 0.045 250)",
+          "oklch(66% 0.035 250)",
+          "oklch(80% 0.020 250)",
+          "oklch(93% 0.010 250)"
+        ]
+      },
+      "mist-surface": {
+        "role": "neutral",
+        "displayName": "Mist Surface",
+        "canonical": "#F5F7FA",
+        "tonalRamp": [
+          "oklch(20% 0.010 250)",
+          "oklch(32% 0.012 250)",
+          "oklch(45% 0.012 250)",
+          "oklch(58% 0.012 250)",
+          "oklch(72% 0.008 250)",
+          "oklch(85% 0.006 250)",
+          "oklch(93% 0.004 250)",
+          "oklch(97% 0.004 250)"
+        ]
+      },
+      "slate-muted": {
+        "role": "neutral",
+        "displayName": "Slate Muted",
+        "canonical": "#CBD5E1",
+        "tonalRamp": [
+          "oklch(18% 0.015 245)",
+          "oklch(32% 0.020 245)",
+          "oklch(46% 0.022 245)",
+          "oklch(60% 0.022 245)",
+          "oklch(74% 0.022 245)",
+          "oklch(86% 0.020 245)",
+          "oklch(92% 0.014 245)",
+          "oklch(96% 0.008 245)"
+        ]
+      },
+      "on-brand": {
+        "role": "neutral",
+        "displayName": "On-Brand White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "oklch(20% 0 0)",
+          "oklch(33% 0 0)",
+          "oklch(46% 0 0)",
+          "oklch(60% 0 0)",
+          "oklch(73% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(93% 0 0)",
+          "oklch(100% 0 0)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Título da etapa; navy #102A43 no tema claro, onSurface no escuro." },
+      "title": { "displayName": "Title", "purpose": "Título do estado de erro do leitor de QR Code, sobre o campo navy." },
+      "body": { "displayName": "Body", "purpose": "Descrição da etapa, dica de nome e aviso de revisão." },
+      "body-small": { "displayName": "Body Small", "purpose": "Divisor 'ou digite', nota de validade do código e rodapé informativo." },
+      "label": { "displayName": "Label", "purpose": "Rótulos das paradas da rota; 700 na atual, 500 nas demais." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "step-enter", "value": "240ms cubic-bezier(0.215, 0.61, 0.355, 1)", "purpose": "Entrada do conteúdo da etapa: fade + slide horizontal (easeOutCubic)." },
+      { "name": "step-exit", "value": "240ms cubic-bezier(0.55, 0.055, 0.675, 0.19)", "purpose": "Saída do conteúdo da etapa (easeInCubic)." },
+      { "name": "route-stop-shift", "value": "200ms linear", "purpose": "Animação da cor/preenchimento das paradas da rota." },
+      { "name": "reduce-motion", "value": "0ms quando MediaQuery.disableAnimations", "purpose": "Todas as transições viram Duration.zero quando o sistema pede menos animação." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "App Bar",
+      "kind": "nav",
+      "refersTo": "app-bar",
+      "description": "Cromo navy de altura fixa, título à esquerda, sem elevação.",
+      "html": "<header class=\"ds-appbar\"><span class=\"ds-appbar-brand\">ASTRYON</span></header>",
+      "css": ".ds-appbar { display: flex; align-items: center; height: 56px; padding: 0 16px; background: #102A43; color: #FFFFFF; } .ds-appbar-brand { font: 600 20px/1.3 Roboto, sans-serif; letter-spacing: 0.01em; }"
+    },
+    {
+      "name": "Route Progress",
+      "kind": "custom",
+      "refersTo": "route-stop-current",
+      "description": "Assinatura do sistema: três paradas ligadas, atual em amarelo, concluídas em azul.",
+      "html": "<div class=\"ds-route\" role=\"group\" aria-label=\"Etapa 2 de 3: Aparelho\"><div class=\"ds-stop ds-stop-done\"><b>\u2713</b><span>Código</span></div><div class=\"ds-stop ds-stop-current\"><b>2</b><span>Aparelho</span></div><div class=\"ds-stop\"><b>3</b><span>Revisão</span></div></div>",
+      "css": ".ds-route { display: flex; align-items: flex-start; padding: 20px 24px 18px; background: #F5F7FA; box-sizing: border-box; } .ds-stop { flex: 2; display: flex; flex-direction: column; align-items: center; gap: 8px; color: #5A6B7B; font: 500 12px/1.3 Roboto, sans-serif; text-align: center; } .ds-stop b { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; border: 2px solid #8296A8; background: #F5F7FA; color: #5A6B7B; font: 700 14px/1 Roboto, sans-serif; } .ds-stop-current { color: #102A43; font-weight: 700; } .ds-stop-current b { background: #F2C94C; border-color: #2F80ED; color: #102A43; } .ds-stop-done b { background: #2F80ED; border-color: #2F80ED; color: #FFFFFF; } .ds-stop:not(:last-child)::after { content: ''; order: 99; } .ds-route .ds-stop + .ds-stop { position: relative; } .ds-route .ds-stop + .ds-stop::before { content: ''; position: absolute; top: 15px; left: -25%; right: 75%; height: 2px; background: #2F80ED; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação primária do rodapé; azul, altura 56, raio 14.",
+      "html": "<button class=\"ds-btn-primary\">Continuar</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 56px; padding: 0 24px; border: none; border-radius: 14px; background: #2F80ED; color: #FFFFFF; font: 600 16px/1 Roboto, sans-serif; cursor: pointer; transition: background 0.2s, box-shadow 0.2s; } .ds-btn-primary:hover { background: #1F6BD8; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(47,128,237,0.35); } .ds-btn-primary:disabled { background: #C9D5E1; color: #FFFFFF; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ação de retorno; contorno azul a 55%, altura 52, raio 14.",
+      "html": "<button class=\"ds-btn-secondary\">Voltar</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 24px; background: transparent; color: #2F80ED; border: 1px solid rgba(47,128,237,0.55); border-radius: 14px; font: 600 16px/1 Roboto, sans-serif; cursor: pointer; transition: background 0.2s; } .ds-btn-secondary:hover { background: rgba(47,128,237,0.08); } .ds-btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(47,128,237,0.25); } .ds-btn-secondary:disabled { color: #8296A8; border-color: #C9D5E1; cursor: not-allowed; }"
+    },
+    {
+      "name": "Scan Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ação secundária de largura total da etapa 0: ler o QR Code.",
+      "html": "<button class=\"ds-btn-scan\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\"/><path d=\"M14 14h3v3h-3zM20 14v3M14 20h3M20 20h.01\"/></svg>Ler QR Code</button>",
+      "css": ".ds-btn-scan { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 0 24px; background: transparent; color: #2F80ED; border: 1px solid rgba(47,128,237,0.55); border-radius: 14px; font: 600 16px/1 Roboto, sans-serif; cursor: pointer; transition: background 0.2s; } .ds-btn-scan:hover { background: rgba(47,128,237,0.08); } .ds-btn-scan:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(47,128,237,0.25); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo Material preenchido, raio 14, foco em borda azul de 2.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Código de pareamento</span><span class=\"ds-field-box\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#5A6B7B\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l8-8M17 6l2 2M15 8l2 2\"/></svg><input class=\"ds-field-input\" type=\"text\" placeholder=\"A3B7-X9K2\" value=\"A3B7-X9K2\"></span></label>",
+      "css": ".ds-field { display: block; } .ds-field-label { display: block; margin-bottom: 7px; color: #294A68; font: 600 13px/1.3 Roboto, sans-serif; } .ds-field-box { display: flex; align-items: center; gap: 12px; padding: 0 16px; background: #FFFFFF; border: 1px solid #C9D5E1; border-radius: 14px; transition: border-color 0.15s, box-shadow 0.15s; } .ds-field-box:focus-within { border: 2px solid #2F80ED; padding: 0 15px; } .ds-field-input { width: 100%; height: 54px; border: none; outline: none; background: transparent; color: #102A43; font: 400 16px/1.4 Roboto, sans-serif; letter-spacing: 0.04em; } .ds-field-input::placeholder { color: #8296A8; }"
+    },
+    {
+      "name": "Notice Panel",
+      "kind": "card",
+      "refersTo": "notice-panel",
+      "description": "Dica contextual em fundo tonal azul, raio 14.",
+      "html": "<div class=\"ds-notice\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#2F80ED\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><circle cx=\"9\" cy=\"11\" r=\"2\"/><path d=\"M5.5 17c.7-1.7 2-2.5 3.5-2.5s2.8.8 3.5 2.5M15 10h4M15 13h4\"/></svg><p>Use algo como \u201cCelular da sala\u201d ou o seu nome. Isso facilita identificar a origem da telemetria.</p></div>",
+      "css": ".ds-notice { display: flex; align-items: flex-start; gap: 12px; padding: 16px; background: rgba(47,128,237,0.10); border-radius: 14px; } .ds-notice svg { flex: none; margin-top: 2px; } .ds-notice p { margin: 0; color: #102A43; font: 400 14px/1.4 Roboto, sans-serif; }"
+    },
+    {
+      "name": "Review Card",
+      "kind": "card",
+      "refersTo": "notice-panel",
+      "description": "Cartão de revisão com borda, raio 16 e dois dados confirmados.",
+      "html": "<div class=\"ds-review\"><div class=\"ds-review-row\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#5A6B7B\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l8-8M17 6l2 2M15 8l2 2\"/></svg><div><span class=\"ds-review-title\">Código de pareamento</span><span class=\"ds-review-value\">A3B7-X9K2</span></div></div><div class=\"ds-review-div\"></div><div class=\"ds-review-row\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#5A6B7B\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"6\" y=\"2\" width=\"12\" height=\"20\" rx=\"2\"/><path d=\"M10 5h4\"/></svg><div><span class=\"ds-review-title\">Nome do aparelho</span><span class=\"ds-review-value\">Celular do Carlos</span></div></div></div>",
+      "css": ".ds-review { overflow: hidden; background: #FFFFFF; border: 1px solid #C9D5E1; border-radius: 16px; } .ds-review-row { display: flex; align-items: flex-start; gap: 16px; padding: 16px; } .ds-review-row svg { flex: none; margin-top: 2px; } .ds-review-title { display: block; color: #5A6B7B; font: 400 14px/1.3 Roboto, sans-serif; } .ds-review-value { display: block; margin-top: 6px; color: #102A43; font: 600 16px/1.3 Roboto, sans-serif; } .ds-review-div { height: 1px; background: #C9D5E1; }"
+    },
+    {
+      "name": "Error Message",
+      "kind": "custom",
+      "refersTo": "notice-panel",
+      "description": "Faixa de erro ao vivo, fundo errorContainer, raio 12.",
+      "html": "<div class=\"ds-error\" role=\"alert\" aria-live=\"assertive\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#7F1D1D\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v5M12 16h.01\"/></svg><span>Digite um código válido no formato A3B7-X9K2 ou leia o QR Code.</span></div>",
+      "css": ".ds-error { display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 12px; background: #F9DEDC; border-radius: 12px; } .ds-error svg { flex: none; margin-top: 1px; } .ds-error span { color: #7F1D1D; font: 400 14px/1.35 Roboto, sans-serif; }"
+    },
+    {
+      "name": "Scanner Frame",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Visor do leitor de QR Code: campo navy com moldura amarela de 248×248.",
+      "html": "<div class=\"ds-scanner\"><div class=\"ds-scanner-window\"></div><div class=\"ds-scanner-hint\">Aponte a câmera para o QR Code exibido no dashboard. O código será revisado antes do registro.</div></div>",
+      "css": ".ds-scanner { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 420px; background: #102A43; } .ds-scanner-window { width: 248px; height: 248px; border: 3px solid #F2C94C; border-radius: 28px; } .ds-scanner-hint { position: absolute; left: 24px; right: 24px; bottom: 28px; margin: 0 auto; padding: 18px 20px; background: #102A43; border-radius: 16px; color: #FFFFFF; font: 400 15px/1.4 Roboto, sans-serif; text-align: center; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A Linha de Integração",
+    "overview": "O fluxo de pareamento se apresenta como uma linha de integração de transporte público: três paradas — Código, Aparelho, Revisão — ligadas por uma faixa, com a parada atual destacada em amarelo e as concluídas em azul. A gramática vem da sinalização de integração: progresso sempre visível, instrução específica por parada, e uma única ação primária ao final de cada trecho, alcançável mesmo com o teclado aberto. Nada de tela de boas-vindas promocional nem formulário genérico centrado; a tela é a própria rota.\n\nO mundo visual vive dentro do Android. Ele não desenha um sistema novo: apoia-se no Material 3 e numa ColorScheme.fromSeed azul, sobrepondo apenas três âncoras de marca — o azul #2F80ED das ações e da rota, o navy #102A43 do shell e da tinta, e o amarelo #F2C94C da parada atual. Superfícies são claras e calmas, o cromo é navy, o azul é o único sinal de ação, e o amarelo aparece só uma vez por tela. A tipografia é a nativa do Android, ajustada em peso e altura de linha, sem face própria.\n\nA densidade é de ferramenta operacional, não de marketing: uma coluna direta, 24 de respiro lateral, espaçamento vertical em degraus de 8–32, e revisão explícita antes de registrar. Os componentes são Material canônicos (AppBar, FilledButton, OutlinedButton, TextField, ListTile, SnackBar) com um raio de canto consistente de 14 e um painel de rota como única assinatura.",
+    "keyCharacteristics": [
+      "Rota de três paradas (Código → Aparelho → Revisão) como assinatura única e persistente da orientação.",
+      "Cromo navy (#102A43) emoldurando uma superfície clara; azul (#2F80ED) como único sinal de ação e de progresso.",
+      "Amarelo (#F2C94C) reservado à parada atual — ocorre uma vez por tela.",
+      "Componentes Material 3 com raio de 14 nas formas de controle; sistema chapado, sem sombras.",
+      "Tipografia nativa Android (Roboto), ajustada apenas em peso, altura de linha e entreletra.",
+      "Uma ação primária no rodapé, fixa acima dos insets, disponível com o teclado aberto."
+    ],
+    "rules": [
+      { "name": "The Navy Shell Rule", "body": "O cromo é navy. AppBar e telas de câmera usam #102A43; a superfície clara #F5F7FA é o conteúdo, nunca o contorno.", "section": "colors" },
+      { "name": "The One Accent Rule", "body": "O azul #2F80ED é o único sinal de ação e de progresso. Se um elemento não é acionável nem indica avanço, ele não é azul.", "section": "colors" },
+      { "name": "The One Stop Highlight Rule", "body": "O amarelo #F2C94C aparece uma única vez por tela: na parada atual da rota. Rebaixá-lo a cor de destaque genérico quebra a leitura da linha.", "section": "colors" },
+      { "name": "The Native Type Rule", "body": "Não introduza face própria. Herde Roboto/Material 3 e ajuste só peso, altura de linha e entreletra. A tipografia é infraestrutura, não identidade.", "section": "typography" },
+      { "name": "The Flat Route Rule", "body": "Sem sombras. Separe planos com borda, cor de superfície e cromo navy. Se algo precisa de sombra para se destacar, o problema é hierarquia, não elevação.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do manter a rota de três paradas visível em todas as etapas; ela é a assinatura e a orientação.",
+      "Do reservar o azul #2F80ED para ação e progresso e o amarelo #F2C94C para a parada atual, uma vez por tela.",
+      "Do manter a ação primária no rodapé, dentro de SafeArea, acima dos insets e alcançável com o teclado aberto.",
+      "Do usar raio 14 em controles, 16 em superfícies, 12 em avisos, círculos de 32 na rota.",
+      "Do herdar Roboto/Material 3 e ajustar só peso, altura de linha e entreletra.",
+      "Do descrever o registro como concluído e deixar claro que a conexão com a antena é assunto do dashboard.",
+      "Do respeitar MediaQuery.disableAnimations (durações zero) e agrupar estado em Semantics."
+    ],
+    "donts": [
+      "Don't usar sombras nem elevação; separe planos com borda, cor de superfície e cromo navy.",
+      "Don't introduzir face tipográfica própria nem tamanhos fora da escala Material 3 herdada.",
+      "Don't usar o amarelo como cor de destaque genérica ou os neutros como fundo do cromo — o cromo é navy.",
+      "Don't prometer conexão com a antena como resultado do pareamento; sucesso é registro concluído.",
+      "Don't registrar o dispositivo automaticamente após a leitura do QR; a revisão é obrigatória.",
+      "Don't criar telas de boas-vindas promocionais nem formulário genérico centrado; a tela é a rota."
+    ]
+  }
+}

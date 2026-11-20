@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:astryon_mobile/main.dart';
 import 'package:astryon_mobile/screens/pairing_screen.dart';
 
 void main() {
@@ -52,29 +53,41 @@ void main() {
     expect(find.text('Celular do Carlos'), findsOneWidget);
   });
 
-  testWidgets('percorre as três etapas com fonte ampliada e tema escuro',
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'percorre as etapas em phone compacto, teclado e fonte ampliada (${brightness.name})',
       (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData.dark(useMaterial3: true),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: const TextScaler.linear(1.3),
+        tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+        tester.view.devicePixelRatio = 3;
+        tester.view.viewInsets = const FakeViewPadding(bottom: 280 * 3);
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildASTRYONTheme(brightness),
+            home: Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: const TextScaler.linear(1.3),
+                ),
+                child: const PairingScreen(),
+              ),
+            ),
           ),
-          child: child!,
-        ),
-        home: const PairingScreen(),
-      ),
+        );
+
+        await tester.enterText(find.byType(TextField), 'A3B7-X9K2');
+        await tester.tap(find.text('Continuar'));
+        await tester.pumpAndSettle();
+        expect(find.text('Identifique seu aparelho'), findsOneWidget);
+
+        await tester.enterText(find.byType(TextField), 'Gateway da varanda');
+        await tester.tap(find.text('Continuar'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Revise o pareamento'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
     );
-
-    await tester.enterText(find.byType(TextField), 'A3B7-X9K2');
-    await tester.tap(find.text('Continuar'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Gateway da varanda');
-    await tester.tap(find.text('Continuar'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Revise o pareamento'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  }
 }

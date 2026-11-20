@@ -97,6 +97,9 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final frameSide = (media.size.shortestSide * 0.66).clamp(180.0, 280.0);
+
     return Scaffold(
       backgroundColor: const Color(0xFF102A43),
       appBar: AppBar(
@@ -143,8 +146,8 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
             IgnorePointer(
               child: Center(
                 child: Container(
-                  width: 248,
-                  height: 248,
+                  width: frameSide,
+                  height: frameSide,
                   decoration: BoxDecoration(
                     border: Border.all(color: const Color(0xFFF2C94C), width: 3),
                     borderRadius: BorderRadius.circular(28),

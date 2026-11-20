@@ -25,7 +25,8 @@ void main() {
     test('rejeita conteúdo sem código válido', () {
       expect(parsePairingCode('https://example.com'), isNull);
       expect(parsePairingCode('A3B7-X9K2-EXTRA'), isNull);
-      expect(parsePairingCode('G3B7-X9K2'), isNull);
+      expect(parsePairingCode('A3B7-X9K'), isNull);
+      expect(parsePairingCode('A3B7_X9K2'), isNull);
     });
   });
 }

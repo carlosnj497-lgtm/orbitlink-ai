@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -28,16 +29,18 @@ class ApiService {
     required String pairingCode,
     required String deviceName,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$API_BASE_URL/devices/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'pairing_code': pairingCode,
-        'device_name': deviceName,
-        'starlink_ip': '192.168.100.1',
-        'starlink_model': 'unknown',
-      }),
-    );
+    final response = await _client
+        .post(
+          Uri.parse('$API_BASE_URL/devices/register'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'pairing_code': pairingCode,
+            'device_name': deviceName,
+            'starlink_ip': '192.168.100.1',
+            'starlink_model': 'unknown',
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
     final data = _handleResponse(response);
 
     // Salva o token localmente.

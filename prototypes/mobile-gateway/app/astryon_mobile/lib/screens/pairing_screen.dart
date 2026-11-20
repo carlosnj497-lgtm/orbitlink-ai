@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -18,6 +19,8 @@ class _PairingScreenState extends State<PairingScreen> {
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   int _currentStep = 0;
+  int _attempt = 0;
+  bool _forward = true;
   bool _loading = false;
   String? _error;
 
@@ -41,10 +44,13 @@ class _PairingScreenState extends State<PairingScreen> {
   }
 
   void _goBack() {
-    if (_loading || _currentStep == 0) return;
+    if (_currentStep == 0) return;
+    _attempt += 1;
     setState(() {
+      _forward = false;
       _currentStep -= 1;
       _error = null;
+      _loading = false;
     });
   }
 
@@ -65,6 +71,7 @@ class _PairingScreenState extends State<PairingScreen> {
 
     if (_currentStep < 2) {
       setState(() {
+        _forward = true;
         _currentStep += 1;
         _error = null;
       });
@@ -89,6 +96,7 @@ class _PairingScreenState extends State<PairingScreen> {
   }
 
   Future<void> _pair() async {
+    final attempt = ++_attempt;
     setState(() {
       _loading = true;
       _error = null;
@@ -96,25 +104,33 @@ class _PairingScreenState extends State<PairingScreen> {
 
     try {
       await ApiService.registerDevice(pairingCode: _code, deviceName: _name);
-      if (!mounted) return;
+      if (!mounted || attempt != _attempt) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const DashboardScreen()),
       );
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || attempt != _attempt) return;
       setState(() {
         _error = _messageFor(error);
         if (error is HttpException) {
           final status = RegExp(r'Erro (\d{3})').firstMatch(error.message)?.group(1);
-          if (status == '400' || status == '404') _currentStep = 0;
+          if (status == '400' || status == '404') {
+            _forward = false;
+            _currentStep = 0;
+          }
         }
       });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && attempt == _attempt) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   String _messageFor(Object error) {
+    if (error is TimeoutException) {
+      return 'O servidor demorou para responder. Verifique a conexão e tente novamente.';
+    }
     if (error is HttpException) {
       final status = RegExp(r'Erro (\d{3})').firstMatch(error.message)?.group(1);
       if (status == '404') {
@@ -135,7 +151,7 @@ class _PairingScreenState extends State<PairingScreen> {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     return PopScope<void>(
-      canPop: _currentStep == 0 && !_loading,
+      canPop: _currentStep == 0,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) _goBack();
       },
@@ -171,7 +187,7 @@ class _PairingScreenState extends State<PairingScreen> {
                         opacity: animation,
                         child: SlideTransition(
                           position: Tween<Offset>(
-                            begin: const Offset(0.06, 0),
+                            begin: Offset(_forward ? 0.06 : -0.06, 0),
                             end: Offset.zero,
                           ).animate(animation),
                           child: child,
@@ -490,8 +506,9 @@ class _RouteProgress extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       _labels[index],
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.visible,
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: index == currentStep
                             ? theme.colorScheme.onSurface

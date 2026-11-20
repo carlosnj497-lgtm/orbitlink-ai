@@ -81,7 +81,18 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
 
   Future<void> _restartScanner() async {
     setState(() => _handlingCode = false);
-    await _controller.start();
+    try {
+      await _controller.start();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível reiniciar a câmera. Tente novamente.'),
+          ),
+        );
+    }
   }
 
   @override
@@ -94,13 +105,13 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
           ValueListenableBuilder<MobileScannerState>(
             valueListenable: _controller,
             builder: (context, state, child) {
+              final torchAvailable =
+                  state.isRunning && state.torchState != TorchState.unavailable;
               return IconButton(
                 tooltip: state.torchState == TorchState.on
                     ? 'Desligar lanterna'
                     : 'Ligar lanterna',
-                onPressed: state.hasCameraPermission
-                    ? _controller.toggleTorch
-                    : null,
+                onPressed: torchAvailable ? _controller.toggleTorch : null,
                 icon: Icon(
                   state.torchState == TorchState.on
                       ? Icons.flash_on
@@ -118,7 +129,14 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
           children: [
             MobileScanner(
               controller: _controller,
+              placeholderBuilder: (context) => const ColoredBox(
+                color: Color(0xFF102A43),
+                child: Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
               errorBuilder: (context, error) => _ScannerError(
+                error: error,
                 onRetry: _restartScanner,
               ),
             ),
@@ -168,46 +186,65 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
 }
 
 class _ScannerError extends StatelessWidget {
+  final MobileScannerException error;
   final Future<void> Function() onRetry;
 
-  const _ScannerError({required this.onRetry});
+  const _ScannerError({required this.error, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
+    final isPermissionDenied =
+        error.errorCode == MobileScannerErrorCode.permissionDenied;
+    final isUnsupported = error.errorCode == MobileScannerErrorCode.unsupported;
+
     return ColoredBox(
       color: const Color(0xFF102A43),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.no_photography_outlined, color: Colors.white, size: 48),
-              const SizedBox(height: 24),
-              Text(
-                'Não foi possível abrir a câmera',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isPermissionDenied
+                      ? Icons.no_photography_outlined
+                      : Icons.camera_outlined,
                   color: Colors.white,
-                  fontWeight: FontWeight.w600,
+                  size: 48,
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Permita o acesso à câmera nas configurações do Android ou volte para digitar o código manualmente.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: const Color(0xFFCBD5E1),
-                  height: 1.4,
+                const SizedBox(height: 24),
+                Text(
+                  isUnsupported
+                      ? 'Este aparelho não oferece leitura por câmera'
+                      : 'Não foi possível abrir a câmera',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Tentar novamente'),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  isPermissionDenied
+                      ? 'Permita o acesso à câmera nas configurações do Android ou volte para digitar o código manualmente.'
+                      : isUnsupported
+                          ? 'Volte e digite o código de pareamento exibido no dashboard.'
+                          : 'Feche outros aplicativos que usam a câmera e tente novamente, ou volte para digitar o código.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: const Color(0xFFCBD5E1),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: isUnsupported ? null : onRetry,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Tentar novamente'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

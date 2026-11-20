@@ -21,7 +21,6 @@ ThemeData _buildTheme(Brightness brightness) {
     seedColor: const Color(0xFF2F80ED),
     brightness: brightness,
   ).copyWith(
-    primary: const Color(0xFF2F80ED),
     secondary: const Color(0xFFF2C94C),
     onSecondary: const Color(0xFF102A43),
   );

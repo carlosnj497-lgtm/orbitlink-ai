@@ -270,7 +270,9 @@ O workflow **Build Mobile Gateway APK** compila o APK com a versão da tag e
 publica, no repositório **público** de releases (`astryon-releases`, ajustável
 por `ASTRYON_RELEASES_REPO`, via secret `RELEASES_TOKEN`), uma GitHub Release com
 `astryon-mobile-<versão>.apk` e um `latest.json`
-(`{version, url, sha256, size, filename}`). Aponte o backend para esse manifesto:
+(`{version, url, sha256, size, filename, notes}`). A **mensagem da tag anotada**
+vira o corpo da release e o campo `notes` do manifesto (exibido no app). Aponte o
+backend para esse manifesto:
 
 ```
 ASTRYON_RELEASE_MANIFEST_URL=https://github.com/carlosnj497-lgtm/astryon-releases/releases/latest/download/latest.json

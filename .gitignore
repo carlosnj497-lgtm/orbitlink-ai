@@ -60,3 +60,5 @@ prototypes/**/.dart_tool/
 prototypes/**/.flutter-plugins*
 prototypes/**/pubspec.lock
 prototypes/**/lib/generated/
+# APKs publicados para atualização (arquivos grandes, servidos pelo backend)
+prototypes/**/releases/*.apk

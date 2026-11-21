@@ -7,7 +7,7 @@ Checklist de coisas que ficam nas configurações do GitHub e não em um arquivo
 1. Clique no ícone de engrenagem ao lado de **About**.
 2. Cole a descrição:
 
-   > Monitoramento local das antenas Starlink — painel em tempo real, histórico, alertas no Telegram e IA. Self-hosted, local-first, sem nuvem obrigatória.
+   > Monitoramento local das antenas Starlink: histórico, painel em tempo real e alertas no Telegram.
 
 3. Cole os topics (separados por espaço ou vírgula):
 

@@ -46,7 +46,7 @@
 
 ## 🚀 Início rápido (Linux)
 
-**Pré-requisitos:** Python 3.11+ e Node.js 20+ num computador ligado na mesma rede da antena.
+**Pré-requisitos (Linux):** Ubuntu Server 24.04 LTS e um computador na mesma rede da antena. O instalador cuida de Python, Node.js, Nginx e das demais dependências.
 
 🐧 **Linux (recomendado)** · 🪟 [Windows 10/11](#-instalação)
 
@@ -129,10 +129,11 @@ O app oficial da Starlink mostra o estado atual e um histórico recente. O ASTRY
 
 | | Recurso | Detalhes |
 |---|---|---|
-| 📡 | **Ao vivo** | Download, upload, latência e perda de pacotes a cada segundo, com histórico, pausa e exportação CSV. |
-| 📊 | **Consumo e franquia** | Consumo do ciclo, projeção mensal e alertas em 80% e 100% do plano (estimativa local pelo tráfego da antena). |
+| 📡 | **Ao vivo** | Download, upload, latência e perda de pacotes com histórico de 1 s, pausa e exportação CSV. |
+| 📊 | **Consumo e franquia** | Consumo do ciclo, projeção mensal e alertas em 80% e 100% do plano (estimativa local pelo tráfego da antena), com importação do CSV oficial para comparar. |
 | ✅ | **Qualidade** | Disponibilidade, perda, jitter e percentis de latência por hora, comparação com o período anterior (com e sem chuva) e os melhores horários do dia. Segundos sem medição ficam fora da conta. |
 | 🛰️ | **Antena e obstruções** | Estado, firmware, mapa de céu visto pela antena e porcentagem de obstrução. |
+| 📄 | **Eventos e relatórios** | Linha do tempo de quedas com duração, causa (quando informada), confiança e clima; relatórios em PDF e exportação CSV/JSON. |
 | 🔔 | **Alertas** | Regras com debounce, histerese e cooldown, entregues pelo Telegram ou por webhook, com fila que sobrevive à queda da internet. |
 | 🤖 | **Central de IA** | Perguntas em português respondidas com os dados do agente (Groq). Sem chave, responde por regras. |
 | 💬 | **Bot do Telegram** | `/menu`, consultas por comando sem gastar IA, perguntas em texto ou nota de voz e resumo semanal. |
@@ -177,14 +178,21 @@ Todas as capturas vêm da rota `/demo`, com dados fictícios e a faixa de demons
 
 ## 🔧 Instalação
 
-**Pré-requisitos:** Python 3.11+ e Node.js 20+ (LTS). Computador na mesma rede da antena (o agente precisa alcançar o IP local dela).
+**Pré-requisitos:** Linux: Ubuntu Server 24.04 LTS e acesso à rede da antena (o instalador cuida das dependências). Windows ou instalação manual: Python 3.11+ e Node.js 20+ (LTS), num computador na mesma rede da antena.
 
 ### Servidor Linux (Ubuntu Server 24.04 LTS), recomendado
 
 Siga os passos do [Início rápido](#-início-rápido-linux). O instalador configura systemd + Nginx (TLS) + UFW, e o código em `/etc/astryon/setup-code` cria o primeiro administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
 
 ```bash
-sudo astryonctl status | logs agent -f | diagnose | doctor | restart | update --git-pull | rollback | backup
+sudo astryonctl status          # estado dos serviços
+sudo astryonctl logs agent -f   # logs ao vivo
+sudo astryonctl diagnose        # rede + antena (somente leitura)
+sudo astryonctl doctor          # saúde + segurança
+sudo astryonctl restart         # reinicia os serviços
+sudo astryonctl update --git-pull
+sudo astryonctl rollback
+sudo astryonctl backup
 ```
 
 Os serviços `astryon-agent` e `astryon-web` reiniciam sozinhos em falhas e registram no journald. Agente e painel escutam só em loopback; o Nginx publica o painel apenas para a LAN e a Tailnet. Guia completo: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
@@ -266,7 +274,8 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 | Supabase | Testes de isolamento RLS em Postgres (PGlite). Ainda não aplicado a um projeto real. |
 | Firmware ESP32 | A versão 0.2.0 com pareamento v2 ainda precisa de compilação nos dois ambientes e validação em placa. |
 | Implantação Linux | Testes dos scripts e instalação real num Ubuntu 24.04 limpo no CI. |
-| Painel na nuvem (Vercel + Supabase) | Login por e-mail, pareamento por código, Dashboard, Consumo, Qualidade, Eventos e Conta. Testado com Supabase simulado; falta publicar e aplicar o SQL no seu projeto. |
+| Instalador Windows | Gerado no GitHub Actions e publicado nas releases (`.exe` e `.zip`); falta validar num Windows real. |
+| Painel na nuvem (Vercel + Supabase) | Login por e-mail, pareamento por código, Dashboard, Consumo, Qualidade, Eventos e Conta. Código testado com Supabase simulado; falta publicar e aplicar o SQL no projeto Supabase de destino. |
 
 ## 🧭 Roteiro
 
@@ -279,7 +288,8 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - [x] Aviso de chuva forte prevista no Telegram e comando `/clima`
 - [ ] Validação em antenas Starlink reais dos diferentes modelos e gerações
 - [ ] Nó ESP32 gravado e testado numa placa
-- [x] Serviço na nuvem: conta por e-mail, código de pareamento e painel lendo o Supabase ([NUVEM.md](docs/NUVEM.md))
+- [x] Código do serviço na nuvem: conta por e-mail, código de pareamento e painel lendo o Supabase ([NUVEM.md](docs/NUVEM.md))
+- [ ] Publicar o painel na nuvem e aplicar o SQL no Supabase
 - [ ] Aparelho pronto (Raspberry Pi) com página de configuração: script pronto, falta testar no hardware ([APARELHO.md](docs/APARELHO.md))
 - [ ] Instalador `.exe` para Windows com ícone na bandeja: gerado no GitHub Actions e publicado nas [releases do ASTRYON](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases), falta validar num Windows real
 
@@ -308,8 +318,9 @@ acontece enquanto o computador estiver ligado.
 <br>
 Não por padrão. Tudo fica no SQLite local. Só sai alguma coisa se você ativar o Telegram, a IA da Groq (a pergunta e
 os dados necessários para respondê-la), as respostas em voz do bot (o texto da resposta vai ao serviço de voz da
-Microsoft), o clima (só as coordenadas da cidade escolhida, arredondadas a cerca de 1 km, vão para a Open-Meteo) ou a
-sincronização com o seu próprio projeto Supabase.
+Microsoft), o clima (só as coordenadas da cidade escolhida, arredondadas a cerca de 1 km, vão para a Open-Meteo), os
+webhooks de alerta (o conteúdo do alerta vai para o endereço que você configurar) ou a sincronização com o seu próprio
+projeto Supabase.
 </details>
 
 <details>
@@ -403,7 +414,7 @@ O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, paine
 
 ### 🚀 Quick start (Linux)
 
-**Prerequisites:** Python 3.11+ and Node.js 20+ on a computer connected to the same network as the dish.
+**Prerequisites (Linux):** Ubuntu Server 24.04 LTS and a computer on the same network as the dish. The installer takes care of Python, Node.js, Nginx, and other dependencies.
 
 🐧 **Linux (recommended)** · 🪟 [Windows 10/11](#-installation)
 
@@ -486,10 +497,11 @@ The official Starlink app shows current status and a short history. ASTRYON stor
 
 | | Feature | Details |
 |---|---|---|
-| 📡 | **Live** | Download, upload, latency, and packet loss every second, with history, pause, and CSV export. |
-| 📊 | **Usage and data cap** | Cycle usage, monthly projection, and alerts at 80% and 100% of the plan (local estimate from dish traffic). |
+| 📡 | **Live** | Download, upload, latency, and packet loss with 1-second history, pause, and CSV export. |
+| 📊 | **Usage and data cap** | Cycle usage, monthly projection, and alerts at 80% and 100% of the plan (local estimate from dish traffic), with official CSV import for comparison. |
 | ✅ | **Quality** | Availability, loss, jitter, and latency percentiles per hour, comparison with the previous period (with and without rain), and the best times of day. Seconds without measurement are excluded. |
 | 🛰️ | **Dish and obstructions** | Status, firmware, sky map as seen by the dish, and obstruction percentage. |
+| 📄 | **Events and reports** | Outage timeline with duration, cause (when reported), confidence, and weather; PDF reports and CSV/JSON export. |
 | 🔔 | **Alerts** | Rules with debounce, hysteresis, and cooldown, delivered via Telegram or webhook, with a queue that survives internet outages. |
 | 🤖 | **AI hub** | Questions in Portuguese answered with data from the agent (Groq). Without a key, it answers by rules. |
 | 💬 | **Telegram bot** | `/menu`, command queries without spending AI, text or voice questions, and weekly summary. |
@@ -534,14 +546,21 @@ All screenshots come from the `/demo` route, with fictitious data and the demo b
 
 ### 🔧 Installation
 
-**Prerequisites:** Python 3.11+ and Node.js 20+ (LTS). Computer on the same network as the dish (the agent must reach the dish's local IP).
+**Prerequisites:** Linux: Ubuntu Server 24.04 LTS and network access to the dish (the installer handles dependencies). Windows or manual install: Python 3.11+ and Node.js 20+ (LTS), on a computer on the same network as the dish.
 
 #### Linux server (Ubuntu Server 24.04 LTS), recommended
 
 Follow the steps in [Quick start](#-quick-start-linux). The installer configures systemd + Nginx (TLS) + UFW, and the code in `/etc/astryon/setup-code` creates the first administrator. Installer options: `--with-tailscale`, `--esp32`, and `--harden-ssh`.
 
 ```bash
-sudo astryonctl status | logs agent -f | diagnose | doctor | restart | update --git-pull | rollback | backup
+sudo astryonctl status          # service status
+sudo astryonctl logs agent -f   # live logs
+sudo astryonctl diagnose        # network + dish (read-only)
+sudo astryonctl doctor          # health + security checks
+sudo astryonctl restart         # restart services
+sudo astryonctl update --git-pull
+sudo astryonctl rollback
+sudo astryonctl backup
 ```
 
 The `astryon-agent` and `astryon-web` services self-restart on failures and log to journald. Agent and dashboard listen only on loopback; Nginx exposes the dashboard only to the LAN and Tailnet. Full guide: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
@@ -566,6 +585,8 @@ Prefer the installer with a tray icon? Download the `.exe` from the [ASTRYON rel
 1. Create a bot with [@BotFather](https://t.me/BotFather) and put the token in `ASTRYON_TELEGRAM_BOT_TOKEN`.
 2. Discover the authorized chat with `sudo astryonctl telegram-chat-id` (or `python -m astryon_agent telegram-chat-id`) and fill in `ASTRYON_TELEGRAM_CHAT_ID`.
 3. Optional: add a [Groq](https://console.groq.com/keys) key in `ASTRYON_GROQ_API_KEY` for AI answers and voice-note transcription (Whisper).
+
+The bot and its commands are in Portuguese.
 
 | Command | What it shows |
 |---|---|
@@ -623,7 +644,8 @@ Project decisions and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Supabase | RLS isolation tests in Postgres (PGlite). Not yet applied to a real project. |
 | ESP32 firmware | Version 0.2.0 with v2 pairing still needs compilation in both environments and validation on a board. |
 | Linux deployment | Script tests and real installation on a clean Ubuntu 24.04 in CI. |
-| Cloud dashboard (Vercel + Supabase) | Email login, pairing code, Dashboard, Usage, Quality, Events, and Account. Tested with simulated Supabase; needs publishing and SQL applied to your project. |
+| Windows installer | Built in GitHub Actions and published in the releases (`.exe` and `.zip`); pending validation on real Windows. |
+| Cloud dashboard (Vercel + Supabase) | Email login, pairing code, Dashboard, Usage, Quality, Events, and Account. Code tested with simulated Supabase; needs publishing and SQL applied to the target Supabase project. |
 
 ### 🧭 Roadmap
 
@@ -636,7 +658,8 @@ Project decisions and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [x] Heavy-rain warning on Telegram and `/clima` command
 - [ ] Validation on real Starlink dishes across different models and generations
 - [ ] ESP32 node flashed and tested on a board
-- [x] Cloud service: email accounts, pairing code, and dashboard reading Supabase ([NUVEM.md](docs/NUVEM.md))
+- [x] Cloud service code: email accounts, pairing code, and dashboard reading Supabase ([NUVEM.md](docs/NUVEM.md))
+- [ ] Publish the cloud dashboard and apply the SQL to Supabase
 - [ ] Ready device (Raspberry Pi) with config page: script ready, hardware test pending ([APARELHO.md](docs/APARELHO.md))
 - [ ] `.exe` installer for Windows with tray icon: built in GitHub Actions and published in the [ASTRYON releases](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases), pending validation on real Windows
 
@@ -664,7 +687,8 @@ To monitor 24/7, yes: any mini PC or old computer with Ubuntu works. On Windows,
 <br>
 Not by default. Everything stays in the local SQLite. Data only leaves if you enable Telegram, Groq AI (the question and
 necessary data to answer it), bot voice replies (the response text goes to Microsoft's voice service), weather (only the
-chosen city's coordinates, rounded to about 1 km, go to Open-Meteo), or sync with your own Supabase project.
+chosen city's coordinates, rounded to about 1 km, go to Open-Meteo), alert webhooks (the alert content goes to the URL you
+configure), or sync with your own Supabase project.
 </details>
 
 <details>
@@ -721,6 +745,8 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs agent, dashboar
 - If the project helped you, leave a ⭐ on the repository — it helps others find it.
 
 ### 📚 Documentation
+
+The detailed guides are currently in Portuguese.
 
 #### 🚀 Getting started
 

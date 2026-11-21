@@ -215,6 +215,26 @@ h3,
   outline-offset: 2px;
 }
 
+/*
+ * Login em viewport baixo: a marca encolhe para o formulário caber no primeiro olhar.
+ * Regras sem @layer para vencerem os utilitários de largura/altura das imagens.
+ */
+@media (max-height: 700px) {
+  .auth-shell {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .auth-brand {
+    margin-bottom: 0.75rem;
+  }
+  .auth-brand-dish {
+    display: none;
+  }
+  .auth-brand-logo {
+    width: 9rem;
+  }
+}
+
 ::selection {
   background: rgb(0 140 255 / 0.35);
   color: #ffffff;

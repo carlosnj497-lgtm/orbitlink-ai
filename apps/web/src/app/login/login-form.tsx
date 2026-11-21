@@ -18,6 +18,13 @@ export function LoginForm() {
   const params = useSearchParams();
   const { data: state = null, refetch, isFetching } = useQuery({ queryKey: ["auth", "state"], queryFn: loadAuthState, retry: false });
   const savedUser = typeof window !== "undefined" ? window.localStorage.getItem(LAST_USER_KEY) : "";
+  // O foco automático só ajuda em ponteiro fino e viewport alto; no celular ele abre o teclado
+  // e rola a página para longe da marca antes de a pessoa ver o card.
+  const canAutoFocus =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: fine)").matches &&
+    window.innerHeight >= 700;
   const [username, setUsername] = useState(() => savedUser ?? "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -140,7 +147,7 @@ export function LoginForm() {
             <Input
               id={`${id}-u`}
               autoComplete="username"
-              autoFocus
+              autoFocus={canAutoFocus}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -210,7 +217,10 @@ export function LoginForm() {
               </div>
             ) : (
               <div className="flex justify-end">
-                <Link href="/login/redefinir" className="py-0.5 text-xs text-fg-subtle transition-colors hover:text-fg hover:underline">
+                <Link
+                  href="/login/redefinir"
+                  className="inline-flex min-h-11 items-center px-1 -mx-1 text-xs text-fg-subtle transition-colors hover:text-fg hover:underline sm:min-h-9"
+                >
                   Esqueci a senha
                 </Link>
               </div>

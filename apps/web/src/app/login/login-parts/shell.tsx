@@ -68,7 +68,7 @@ export function LoginShell({
   return (
     <main
       className={cn(
-        "relative isolate grid min-h-dvh place-items-center overflow-hidden bg-bg",
+        "auth-shell relative isolate grid min-h-dvh place-items-center overflow-hidden bg-bg",
         "pb-[max(2rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(2rem,env(safe-area-inset-top))]",
         className,
       )}
@@ -81,7 +81,7 @@ export function LoginShell({
 
       <div className="relative w-full max-w-[22rem]">
         {/* Marca visual */}
-        <div className="mb-5 flex flex-col items-center text-center">
+        <div className="auth-brand mb-5 flex flex-col items-center text-center">
           <Image
             src="/dish-login.webp"
             alt=""
@@ -89,7 +89,7 @@ export function LoginShell({
             height={420}
             unoptimized
             priority
-            className="h-24 w-auto drop-shadow-[0_10px_28px_rgba(0,0,0,0.8)] sm:h-28"
+            className="auth-brand-dish h-24 w-auto drop-shadow-[0_10px_28px_rgba(0,0,0,0.8)] sm:h-28"
           />
           <Image
             src="/astryon-logo.webp"
@@ -98,25 +98,24 @@ export function LoginShell({
             height={298}
             unoptimized
             priority
-            className="h-auto w-48 sm:w-56"
+            className="auth-brand-logo h-auto w-48 sm:w-56"
           />
           <p className="mt-1 max-w-xs text-sm text-fg-muted">Painel local da sua Starlink</p>
         </div>
 
         <Card className="ol-card ol-glow ol-hud relative overflow-hidden p-5 sm:p-6">
           <div className="relative z-10">
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h1 className="font-display text-[21px] font-semibold leading-tight tracking-[-0.02em] text-fg">
-                  {title}
-                </h1>
-                {subtitle && <p className="mt-1 text-sm leading-relaxed text-fg-muted">{subtitle}</p>}
-              </div>
+            <div className="mb-5">
+              <h1 className="font-display text-[21px] font-semibold leading-tight tracking-[-0.02em] text-fg">
+                {title}
+              </h1>
+              {subtitle && <p className="mt-1 text-sm leading-relaxed text-fg-muted">{subtitle}</p>}
 
-              <div className="flex shrink-0 flex-col items-end gap-2">
+              {/* Meta do card abaixo do subtítulo: libera a largura do título e evita um kicker acima do h1. */}
+              <div className="mt-3 flex items-center justify-between gap-3">
                 <Badge tone="info">{mode}</Badge>
                 {status && (
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-fg-subtle">
+                  <span role="status" aria-live="polite" className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-fg-subtle">
                     <StatusDot tone={status.tone} />
                     {status.label}
                   </span>
@@ -137,7 +136,7 @@ export function LoginShell({
             </p>
           )}
           {version && (
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-fg-subtle/70">v{version}</p>
+            <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-fg-subtle">v{version}</p>
           )}
         </footer>
       </div>

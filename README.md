@@ -207,7 +207,7 @@ Todas as capturas vêm da rota `/demo`, com dados fictícios e a faixa de demons
 - **Ações só com confirmação humana.** A IA tem ferramentas somente de leitura.
 - **Demonstração isolada.** Dados fictícios existem só em `/demo`, sempre sinalizados.
 
-## 🛰️ Compatibilidade
+## 📡 Compatibilidade
 
 - **Modelos alvo:** Mini · Standard (e gerações anteriores) · Standard Actuated · High Performance · Flat High Performance.
 - **Validação em hardware real:** ainda não realizada (nov/2026); o conector foi testado contra servidor gRPC sintético com reflection.
@@ -670,7 +670,7 @@ All screenshots come from the `/demo` route, with fictitious data and the demo b
 - **Actions require human confirmation.** AI tools are read-only.
 - **Demo isolated.** Fictitious data exists only in `/demo`, always labeled.
 
-### 🛰️ Compatibility
+### 📡 Compatibility
 
 - **Target models:** Mini · Standard (and previous generations) · Standard Actuated · High Performance · Flat High Performance.
 - **Real-hardware validation:** not yet performed (Nov 2026); the connector was tested against a synthetic gRPC server with reflection.

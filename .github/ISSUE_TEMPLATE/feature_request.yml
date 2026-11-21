@@ -1,0 +1,58 @@
+name: ✨ Sugestão
+description: Proponha uma melhoria ou um novo recurso.
+title: "[Sugestão] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pela sugestão. Para bugs, use o template **🐛 Bug**. Para vulnerabilidades, use a aba **Security**.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual problema isso resolve?
+      description: Descreva a necessidade ou a dificuldade atual.
+      placeholder: "Hoje eu preciso..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Como você imagina a solução?
+      description: Seja específico sobre telas, comandos, dados e comportamento.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: Outras formas de resolver, ou o que você já tentou.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Painel / interface
+        - Agente / coleta / banco
+        - Telegram / IA
+        - Instalação / Windows / Linux
+        - ESP32 / Home Assistant
+        - Supabase / nuvem
+        - Documentação
+        - Outro
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: Procurei issues existentes e não encontrei uma igual.
+          required: true
+        - label: Esta sugestão respeita o princípio local-first (nuvem e serviços externos são opcionais).
+          required: true

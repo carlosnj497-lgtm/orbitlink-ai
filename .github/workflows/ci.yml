@@ -3,6 +3,7 @@
 #   web            lint + typecheck + vitest + testes de RLS (PGlite) + builds local e nuvem
 #   e2e            OpenAPI em dia + Playwright com o agente em modo fixture (dados sintéticos identificados)
 #   deploy-scripts shellcheck + testes da lib.sh + nenhum CRLF em deploy/linux
+#   links          arquivos locais + âncoras do README; links externos no agendamento
 #   audit          vulnerabilidades conhecidas (npm audit + pip-audit); também roda toda segunda-feira
 #   install-ubuntu instalação REAL num Ubuntu 24.04 limpo: install.sh, saúde, segurança, update, rollback, backup
 name: CI
@@ -149,6 +150,23 @@ jobs:
         run: shellcheck -x --source-path=SCRIPTDIR -e SC1091 deploy/linux/*.sh deploy/linux/astryonctl deploy/linux/tests/*.sh
       - name: Testes da lib.sh e dos modelos do Nginx/systemd
         run: bash deploy/linux/tests/test_lib.sh
+
+  links:
+    name: Links do README
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444  # v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Arquivos locais e âncoras
+        run: npm run check:links
+      - name: Links externos (agendado)
+        if: github.event_name == 'schedule'
+        run: npm run check:links:external
 
   audit:
     name: Vulnerabilidades conhecidas

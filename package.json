@@ -25,8 +25,14 @@
     "gen:types": "npm run gen -w packages/shared",
     "diagnose": "node scripts/venv.mjs python -m astryon_agent diagnose",
     "test:deploy": "bash deploy/linux/tests/test_lib.sh",
+    "check:links": "node scripts/check-readme-links.mjs",
+    "check:links:external": "node scripts/check-readme-links.mjs --external",
+    "screenshots": "node scripts/screenshots.mjs",
     "lock:agent": "node scripts/lock-agent.mjs",
     "audit": "npm audit --omit=dev --audit-level=high && npm run audit:agent",
     "audit:agent": "node scripts/venv.mjs pip-audit -r requirements.lock --require-hashes --disable-pip --progress-spinner off"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.5"
   }
 }

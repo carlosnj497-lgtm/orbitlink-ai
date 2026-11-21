@@ -1,0 +1,90 @@
+name: 🐛 Bug
+description: Reporte um problema reproduzível no ASTRYON.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar. **Não inclua tokens, senhas, IPs públicos ou dados pessoais.**
+
+        Para vulnerabilidades de segurança, use a aba **Security** (relato privado), não uma issue pública.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o comportamento observado e o que você esperava.
+      placeholder: "Ao abrir a tela X, o painel mostra..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      placeholder: |
+        1. Abra ...
+        2. Clique em ...
+        3. Veja ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: Como você instalou?
+      options:
+        - Linux (install.sh)
+        - Windows (install.ps1)
+        - Instalador .exe
+        - Outro / desenvolvimento
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versão ou commit
+      description: Release, tag ou commit. O badge do README mostra a versão atual.
+      placeholder: "v0.3.1 / commit abc1234"
+    validations:
+      required: true
+
+  - type: input
+    id: dish
+    attributes:
+      label: Modelo da antena e firmware
+      placeholder: "Mini, firmware 2026.xx"
+
+  - type: input
+    id: system
+    attributes:
+      label: Sistema e navegador
+      placeholder: "Ubuntu 24.04 / Chrome 130; Windows 11 / Edge"
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnóstico
+      description: "Linux: `sudo astryonctl diagnose --json`; Windows: `scripts\\diagnose.ps1`. Remova IPs, tokens e dados pessoais."
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs relevantes
+      description: "Linux: `sudo astryonctl logs agent --since \"30 min ago\"`; Windows: veja a pasta de logs. Remova segredos."
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: Procurei issues existentes e não encontrei uma igual.
+          required: true
+        - label: Removi tokens, senhas, IPs públicos e dados pessoais.
+          required: true
+        - label: Estou ciente de que a validação em antenas reais ainda está pendente.
+          required: false

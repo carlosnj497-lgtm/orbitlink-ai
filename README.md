@@ -467,14 +467,17 @@ funciona como interface móvel para alertas e consultas.
 | `npm run lock:agent` | Regenera os `.lock` do Python (requer `uv`) |
 | `npm run audit` | Vulnerabilidades conhecidas (`npm audit` + `pip-audit`) |
 | `npm run test:deploy` | Testes dos scripts do servidor Linux |
+| `npm run check:links` | Verifica arquivos e âncoras do README |
+| `npm run screenshots` | Regenera as capturas de `/demo` (com o painel rodando) |
 
 Ao mudar dependências em `apps/agent/pyproject.toml`, rode `npm run lock:agent` e faça commit dos dois `.lock`: o CI falha se estiverem desatualizados.
 
-O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, painel, Supabase, E2E, scripts, auditoria de vulnerabilidades e uma instalação real no Ubuntu a cada push e pull request.
+O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, painel, Supabase, E2E, scripts, links do README, auditoria de vulnerabilidades e uma instalação real no Ubuntu a cada push e pull request. A checagem externa de links roda no agendamento semanal; para rodar agora: `npm run check:links:external`.
 
 ## 🤝 Contribuição
 
 - Achou um problema ou tem uma sugestão? Abra uma [issue](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues).
+- Antes de contribuir, veja [CONTRIBUTING.md](CONTRIBUTING.md) para ambiente, testes e estilo de commit.
 - Pull requests são bem-vindos: antes de enviar, rode `npm run test` e `npm run lint` (o CI reprova se algo falhar).
 - Se o projeto te ajudou, deixe uma ⭐ no repositório — isso ajuda outras pessoas a encontrá-lo.
 
@@ -930,14 +933,17 @@ as a mobile interface for alerts and queries.
 | `npm run lock:agent` | Regenerates Python `.lock` files (requires `uv`) |
 | `npm run audit` | Known vulnerabilities (`npm audit` + `pip-audit`) |
 | `npm run test:deploy` | Tests for the Linux server scripts |
+| `npm run check:links` | Checks README files and anchors |
+| `npm run screenshots` | Regenerates the `/demo` screenshots (dashboard running) |
 
 When changing dependencies in `apps/agent/pyproject.toml`, run `npm run lock:agent` and commit both `.lock` files: CI fails if they are out of date.
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs agent, dashboard, Supabase, E2E, scripts, vulnerability audit, and a real Ubuntu installation on every push and pull request.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs agent, dashboard, Supabase, E2E, scripts, README links, vulnerability audit, and a real Ubuntu installation on every push and pull request. The external link check runs on the weekly schedule; to run it now: `npm run check:links:external`.
 
 ### 🤝 Contributing
 
 - Found a problem or have a suggestion? Open an [issue](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues).
+- Before contributing, see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, and commit style.
 - Pull requests are welcome: before submitting, run `npm run test` and `npm run lint` (CI will reject if anything fails).
 - If the project helped you, leave a ⭐ on the repository — it helps others find it.
 

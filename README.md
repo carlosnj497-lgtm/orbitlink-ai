@@ -42,35 +42,45 @@
 
 ---
 
-## 🌐 Idiomas / Languages
+<p align="center">🇧🇷 <b>Português</b> · 🇺🇸 <a href="#-english">English</a></p>
 
-- 🇧🇷 [Português](#-português)
-- 🇺🇸 [English](#-english)
-
----
-
-# 🇧🇷 Português
-
-## 🚀 Início rápido
+## 🚀 Início rápido (Linux)
 
 **Pré-requisitos:** Python 3.11+ e Node.js 20+ num computador ligado na mesma rede da antena.
 
-```bash
-git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/astryon && cd ~/astryon
-sudo bash deploy/linux/install.sh    # 1️⃣ instala e sobe os serviços (systemd + Nginx + UFW)
-sudo cat /etc/astryon/setup-code     # 2️⃣ copie o código de configuração
-# 3️⃣ abra https://SEU-IP/ e crie o administrador com esse código
-```
+🐧 **Linux (recomendado)** · 🪟 [Windows 10/11](#-instalação)
 
-Pronto — o agente já está lendo a sua antena. 📡 No projeto inteiro vale o mesmo nome: variáveis `ASTRYON_*`, serviços `astryon-*` e o comando `astryonctl`.
+1. **Clone o repositório e entre na pasta**
 
-🪟 **No Windows?** Veja [Instalação](#-instalação) · 🎮 **Sem antena por perto?** Abra `/demo` · 🔄 **Vindo do nome antigo?** Veja [Migração para ASTRYON](docs/MIGRATION_ASTRYON.md)
+   ```bash
+   git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/astryon
+   cd ~/astryon
+   ```
+
+2. **Instale e suba os serviços**
+
+   ```bash
+   sudo bash deploy/linux/install.sh
+   ```
+
+3. **Copie o código de configuração**
+
+   ```bash
+   sudo cat /etc/astryon/setup-code
+   ```
+
+4. Abra `https://SEU-IP/` e crie o administrador com esse código.
+
+Pronto — o agente está no ar e vai começar a ler a sua antena assim que ela estiver acessível na rede. 📡
+
+O projeto usa o mesmo prefixo em tudo: variáveis `ASTRYON_*`, serviços `astryon-*` e o comando `astryonctl`.
+
+🎮 **Sem antena por perto?** Abra `/demo` · 🔄 **Vindo do nome antigo?** Veja [Migração para ASTRYON](docs/MIGRATION_ASTRYON.md)
 
 > [!IMPORTANT]
-> Projeto independente, **sem afiliação com a Starlink ou a SpaceX** — usa apenas a API local gRPC que a
-> própria antena expõe na sua rede. Voltado aos modelos **Mini, Standard (e gerações anteriores),
-> Standard Actuated, High Performance e Flat High Performance**: a compatibilidade depende do firmware
-> de cada antena, e a validação em hardware real ainda está pendente.
+> **Projeto independente, sem afiliação com a Starlink ou a SpaceX.** Usa apenas a API local gRPC que a própria antena expõe na sua rede.
+>
+> **Modelos:** Mini · Standard (e gerações anteriores) · Standard Actuated · High Performance · Flat High Performance. A compatibilidade depende do firmware de cada antena — a validação em hardware real ainda está pendente. Veja a [compatibilidade por modelo](docs/STARLINK_COMPATIBILITY.md).
 
 ---
 
@@ -89,7 +99,7 @@ Pronto — o agente já está lendo a sua antena. 📡 No projeto inteiro vale o
 - [💻 Desenvolvimento](#-desenvolvimento)
 - [🤝 Contribuição](#-contribuição)
 - [📚 Documentação](#-documentação)
-- [🙏 Créditos](#-créditos)
+- [🙏 Créditos](#-créditos--credits)
 
 ## 💡 Por que o ASTRYON?
 
@@ -161,7 +171,7 @@ Todas as capturas vêm da rota `/demo`, com dados fictícios e a faixa de demons
 
 ### Servidor Linux (Ubuntu Server 24.04 LTS), recomendado
 
-Siga os três comandos do [Início rápido](#-início-rápido). O instalador configura systemd + Nginx (TLS) + UFW, e o código em `/etc/astryon/setup-code` cria o primeiro administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
+Siga os passos do [Início rápido](#-início-rápido-linux). O instalador configura systemd + Nginx (TLS) + UFW, e o código em `/etc/astryon/setup-code` cria o primeiro administrador. Opções do instalador: `--with-tailscale`, `--esp32` e `--harden-ssh`.
 
 ```bash
 sudo astryonctl status | logs agent -f | diagnose | doctor | restart | update --git-pull | rollback | backup
@@ -379,32 +389,49 @@ O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, paine
 
 ---
 
-# 🇺🇸 English
+## 🇺🇸 English
 
-## 🚀 Quick start
+### 🚀 Quick start (Linux)
 
 **Prerequisites:** Python 3.11+ and Node.js 20+ on a computer connected to the same network as the dish.
 
-```bash
-git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/astryon && cd ~/astryon
-sudo bash deploy/linux/install.sh    # 1️⃣ installs and starts services (systemd + Nginx + UFW)
-sudo cat /etc/astryon/setup-code     # 2️⃣ copy the setup code
-# 3️⃣ open https://YOUR-IP/ and create the administrator with that code
-```
+🐧 **Linux (recommended)** · 🪟 [Windows 10/11](#-installation)
 
-Done — the agent is already reading your dish. 📡 The whole project uses the same naming: `ASTRYON_*` variables, `astryon-*` services, and the `astryonctl` command.
+1. **Clone the repository and enter the folder**
 
-🪟 **On Windows?** See [Installation](#-installation-1) · 🎮 **No dish nearby?** Open `/demo` · 🔄 **Coming from the old name?** See [Migration to ASTRYON](docs/MIGRATION_ASTRYON.md)
+   ```bash
+   git clone https://github.com/carlosnj497-lgtm/orbitlink-ai.git ~/astryon
+   cd ~/astryon
+   ```
+
+2. **Install and start the services**
+
+   ```bash
+   sudo bash deploy/linux/install.sh
+   ```
+
+3. **Copy the setup code**
+
+   ```bash
+   sudo cat /etc/astryon/setup-code
+   ```
+
+4. Open `https://YOUR-IP/` and create the administrator with that code.
+
+Done — the agent is running and will start reading your dish once it is reachable on the network. 📡
+
+The project uses the same prefix everywhere: `ASTRYON_*` variables, `astryon-*` services, and the `astryonctl` command.
+
+🎮 **No dish nearby?** Open `/demo` · 🔄 **Coming from the old name?** See [Migration to ASTRYON](docs/MIGRATION_ASTRYON.md)
 
 > [!IMPORTANT]
-> Independent project, **not affiliated with Starlink or SpaceX** — it only uses the local gRPC API that the dish
-> exposes on your network. Targeted at **Mini, Standard (and previous generations), Standard Actuated, High Performance
-> and Flat High Performance** models: compatibility depends on each dish's firmware, and validation on real hardware
-> is still pending.
+> **Independent project, not affiliated with Starlink or SpaceX.** It only uses the local gRPC API that the dish exposes on your network.
+>
+> **Models:** Mini · Standard (and previous generations) · Standard Actuated · High Performance · Flat High Performance. Compatibility depends on each dish's firmware — validation on real hardware is still pending. See [compatibility by model](docs/STARLINK_COMPATIBILITY.md).
 
 ---
 
-## 📑 Table of contents
+### 📑 Table of contents
 
 - [💡 Why ASTRYON?](#-why-astryon)
 - [✨ What it does](#-what-it-does)
@@ -419,9 +446,9 @@ Done — the agent is already reading your dish. 📡 The whole project uses the
 - [💻 Development](#-development)
 - [🤝 Contributing](#-contributing)
 - [📚 Documentation](#-documentation)
-- [🙏 Credits](#-credits)
+- [🙏 Credits](#-créditos--credits)
 
-## 💡 Why ASTRYON?
+### 💡 Why ASTRYON?
 
 The official Starlink app shows how your dish is doing **right now**. ASTRYON stores **everything** the dish reports, second by second, and turns it into history, alerts, and answers:
 
@@ -435,7 +462,7 @@ The official Starlink app shows how your dish is doing **right now**. ASTRYON st
 | Only pre-built charts | 🗣️ **Ask in Portuguese** — "was my internet bad last night?", with source and uncertainty |
 | Data on their cloud | 🔒 **Data stays with you** — everything runs on your network; cloud is opt-in only |
 
-## ✨ What it does
+### ✨ What it does
 
 | | Feature | Details |
 |---|---|---|
@@ -452,7 +479,7 @@ The official Starlink app shows how your dish is doing **right now**. ASTRYON st
 | 🏠 | **Home Assistant (optional)** | Starlink sensors in Home Assistant via MQTT, with auto-discovery. See [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md). |
 | ☁️ | **Supabase (optional)** | Sync with RLS. The dashboard keeps reading only the local agent. |
 
-## 📺 Screenshots
+### 📺 Screenshots
 
 <table>
   <tr>
@@ -477,7 +504,7 @@ The official Starlink app shows how your dish is doing **right now**. ASTRYON st
 
 All screenshots come from the `/demo` route, with fictitious data and the demo banner always visible.
 
-## 💎 Principles
+### 💎 Principles
 
 - **Works 100% locally.** No Docker and no paid service. Supabase, AI, and ESP32 are optional.
 - **Every metric shows its origin**: `real`, `calculated`, `estimated`, `imported`, `sensor_esp32`, `unavailable`, or `demo`.
@@ -485,13 +512,13 @@ All screenshots come from the `/demo` route, with fictitious data and the demo b
 - **Actions require human confirmation.** AI tools are read-only.
 - **Demo isolated.** Fictitious data exists only in `/demo`, always labeled.
 
-## 🔧 Installation
+### 🔧 Installation
 
 **Prerequisites:** Python 3.11+ and Node.js 20+ (LTS). Computer on the same network as the dish (the agent must reach the dish's local IP).
 
-### Linux server (Ubuntu Server 24.04 LTS), recommended
+#### Linux server (Ubuntu Server 24.04 LTS), recommended
 
-Follow the three commands in [Quick start](#-quick-start). The installer configures systemd + Nginx (TLS) + UFW, and the code in `/etc/astryon/setup-code` creates the first administrator. Installer options: `--with-tailscale`, `--esp32`, and `--harden-ssh`.
+Follow the steps in [Quick start](#-quick-start-linux). The installer configures systemd + Nginx (TLS) + UFW, and the code in `/etc/astryon/setup-code` creates the first administrator. Installer options: `--with-tailscale`, `--esp32`, and `--harden-ssh`.
 
 ```bash
 sudo astryonctl status | logs agent -f | diagnose | doctor | restart | update --git-pull | rollback | backup
@@ -499,7 +526,7 @@ sudo astryonctl status | logs agent -f | diagnose | doctor | restart | update --
 
 The `astryon-agent` and `astryon-web` services self-restart on failures and log to journald. Agent and dashboard listen only on loopback; Nginx exposes the dashboard only to the LAN and Tailnet. Full guide: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
 
-### Windows 10/11 (PowerShell)
+#### Windows 10/11 (PowerShell)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1    # venv, npm, .env with token, build
@@ -514,7 +541,7 @@ Prefer the installer with a tray icon? Download the `.exe` from the [ASTRYON rel
 > [!TIP]
 > No dish nearby? Open `/demo` to see the dashboard with fictitious data.
 
-## 🤖 Telegram and AI
+### 🤖 Telegram and AI
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) and put the token in `ASTRYON_TELEGRAM_BOT_TOKEN`.
 2. Discover the authorized chat with `sudo astryonctl telegram-chat-id` (or `python -m astryon_agent telegram-chat-id`) and fill in `ASTRYON_TELEGRAM_CHAT_ID`.
@@ -534,7 +561,7 @@ Prefer the installer with a tray icon? Download the `.exe` from the [ASTRYON rel
 
 Command queries do not consume AI. Text or voice questions use the daily quota, shared with the dashboard. All commands: [docs/TELEGRAM.md](docs/TELEGRAM.md).
 
-## 🧩 Architecture
+### 🧩 Architecture
 
 ```mermaid
 flowchart LR
@@ -564,7 +591,7 @@ The collector reads status every 10 s, history every 30 s, and obstructions ever
 
 Project decisions and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## 🚦 Project status
+### 🚦 Project status
 
 | Component | Status |
 |---|---|
@@ -578,7 +605,7 @@ Project decisions and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Linux deployment | Script tests and real installation on a clean Ubuntu 24.04 in CI. |
 | Cloud dashboard (Vercel + Supabase) | Email login, pairing code, Dashboard, Usage, Quality, Events, and Account. Tested with simulated Supabase; needs publishing and SQL applied to your project. |
 
-## 🧭 Roadmap
+### 🧭 Roadmap
 
 - [x] gRPC reflection collection, 1-second history, and per-minute aggregates
 - [x] ASTRYON dashboard with Live, Usage, Quality, Dish, Obstructions, Events, and Reports
@@ -593,7 +620,7 @@ Project decisions and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [ ] Ready device (Raspberry Pi) with config page: script ready, hardware test pending ([APARELHO.md](docs/APARELHO.md))
 - [ ] `.exe` installer for Windows with tray icon: built in GitHub Actions and published in the [ASTRYON releases](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases), pending validation on real Windows
 
-## ❓ FAQ
+### ❓ FAQ
 
 <details>
 <summary><b>Which Starlink dish models are supported?</b></summary>
@@ -648,7 +675,7 @@ Periods without observation are excluded. To compare, import the CSV from your S
 No. AI tools are read-only. Rebooting requires an administrator, a single-use code, and is recorded in the audit log.
 </details>
 
-## 💻 Development
+### 💻 Development
 
 | Command (from root) | What it does |
 |---|---|
@@ -667,15 +694,15 @@ When changing dependencies in `apps/agent/pyproject.toml`, run `npm run lock:age
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs agent, dashboard, Supabase, E2E, scripts, vulnerability audit, and a real Ubuntu installation on every push and pull request.
 
-## 🤝 Contributing
+### 🤝 Contributing
 
 - Found a problem or have a suggestion? Open an [issue](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues).
 - Pull requests are welcome: before submitting, run `npm run test` and `npm run lint` (CI will reject if anything fails).
 - If the project helped you, leave a ⭐ on the repository — it helps others find it.
 
-## 📚 Documentation
+### 📚 Documentation
 
-### 🚀 Getting started
+#### 🚀 Getting started
 
 | Guide | What's inside |
 |---|---|
@@ -684,7 +711,7 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs agent, dashboar
 | [🔄 Migration to ASTRYON](docs/MIGRATION_ASTRYON.md) | Updating installations with the previous name |
 | [🔍 Troubleshooting](docs/TROUBLESHOOTING.md) | Network, dish, and service diagnosis |
 
-### 🔌 Integrations
+#### 🔌 Integrations
 
 | Guide | What's inside |
 |---|---|
@@ -695,7 +722,7 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs agent, dashboar
 | [🔄 Supabase](docs/SUPABASE.md) | Optional sync with RLS |
 | [🍓 Ready device](docs/APARELHO.md) | Raspberry Pi with configuration page |
 
-### 🧠 Technical reference
+#### 🧠 Technical reference
 
 | Guide | What's inside |
 |---|---|
@@ -706,7 +733,7 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs agent, dashboar
 
 ---
 
-# 🙏 Créditos / Credits
+## 🙏 Créditos / Credits
 
 Desenvolvido por / Developed by [@carlosnj497-lgtm](https://github.com/carlosnj497-lgtm). Distribuído sob a licença / Distributed under the [MIT License](LICENSE).
 

@@ -113,17 +113,17 @@ O projeto usa o mesmo prefixo em tudo: variáveis `ASTRYON_*`, serviços `astryo
 
 ## 💡 Por que o ASTRYON?
 
-O app oficial da Starlink mostra como a antena está **agora**. O ASTRYON guarda **tudo** o que a antena reporta, segundo a segundo, e transforma em histórico, alertas e respostas:
+O app oficial da Starlink mostra o estado atual e um histórico recente. O ASTRYON guarda o que a antena expõe — amostras de 1 s, agregados por minuto e eventos — e transforma esses dados em painel, alertas e respostas:
 
 | 📱 App oficial | 🛰️ Com o ASTRYON |
 |---|---|
-| Só o momento atual | 🗂️ **Histórico seu** — amostras de 1 s no seu computador e agregados por mais de um ano |
-| Quedas passam despercebidas | 🌙 **Quedas de madrugada** registradas com horário, duração e causa (quando a antena informa) |
-| Sem visão da franquia | 📦 **Franquia sob controle** — consumo do ciclo, projeção do mês e aviso em 80% e 100% do plano |
-| Precisa abrir o app | 📲 **Avisos no celular** — alertas, resumo semanal e consultas no Telegram, sem abrir o painel |
-| Só dados da antena | 🌧️ **Foi a chuva?** — o clima da sua cidade aparece junto da conexão, para comparar |
-| Só gráficos prontos | 🗣️ **Pergunte em português** — "minha internet ficou ruim ontem à noite?", com fonte e incerteza |
-| Dados na nuvem deles | 🔒 **Dados com você** — tudo roda na sua rede; a nuvem só entra se você configurar |
+| Status atual + histórico curto | 🗂️ **Seu histórico** — amostras de 1 s por 7 dias e agregados por minuto por 400 dias (padrão), no seu computador |
+| Quedas recentes no histórico do app | 🌙 **Quedas registradas** — horário, duração e causa (quando a antena informa), inclusive de madrugada |
+| Franquia na conta/app | 📦 **Franquia estimada** — consumo do ciclo, projeção do mês e avisos em 80% e 100% (estimativa local) |
+| Alertas no app oficial | 📲 **Telegram** — alertas, resumo semanal e consultas, sem abrir o painel |
+| Dados da antena | 🌧️ **Chuva ou antena?** — clima e conexão lado a lado, para comparar (sem afirmar causalidade) |
+| Gráficos e estatísticas prontos | 🗣️ **Pergunte em português** — respostas com fonte e incerteza (IA Groq ou regras) |
+| Dados na nuvem da Starlink | 🔒 **Dados com você** — tudo na sua rede; nuvem e serviços opcionais só se você configurar |
 
 ## ✨ O que ele faz
 
@@ -470,17 +470,17 @@ The project uses the same prefix everywhere: `ASTRYON_*` variables, `astryon-*` 
 
 ### 💡 Why ASTRYON?
 
-The official Starlink app shows how your dish is doing **right now**. ASTRYON stores **everything** the dish reports, second by second, and turns it into history, alerts, and answers:
+The official Starlink app shows current status and a short history. ASTRYON stores what the dish exposes — 1-second samples, per-minute aggregates, and events — and turns that data into a dashboard, alerts, and answers:
 
 | 📱 Official app | 🛰️ With ASTRYON |
 |---|---|
-| Only the current moment | 🗂️ **Your history** — 1-second samples on your computer and aggregates for over a year |
-| Outages go unnoticed | 🌙 **Overnight outages** logged with time, duration, and cause (when the dish reports it) |
-| No data-cap view | 📦 **Data cap under control** — cycle usage, monthly projection, and alerts at 80% and 100% of the plan |
-| Need to open the app | 📲 **Phone notifications** — alerts, weekly summary, and Telegram queries without opening the dashboard |
-| Dish data only | 🌧️ **Was it the rain?** — your city's weather appears alongside the connection, for comparison |
-| Only pre-built charts | 🗣️ **Ask in Portuguese** — "was my internet bad last night?", with source and uncertainty |
-| Data on their cloud | 🔒 **Data stays with you** — everything runs on your network; cloud is opt-in only |
+| Current status + short history | 🗂️ **Your history** — 1-second samples for 7 days and per-minute aggregates for 400 days (default), on your computer |
+| Recent outages in the Event Log | 🌙 **Outages logged** — time, duration, and cause (when the dish reports it), including overnight |
+| Data cap in the account/app | 📦 **Estimated data cap** — cycle usage, monthly projection, and 80%/100% alerts (local estimate) |
+| Alerts in the official app | 📲 **Telegram** — alerts, weekly summary, and queries without opening the dashboard |
+| Dish data | 🌧️ **Rain or dish?** — weather and connection side by side, for comparison (not causation) |
+| Ready-made charts and stats | 🗣️ **Ask in Portuguese** — e.g. "minha internet ficou ruim ontem à noite?", with source and uncertainty (Groq AI or rules) |
+| Data in Starlink's cloud | 🔒 **Data stays with you** — everything on your network; cloud and optional services are opt-in |
 
 ### ✨ What it does
 

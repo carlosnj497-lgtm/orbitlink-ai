@@ -9,6 +9,7 @@ import { useAgent, useStatusInterval } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { fmtAgo, fmtFull } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
+import { CLOUD } from "@/lib/cloud-flag";
 import { useBasePath } from "@/lib/demo-context";
 import { STATE_META, StatePill } from "../domain";
 import { Tip } from "../ui/primitives";
@@ -145,7 +146,7 @@ export function Sidebar({
   const base = useBasePath();
   const current = sectionOf(slugOf(usePathname(), base));
   // Mesma chave do sino do cabeçalho: compartilha o cache, sem requisição extra.
-  const { data: alerts } = useAgent<{ events: unknown[] }>("alerts/events?status=active", { refetchInterval: 30_000 });
+  const { data: alerts } = useAgent<{ events: unknown[] }>(CLOUD ? null : "alerts/events?status=active", { refetchInterval: 30_000 });
   const activeAlerts = alerts?.events?.length ?? 0;
 
   return (

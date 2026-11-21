@@ -7,6 +7,7 @@ import { DishArt } from "@/components/art/DishArt";
 import { HeroArt } from "@/components/art/HeroArt";
 import { CoverageBar, SourceBadge } from "@/components/domain";
 import { hrefOf } from "@/components/shell/nav";
+import { CLOUD } from "@/lib/cloud-flag";
 import { useBasePath } from "@/lib/demo-context";
 import { fmtDuration, fmtMbps, fmtNumber } from "@/lib/format";
 import { summarizeOutages } from "@/lib/outages";
@@ -187,7 +188,7 @@ export function DashboardVerdict({
       detail={
         <>
           {dayDetail(quality, events)}
-          {status && !status.available && (
+          {status && !status.available && !CLOUD && (
             <>
               {" "}
               <Link href={hrefOf(base, "instalacao")} className="font-medium text-accent underline-offset-4 hover:underline">

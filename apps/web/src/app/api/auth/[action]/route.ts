@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { agentFetch, cookieOptions, sameOrigin, SESSION_COOKIE } from "@/lib/server/agent";
-import { accessToken, clearSessionCookies, CloudError, cloudEnabled, jwtEmail, recover, setSessionCookies, signIn, signUp, updatePassword, verifyRecovery } from "@/lib/server/cloud";
+import { accessToken, clearSessionCookies, CloudError, cloudEnabled, jwtEmail, recover, setSessionCookies, signIn, signOut, signUp, updatePassword, verifyRecovery } from "@/lib/server/cloud";
 import { clientIp } from "@/lib/server/client-ip";
 import { relay } from "@/lib/server/relay";
 
@@ -26,6 +26,9 @@ async function cloudGetAction(request: NextRequest, action: string) {
 
 async function cloudPostAction(request: NextRequest, action: string) {
   if (action === "logout") {
+    const token = request.cookies.get(SESSION_COOKIE)?.value;
+    // Melhor esforço: os cookies locais são apagados mesmo sem rede ou se a sessão já expirou.
+    if (token) await signOut(token).catch(() => undefined);
     const res = NextResponse.json({ ok: true });
     clearSessionCookies(res);
     return res;
@@ -99,6 +102,7 @@ const credentials = z.object({
   username: z.string().min(3).max(64).regex(/^[A-Za-z0-9_.-]+$/),
   password: z.string().min(1).max(256),
   setup_code: z.string().max(64).optional(),
+  email: z.string().max(200).optional(),
 });
 
 export async function GET(request: NextRequest, ctx: { params: Promise<{ action: string }> }) {
@@ -117,7 +121,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
   const session = request.cookies.get(SESSION_COOKIE)?.value ?? null;
 
   if (action === "logout") {
-    if (session) await agentFetch("/v1/auth/logout", { method: "POST", session });
+    if (session) await agentFetch("/v1/auth/logout", { method: "POST", session }).catch(() => undefined);
     const res = NextResponse.json({ ok: true });
     res.cookies.delete(SESSION_COOKIE);
     return res;
@@ -127,6 +131,44 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
     const body = await request.text();
     return relay(
       await agentFetch("/v1/auth/password", {
+        method: "POST",
+        body,
+        session,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  }
+
+  if (action === "recover") {
+    // Redefinição local pela tela: sem sessão (quem esqueceu a senha não tem uma). A prova de identidade é o
+    // código de recuperação, validado pelo agente contra ASTRYON_SETUP_CODE.
+    const body = await request.text();
+    return relay(
+      await agentFetch("/v1/auth/recover", {
+        method: "POST",
+        body,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  }
+
+  if (action === "recover-request" || action === "recover-confirm") {
+    // Recuperação por e-mail: sem sessão (quem esqueceu a senha não tem uma). O agente valida o código enviado.
+    const body = await request.text();
+    const path = action === "recover-request" ? "/v1/auth/recover/request" : "/v1/auth/recover/confirm";
+    return relay(
+      await agentFetch(path, {
+        method: "POST",
+        body,
+        headers: { "Content-Type": "application/json", "X-Forwarded-For": clientIp(request.headers) },
+      }),
+    );
+  }
+
+  if (action === "email") {
+    const body = await request.text();
+    return relay(
+      await agentFetch("/v1/auth/email", {
         method: "POST",
         body,
         session,

@@ -93,6 +93,8 @@ export function translateAuthError(raw: string, status: number): string {
 
 export const signIn = (email: string, password: string) => gotrue("token?grant_type=password", { email, password });
 export const refresh = (refresh_token: string) => gotrue("token?grant_type=refresh_token", { refresh_token });
+/** Revoga a sessão atual no GoTrue; o token fica somente no Authorization server-side. */
+export const signOut = (token: string) => gotrue("logout?scope=local", {}, { token });
 export async function signUp(email: string, password: string, redirectTo: string) {
   return gotrue(`signup?redirect_to=${encodeURIComponent(redirectTo)}`, { email, password });
 }

@@ -26,7 +26,7 @@ Agente ──HTTPS saída──▶ Supabase (opcional)   ·   SQLite em /var/lib
 | `/var/lib/astryon/` | `astryon.sqlite3` (WAL) e `backups/` | `astryon` 0750 |
 | `/etc/astryon/astryon.env` | Configuração e segredos | `root:astryon` 0640 |
 | `/etc/astryon/secrets.key` | Chave Fernet dos segredos do ESP32, separada dos dados e backups | `root:astryon` 0640 |
-| `/etc/astryon/setup-code` | Código para criar o 1º administrador | `root` 0600 |
+| `/etc/astryon/setup-code` | Código para criar o 1º administrador e redefinir a senha pela tela | `root` 0600 |
 | `/etc/astryon/tls/` | Certificado autoassinado (ECDSA P-256, 825 dias) | chave `root` 0600 |
 | `/usr/local/bin/astryonctl` | CLI de operação | |
 
@@ -89,7 +89,7 @@ O instalador faz, nesta ordem:
 8. Instala e habilita `astryon.target`, `astryon-agent`, `astryon-web` e `astryon-backup.timer`.
 9. Configura o Nginx com ACL da LAN (e do Tailscale, se ele existir ou se você usar `--with-tailscale`), aceitando só os nomes deste servidor no `Host`, e desabilita o site `default` (o arquivo é mantido).
 10. Configura o UFW. **Antes de ativá-lo**, libera o SSH para a LAN e para a sessão SSH atual.
-11. Verifica a saúde e mostra as portas em escuta.
+11. Verifica a saúde e mostra as portas em escuta. Se agente ou painel não responder, o instalador aponta o diagnóstico e termina com erro, sem anunciar sucesso.
 
 Rodar o instalador de novo é seguro: ele preserva `.env`, chaves, certificado e dados.
 
@@ -111,7 +111,7 @@ Rodar o instalador de novo é seguro: ele preserva `.env`, chaves, certificado e
 | Voltar para a versão anterior | `sudo astryonctl rollback` |
 | Backup agora / restaurar | `sudo astryonctl backup` · `sudo astryonctl restore /var/lib/astryon/backups/<arquivo>.sqlite3.gz` |
 | Releases instaladas | `sudo astryonctl releases` |
-| Código de setup | `sudo astryonctl setup-code` |
+| Código de setup (também libera a redefinição de senha pela tela) | `sudo astryonctl setup-code` |
 | Ligar/desligar ESP32 | `sudo astryonctl esp32 enable` / `disable` |
 | Token do agente para o Supabase | `sudo astryonctl supabase-token --email voce@exemplo.com` |
 | Descobrir o chat do Telegram | `sudo astryonctl telegram-chat-id` |
@@ -128,7 +128,7 @@ systemctl show -p NRestarts astryon-agent   # quantas vezes reiniciou sozinho
 
 **Reinício automático:** `Restart=on-failure` com 5 s de espera, até 10 tentativas em 5 minutos. Depois disso o systemd para de tentar; corrija a causa e rode `sudo astryonctl restart`. Os serviços sobem no boot via `astryon.target`.
 
-**Atualização:** faz backup do SQLite, constrói a nova release **sem tocar na que está no ar**, troca o link, reinicia e verifica a saúde. Se a nova versão não responder em ~60 s, volta sozinha para a anterior.
+**Atualização:** faz backup do SQLite, constrói a nova release **sem tocar na que está no ar**, guarda cópia dos scripts, unidades systemd e configuração do Nginx, troca o link, reinicia e verifica a saúde. Se a nova versão não responder em ~60 s, restaura toda essa configuração junto com a release anterior, recarrega os serviços e confirma a saúde do rollback.
 
 ### Backup automático e vigia do servidor
 
@@ -161,6 +161,10 @@ sudo astryonctl restart
 - **Supabase:** preencha `ASTRYON_SUPABASE_URL`, `ASTRYON_SUPABASE_ANON_KEY` e `ASTRYON_SUPABASE_AGENT_TOKEN` (gerado com `astryonctl supabase-token`; veja [SUPABASE.md](SUPABASE.md)).
   - O agente continua coletando no SQLite mesmo sem internet e envia a fila quando a conexão volta.
   - Só tráfego **de saída** HTTPS é usado, e o UFW permite saída por padrão.
+- **Recuperação de senha:** o código temporário (15 min, uso único) sai pelo canal já configurado, nesta ordem: **Telegram** (usa o bot/chat de alertas — recomendações em `ASTRYON_TELEGRAM_*`) e, sem Telegram, **e-mail por SMTP**. Nada disso é obrigatório; sem canal, a tela aceita o código do servidor.
+  - **Telegram:** já funciona se você recebe alertas no Telegram. O código chega na conversa com o bot.
+  - **E-mail (Gmail):** `ASTRYON_SMTP_HOST=smtp.gmail.com`, `ASTRYON_SMTP_PORT=587`, `ASTRYON_SMTP_SECURITY=starttls`, `ASTRYON_SMTP_USER=seu@gmail.com`, `ASTRYON_SMTP_PASSWORD=<senha de app>` e `ASTRYON_SMTP_FROM=ASTRYON <seu@gmail.com>`. Também configurável em **Configurações → Credenciais**. Depois cadastre o e-mail em **Configurações → Conta e segurança**.
+  - O agente precisa de saída TCP para a porta escolhida. O código nunca é gravado em texto puro.
 - **IA (Groq):** preencha `ASTRYON_GROQ_API_KEY` (chave em console.groq.com). O agente precisa de saída HTTPS para api.groq.com.
 - **Alertas no Telegram:**
   1. No Telegram, fale com o **@BotFather**, envie `/newbot` e guarde o token.
@@ -252,7 +256,7 @@ No Linux, o segredo de cada ESP32 fica cifrado com Fernet no SQLite. A chave fic
 - O Nginx publica apenas o painel, com TLS. Há limite de taxa no login (10/min por IP) e na API, e `X-Forwarded-For` é sobrescrito (não concatenado) para impedir falsificação.
 - O Nginx só responde a requisições cujo `Host` seja um nome deste servidor, um IP literal ou `*.ts.net`. Qualquer outro nome recebe 444 (conexão encerrada), o que bloqueia DNS rebinding contra a tela de login.
 - A faixa CGNAT do Tailscale só entra na ACL quando o Tailscale existe, porque também é a CGNAT da Starlink.
-- O primeiro administrador só pode ser criado com o **código de setup**, que só root lê. Isso impede que alguém da LAN "tome" o painel antes de você.
+- O primeiro administrador só pode ser criado com o **código de setup**, que só root lê. Isso impede que alguém da LAN "tome" o painel antes de você. O mesmo código é exigido para redefinir a senha pela tela.
 - Cookies `Secure`, `HttpOnly` e `SameSite=Strict`, com verificação de `Origin` nas requisições que alteram dados.
 - Serviços endurecidos no systemd:
   - `ProtectSystem=strict`, `NoNewPrivileges`, sem capabilities, `PrivateDevices`, `ProtectHome`;

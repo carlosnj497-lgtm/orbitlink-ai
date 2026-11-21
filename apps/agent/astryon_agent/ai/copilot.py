@@ -226,17 +226,26 @@ class Toolbox:
         raise ValueError(f"ferramenta desconhecida: {name}")
 
 
-def _check_quota(db: Database, settings: Settings) -> None:
+def _reserve_quota(db: Database, settings: Settings) -> None:
+    """Reserva a pergunta e confere a cota na mesma transação, antes de qualquer gasto externo.
+
+    A reserva NÃO é estornada em falha/cancelamento: tentativas que chegam ao fluxo da IA consomem cota,
+    evitando que retries de erro contornem o limite ou multipliquem custo sem controle.
+    """
     day = local_day(settings.timezone)
-    n = db.scalar("SELECT requests FROM ai_usage_daily WHERE day = ?", (day,)) or 0
-    if n >= settings.ai_daily_request_limit:
-        raise PermissionError(f"Limite diário de {settings.ai_daily_request_limit} perguntas ao assistente atingido.")
+    with db.tx() as c:
+        n = c.execute("SELECT requests FROM ai_usage_daily WHERE day = ?", (day,)).fetchone()
+        if (n[0] if n is not None else 0) >= settings.ai_daily_request_limit:
+            raise PermissionError(f"Limite diário de {settings.ai_daily_request_limit} perguntas ao assistente atingido.")
+        c.execute("""INSERT INTO ai_usage_daily (day, requests) VALUES (?, 1)
+                      ON CONFLICT(day) DO UPDATE SET requests = requests + 1""", (day,))
 
 
 def _record_usage(db: Database, settings: Settings, inp: int, out: int) -> None:
+    """Acrescenta tokens à reserva feita por `_reserve_quota`, sem contar outra requisição."""
     day = local_day(settings.timezone)
-    db.execute("""INSERT INTO ai_usage_daily (day, requests, input_tokens, output_tokens) VALUES (?, 1, ?, ?)
-                  ON CONFLICT(day) DO UPDATE SET requests = requests + 1, input_tokens = input_tokens + excluded.input_tokens,
+    db.execute("""INSERT INTO ai_usage_daily (day, requests, input_tokens, output_tokens) VALUES (?, 0, ?, ?)
+                  ON CONFLICT(day) DO UPDATE SET input_tokens = input_tokens + excluded.input_tokens,
                   output_tokens = output_tokens + excluded.output_tokens""", (day, inp, out))
 
 
@@ -347,7 +356,7 @@ async def ask(db: Database, settings: Settings, collector: Collector | None, use
         if owner != user["id"]:
             raise PermissionError("Conversa não encontrada.")
     if use_llm:
-        await db.run(_check_quota, db, settings)  # antes de gravar: pergunta recusada não fica no histórico
+        await db.run(_reserve_quota, db, settings)  # antes de gravar: pergunta recusada não fica no histórico
     new_conversation = conversation_id is None
     if conversation_id is None:
         title = (f"Telegram: {question}" if channel == "telegram" else question)[:60]
@@ -412,8 +421,7 @@ async def _ask_llm(db: Database, settings: Settings, collector: Collector | None
     try:
         answer, proposal = await _tool_loop(client, settings, messages, extra, toolbox, tools_used, usage)
     finally:
-        # Toda pergunta que chegou a chamar o modelo conta na cota, mesmo que falhe no meio: senão um erro
-        # recorrente da Groq queimaria tokens sem nunca bater no limite diário.
+        # A cota já foi reservada atomicamente; aqui só entram os tokens, inclusive quando a Groq falha no meio.
         if usage.called:
             await db.run(_record_usage, db, settings, usage.tok_in, usage.tok_out)
     tok_in, tok_out = usage.tok_in, usage.tok_out

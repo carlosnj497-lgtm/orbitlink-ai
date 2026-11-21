@@ -11,7 +11,8 @@
 # (formato do ssh-keygen) para só aceitar commits assinados.
 #
 # Passos: cópia do código -> backup do SQLite -> build de uma NOVA release (venv + npm ci + next build) sem tocar
-# na atual -> troca atômica do link /opt/astryon/current -> reinício -> verificação de saúde -> rollback se falhar.
+# na atual -> backup da configuração -> instalação de scripts, Nginx e unidades -> troca atômica do link
+# /opt/astryon/current -> reinício -> verificação de saúde -> rollback completo se falhar.
 # Migrations do SQLite são aplicadas pelo próprio agente ao iniciar (são idempotentes e só adicionam).
 set -euo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,17 +57,41 @@ step "Construindo nova release (a atual continua no ar)"
 NEW="$(build_release "${OL_SRC}")"
 ok "${NEW}"
 
-# Scripts de implantação também podem ter mudado (sempre da cópia do root, nunca do clone do usuário)
+# Capture também arquivos ausentes: no rollback eles precisam ser removidos, não deixados acoplados à release antiga.
 D="${OL_SRC}/deploy/linux"
+SCRIPT_FILES=(
+  /usr/local/bin/astryonctl
+  "${OL_LIBEXEC}/lib.sh"
+  "${OL_LIBEXEC}/update.sh"
+  "${OL_LIBEXEC}/backup.sh"
+)
+NGINX_FILES=(
+  /etc/nginx/sites-available/astryon
+  /etc/nginx/snippets/astryon-proxy.conf
+  /etc/nginx/snippets/astryon-headers.conf
+)
+UNIT_FILES=(
+  /etc/systemd/system/astryon-agent.service
+  /etc/systemd/system/astryon-web.service
+  /etc/systemd/system/astryon.target
+  /etc/systemd/system/astryon-backup.service
+  /etc/systemd/system/astryon-backup.timer
+)
+UPDATE_FILES=("${SCRIPT_FILES[@]}" "${NGINX_FILES[@]}" "${UNIT_FILES[@]}")
+rollback_dir="$(mktemp -d)"
+trap 'rm -rf --one-file-system "${rollback_dir}"' EXIT
+backup_files "${rollback_dir}" "${UPDATE_FILES[@]}"
+
+# Scripts de implantação também podem ter mudado (sempre da cópia do root, nunca do clone do usuário)
 install -m 0755 "${D}/astryonctl" /usr/local/bin/astryonctl
 install -m 0644 "${D}/lib.sh" "${OL_LIBEXEC}/lib.sh"
 install -m 0755 "${D}/update.sh" "${OL_LIBEXEC}/update.sh"
 install -m 0755 "${D}/backup.sh" "${OL_LIBEXEC}/backup.sh"
 
 # Nginx: snippets e site com os nomes gravados na instalação (instalações antigas: só os snippets)
+nginx_changed=0
 if [[ -d /etc/nginx/snippets && -f /etc/nginx/sites-available/astryon ]]; then
-  nginx_backup="$(mktemp -d)"
-  cp -a /etc/nginx/sites-available/astryon /etc/nginx/snippets/astryon-proxy.conf "${nginx_backup}/" 2>/dev/null || true
+  nginx_changed=1
   install -m 0644 "${D}/nginx/astryon-proxy.conf" /etc/nginx/snippets/astryon-proxy.conf
   install -m 0644 "${D}/nginx/astryon-headers.conf" /etc/nginx/snippets/astryon-headers.conf
   if [[ -s "${OL_ETC}/server-names" ]]; then
@@ -75,22 +100,21 @@ if [[ -d /etc/nginx/snippets && -f /etc/nginx/sites-available/astryon ]]; then
   if nginx -t >/dev/null 2>&1; then
     systemctl reload nginx && info "configuração do Nginx atualizada"
   else
-    warn "nginx -t falhou com a configuração nova; restaurando a anterior"
-    cp -a "${nginx_backup}/astryon" /etc/nginx/sites-available/astryon
-    cp -a "${nginx_backup}/astryon-proxy.conf" /etc/nginx/snippets/astryon-proxy.conf 2>/dev/null || true
+    warn "nginx -t falhou com a configuração nova; restaurando site e snippets anteriores"
+    restore_files "${rollback_dir}" "${NGINX_FILES[@]}" || die "não foi possível restaurar a configuração do Nginx"
   fi
-  rm -rf "${nginx_backup}"
 fi
 
 changed=0
-units_tmp="$(mktemp -d)"
-for u in astryon-agent.service astryon-web.service astryon.target astryon-backup.service astryon-backup.timer; do
+units_tmp="${rollback_dir}/units"
+mkdir -p "${units_tmp}"
+for unit_path in "${UNIT_FILES[@]}"; do
+  u="$(basename "${unit_path}")"
   render_unit "${D}/systemd/${u}" "${units_tmp}/${u}"
-  if ! cmp -s "${units_tmp}/${u}" "/etc/systemd/system/${u}"; then
-    install -m 0644 "${units_tmp}/${u}" "/etc/systemd/system/${u}"; changed=1
+  if ! cmp -s "${units_tmp}/${u}" "${unit_path}"; then
+    install -m 0644 "${units_tmp}/${u}" "${unit_path}"; changed=1
   fi
 done
-rm -rf "${units_tmp}"
 [[ ${changed} -eq 1 ]] && systemctl daemon-reload && info "unidades systemd atualizadas"
 
 switch_release "${NEW}"
@@ -103,12 +127,8 @@ if health_check 40; then
   prune_releases
   /usr/local/bin/astryonctl renew-cert || warn "não foi possível conferir/renovar o certificado HTTPS"
 else
-  warn "nova release não ficou saudável — revertendo para $(basename "${PREV:-nenhuma}")"
-  if [[ -n "${PREV}" && -d "${PREV}" ]]; then
-    switch_release "${PREV}"
-    systemctl restart astryon-agent.service astryon-web.service
-    if health_check 40; then ok "rollback concluído"; else warn "rollback também não respondeu: sudo astryonctl doctor"; fi
-  fi
+  warn "nova release não ficou saudável — revertendo release e configuração para $(basename "${PREV:-nenhuma}")"
+  rollback_update "${rollback_dir}" "${PREV}" "${changed}" "${nginx_changed}" "${UPDATE_FILES[@]}" || true
   rm -f "${NEW}/.astryon-release-ok"
   die "atualização falhou; logs: journalctl -u astryon-agent -u astryon-web --since '10 min ago'"
 fi

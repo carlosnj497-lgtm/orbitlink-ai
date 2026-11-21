@@ -57,8 +57,7 @@ function AgentChip() {
           </p>
           <p>Intervalo de coleta: {every ? `${every} s` : "—"}</p>
           <p>
-            Canal em tempo real (SSE): {stream}
-            {stream === "open" ? " — cada leitura nova chega sem recarregar." : " — o painel consulta o agente periodicamente."}
+            {CLOUD ? "Canal em tempo real (SSE): indisponível na nuvem; o painel consulta os dados periodicamente." : <>Canal em tempo real (SSE): {stream}{stream === "open" ? " — cada leitura nova chega sem recarregar." : " — o painel consulta o agente periodicamente."}</>}
           </p>
           {agent?.sync_pending ? <p>Sincronização pendente: {agent.sync_pending} registros</p> : null}
         </div>
@@ -274,12 +273,12 @@ function UserMenu() {
         <DropdownMenu.Content align="end" sideOffset={8} className="ol-card animate-pop-in z-50 w-56 p-1.5 shadow-2xl">
           <div className="px-2.5 pb-2 pt-1.5">
             <p className="truncate text-sm font-semibold text-fg">{name}</p>
-            <p className="text-xs text-fg-subtle">{demo ? "Modo demonstração" : me?.role === "admin" ? "Administrador local" : (me?.role ?? "Sessão local")}</p>
+            <p className="text-xs text-fg-subtle">{demo ? "Modo demonstração" : CLOUD ? "Conta na nuvem" : me?.role === "admin" ? "Administrador local" : (me?.role ?? "Sessão local")}</p>
           </div>
           <DropdownMenu.Separator className="my-1 h-px bg-border" />
           <DropdownMenu.Item asChild className={ITEM}>
-            <Link href={hrefOf(base, "configuracoes")}>
-              <Settings /> Configurações
+            <Link href={hrefOf(base, CLOUD ? "conta" : "configuracoes")}>
+              {CLOUD ? <CircleUserRound /> : <Settings />} {CLOUD ? "Conta" : "Configurações"}
             </Link>
           </DropdownMenu.Item>
           {demo ? (
@@ -319,7 +318,7 @@ export function Header({ onOpenMenu, menuOpen }: { onOpenMenu: () => void; menuO
         <AgentChip />
         {!CLOUD && <AiChip />}
         <span aria-hidden className="mx-0.5 hidden h-6 w-px bg-border sm:block" />
-        <Notifications />
+        {!CLOUD && <Notifications />}
         <UserMenu />
       </div>
     </header>

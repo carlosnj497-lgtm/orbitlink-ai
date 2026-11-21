@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isChunkLoadError, reloadOnChunkError } from "./chunk-recovery";
+import { clearChunkReloadHistory, isChunkLoadError, reloadOnChunkError } from "./chunk-recovery";
 
 function chunkError() {
   const e = new Error("Failed to load chunk /_next/static/chunks/abc.js from module 123");
@@ -20,12 +20,34 @@ describe("recuperação de chunk antigo", () => {
     expect(isChunkLoadError("ChunkLoadError")).toBe(false);
   });
 
-  it("recarrega uma vez e não entra em laço", () => {
+  it("recarrega automaticamente até o limite da janela", () => {
     const reload = vi.fn();
     vi.stubGlobal("location", { ...window.location, reload });
     expect(reloadOnChunkError(chunkError())).toBe(true);
+    expect(reloadOnChunkError(chunkError())).toBe(true);
+    expect(reloadOnChunkError(chunkError())).toBe(true);
+    expect(reload).toHaveBeenCalledTimes(3);
+    // A quarta tentativa dentro da mesma janela é bloqueada.
     expect(reloadOnChunkError(chunkError())).toBe(false);
-    expect(reload).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(3);
+  });
+
+  it("volta a permitir recarga após limpar o histórico", () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    expect(reloadOnChunkError(chunkError())).toBe(true);
+    expect(reloadOnChunkError(chunkError())).toBe(true);
+    expect(reloadOnChunkError(chunkError())).toBe(true);
+    expect(reloadOnChunkError(chunkError())).toBe(false);
+    clearChunkReloadHistory();
+    expect(reloadOnChunkError(chunkError())).toBe(true);
+    expect(reload).toHaveBeenCalledTimes(4);
+  });
+
+  it("não recarrega para erros que não são de chunk", () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
     expect(reloadOnChunkError(new Error("outro"))).toBe(false);
+    expect(reload).not.toHaveBeenCalled();
   });
 });

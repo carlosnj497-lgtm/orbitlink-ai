@@ -52,6 +52,36 @@ function niceBucket(span: number, maxPoints = 720): number {
   return [60, 120, 300, 600, 900, 1800, 3600, 7200, 21600, 86400].find((b) => b >= want) ?? 86400;
 }
 
+export interface CloudGap {
+  kind: string;
+  start_ts: number;
+  end_ts: number;
+  samples_lost: null;
+  detail: string;
+}
+
+/** Une buckets totalmente ausentes em faixas recortadas à janela; buckets parciais continuam representados por coverage. */
+export function missingBucketGaps(start: number, end: number, bucket: number, observed: Iterable<number>): CloudGap[] {
+  const present = new Set(observed);
+  const gaps: CloudGap[] = [];
+  for (let t = Math.floor(start / bucket) * bucket; t < end; t += bucket) {
+    if (present.has(t)) continue;
+    const from = Math.max(start, t);
+    const to = Math.min(end, t + bucket);
+    if (to <= from) continue;
+    const previous = gaps.at(-1);
+    if (previous?.end_ts === from) previous.end_ts = to;
+    else gaps.push({ kind: "missing_data", start_ts: from, end_ts: to, samples_lost: null, detail: "Sem agregados sincronizados neste intervalo; a causa não é determinada." });
+  }
+  return gaps;
+}
+
+function epochBuckets(start: number, end: number, bucket: number): number[] {
+  const out: number[] = [];
+  for (let t = Math.floor(start / bucket) * bucket; t < end; t += bucket) out.push(t);
+  return out;
+}
+
 /** Epoch da 0h local (no fuso informado) do dia que contém `ts`, deslocado em `days`. */
 export function localMidnight(ts: number, tz: string, days = 0): number {
   const parts = Object.fromEntries(
@@ -77,6 +107,32 @@ export function localMonthStart(ts: number, tz: string, monthsBack = 0): number 
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit" }).formatToParts(new Date(ts * 1000)).map((x) => [x.type, x.value]));
   const guess = Date.UTC(+p.year, +p.month - 1 - monthsBack, 1, 12) / 1000; // meio-dia evita ambiguidade de fuso
   return localMidnight(guess, tz);
+}
+
+/** Início da hora civil que contém ts, inclusive nas transições de horário de verão. */
+function localHourStart(ts: number, tz: string): number {
+  const options = { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" } as const;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", options).formatToParts(new Date(ts * 1000)).map((p) => [p.type, p.value]));
+  const fields = () => [+parts.year, +parts.month - 1, +parts.day, +parts.hour] as const;
+  const asUtc = Date.UTC(...fields(), +parts.minute, +parts.second) / 1000;
+  const target = Date.UTC(...fields()) / 1000;
+  const guess = target - (asUtc - ts);
+  const actual = Object.fromEntries(new Intl.DateTimeFormat("en-US", options).formatToParts(new Date(guess * 1000)).map((p) => [p.type, p.value]));
+  const actualAsUtc = Date.UTC(+actual.year, +actual.month - 1, +actual.day, +actual.hour, +actual.minute, +actual.second) / 1000;
+  return target - (actualAsUtc - guess);
+}
+
+function usageBucketStarts(start: number, end: number, bucket: "hour" | "day" | "month", tz: string): number[] {
+  const out: number[] = [];
+  let t = bucket === "hour" ? localHourStart(start, tz) : bucket === "day" ? localMidnight(start, tz) : localMonthStart(start, tz);
+  while (t < end) {
+    out.push(t);
+    const next = bucket === "hour" ? localHourStart(t + 3600, tz) : bucket === "day" ? localMidnight(t, tz, 1) : localMonthStart(t, tz, -1);
+    // Nunca devolva o mesmo bucket: uma transição civil incomum não pode travar a renderização da API.
+    if (next <= t) throw new CloudError(500, "Não foi possível avançar os buckets do calendário.");
+    t = next;
+  }
+  return out;
 }
 
 /**
@@ -109,7 +165,7 @@ async function status(token: string) {
     workspace_name: string | null;
     agents: number;
     agent_last_seen: number | null;
-    terminal: { name: string | null; hardware_version: string | null; software_version: string | null } | null;
+    terminal: { name: string | null; hardware_version: string | null; software_version: string | null; count?: number; scope?: "workspace" } | null;
     heartbeat: { ts: number; dish_reachable: boolean; version: string | null; sync_pending: number | null } | null;
     last_minute: { ts: number; latency_ms: number | null; drop_pct: number | null; power_w: number | null; down_mbps: number | null; up_mbps: number | null } | null;
   }>(token, "cloud_status");
@@ -140,10 +196,10 @@ export async function cloudGet(token: string, path: string, q: URLSearchParams):
           state_reason: null,
           device: { terminal_key: null, hardware_version: st.terminal?.hardware_version ?? null, software_version: st.terminal?.software_version ?? null, board_rev: null, bootcount: null },
           metrics: {
-            downlink_mbps: metric(num(m.down_mbps), "Mbps", "média do último minuto sincronizado"),
-            uplink_mbps: metric(num(m.up_mbps), "Mbps", "média do último minuto sincronizado"),
-            pop_latency_ms: metric(num(m.latency_ms), "ms", "média do último minuto sincronizado"),
-            pop_drop_pct: metric(drop, "%", "média do último minuto sincronizado"),
+            downlink_mbps: metric(num(m.down_mbps), "Mbps", "agregado do último minuto de todos os terminais do espaço"),
+            uplink_mbps: metric(num(m.up_mbps), "Mbps", "agregado do último minuto de todos os terminais do espaço"),
+            pop_latency_ms: metric(num(m.latency_ms), "ms", "média ponderada de todos os terminais no último minuto"),
+            pop_drop_pct: metric(drop, "%", "média ponderada de todos os terminais no último minuto"),
           },
           alerts: [],
           outage: null,
@@ -167,14 +223,20 @@ export async function cloudGet(token: string, path: string, q: URLSearchParams):
     }
     case "telemetry": {
       const [s, e] = range(q, "1h");
-      const bucket = Math.max(niceBucket(e - s), Number(q.get("bucket_s")) || 0);
+      const requestedBucket = q.get("bucket_s");
+      const customBucket = requestedBucket === null || requestedBucket === "" ? 0 : Number(requestedBucket);
+      if (!Number.isInteger(customBucket) || customBucket < 0) throw new CloudError(422, 'Parâmetro "bucket_s" inválido.');
+      const bucket = Math.max(niceBucket(e - s), customBucket);
       const rows = await rpc<Json[]>(token, "cloud_telemetry", { p_start: s, p_end: e, p_bucket: bucket });
       const observed = rows.reduce((a, r) => a + (num(r.n) ?? 0), 0);
+      const points = rows.map((r) => ({ t: num(r.t) ?? 0, n: num(r.n) ?? 0, down_mbps: num(r.down_mbps), up_mbps: num(r.up_mbps), down_max_mbps: num(r.down_max_mbps), up_max_mbps: num(r.up_max_mbps), latency_ms: num(r.latency_ms), drop_pct: num(r.drop_pct), power_w: num(r.power_w) }));
+      const byTime = new Map(points.map((p) => [p.t, p]));
+      const timestamps = epochBuckets(s, e, bucket);
       return {
         start: s, end: e, bucket_s: bucket, series_source: "minute_aggregates", source: rows.length ? "calculada" : "indisponivel",
         coverage: Math.min(1, observed / Math.max(1, Math.min(e, now()) - s)),
-        points: rows.map((r) => ({ t: num(r.t), n: num(r.n) ?? 0, down_mbps: num(r.down_mbps), up_mbps: num(r.up_mbps), down_max_mbps: num(r.down_max_mbps), up_max_mbps: num(r.up_max_mbps), latency_ms: num(r.latency_ms), drop_pct: num(r.drop_pct), power_w: num(r.power_w) })),
-        gaps: [],
+        points: timestamps.map((t) => byTime.get(t) ?? { t, n: 0, down_mbps: null, up_mbps: null, down_max_mbps: null, up_max_mbps: null, latency_ms: null, drop_pct: null, power_w: null }),
+        gaps: missingBucketGaps(s, e, bucket, points.map((p) => p.t)),
         note: "Na nuvem, a menor resolução é 1 minuto (o agente sincroniza agregados por minuto).",
       };
     }
@@ -209,13 +271,26 @@ export async function cloudGet(token: string, path: string, q: URLSearchParams):
       const size = (t: number) => (bucket === "hour" ? 3600 : bucket === "day" ? 86400 : localMonthStart(t + 43200, TZ, -1) - t);
       const rows = await rpc<Json[]>(token, "cloud_usage_series", { p_start: s, p_end: e, p_tz: TZ, p_bucket: bucket });
       const fmt = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, ...(bucket === "hour" ? { hour: "2-digit" } : bucket === "day" ? { day: "2-digit", month: "2-digit" } : { month: "short", year: "2-digit" }) });
+      const byTime = new Map(rows.map((r) => [num(r.t) ?? 0, r]));
+      const timestamps = usageBucketStarts(s, e, bucket, TZ);
+      const gaps: CloudGap[] = [];
+      for (const t of timestamps) {
+        if (byTime.has(t)) continue;
+        const from = Math.max(s, t);
+        const index = timestamps.indexOf(t);
+        const to = Math.min(e, timestamps[index + 1] ?? e);
+        const previous = gaps.at(-1);
+        if (previous?.end_ts === from) previous.end_ts = to;
+        else gaps.push({ kind: "missing_data", start_ts: from, end_ts: to, samples_lost: null, detail: "Sem consumo sincronizado neste intervalo; a causa não é determinada." });
+      }
       return {
-        bucket, timezone: TZ, imported: [], peak_hour: null, gaps: [], method: "Consumo estimado pelos agentes, agregado no fuso " + TZ + ".",
-        points: rows.map((r) => {
-          const d = num(r.bytes_download) ?? 0;
-          const u = num(r.bytes_upload) ?? 0;
-          const t = num(r.t) ?? 0;
-          return { t, label: fmt.format(new Date(t * 1000)), bytes_download: d, bytes_upload: u, bytes_total: d + u, coverage: Math.min(1, (num(r.observed) ?? 0) / size(t)), source: "calculada" };
+        bucket, timezone: TZ, imported: [], peak_hour: null, gaps, method: "Consumo estimado pelos agentes, agregado no fuso " + TZ + ".",
+        points: timestamps.map((t) => {
+          const r = byTime.get(t);
+          const d = num(r?.bytes_download) ?? 0;
+          const u = num(r?.bytes_upload) ?? 0;
+          const observed = num(r?.observed) ?? 0;
+          return { t, label: fmt.format(new Date(t * 1000)), bytes_download: d, bytes_upload: u, bytes_total: d + u, coverage: Math.min(1, observed / size(t)), source: r ? "calculada" : "indisponivel" };
         }),
       };
     }

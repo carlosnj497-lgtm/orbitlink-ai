@@ -146,6 +146,48 @@ def test_setup_code_required_when_configured(tmp_path):
         assert c.post("/v1/auth/setup", json={**body, "setup_code": "codigo-do-servidor"}, headers=SVC).status_code == 201
 
 
+def test_recover_disabled_without_setup_code(tmp_path):
+    """Sem ASTRYON_SETUP_CODE a redefinição pela tela fica desligada (não troca senha sem prova)."""
+    app = create_app(settings(tmp_path), start_collector=False)
+    with TestClient(app) as c:
+        login(c)
+        r = c.post("/v1/auth/recover", headers=SVC,
+                   json={"username": "admin", "new_password": "senha-nova-123", "recovery_code": "x"})
+        assert r.status_code == 403
+        assert "ASTRYON_SETUP_CODE" in r.json()["detail"]
+        # a senha antiga continua valendo
+        assert c.post("/v1/auth/login", headers=SVC,
+                      json={"username": "admin", "password": "senha-forte-123"}).status_code == 200
+
+
+def test_recover_with_setup_code_resets_password_and_kills_sessions(tmp_path):
+    app = create_app(settings(tmp_path, setup_code="codigo-do-servidor"), start_collector=False)
+    with TestClient(app) as c:
+        r = c.post("/v1/auth/setup", headers=SVC,
+                   json={"username": "admin", "password": "senha-forte-123", "setup_code": "codigo-do-servidor"})
+        assert r.status_code == 201
+        token = c.post("/v1/auth/login", headers=SVC,
+                       json={"username": "admin", "password": "senha-forte-123"}).json()["session"]
+        h = {**SVC, "X-ASTRYON-Session": token}
+        body = {"username": "admin", "new_password": "senha-nova-1234"}
+        # código errado → 403, senha intacta
+        assert c.post("/v1/auth/recover", headers=SVC, json={**body, "recovery_code": "errado"}).status_code == 403
+        assert c.get("/v1/auth/me", headers=h).status_code == 200
+        # código certo → 204, sessões antigas caem, senha antiga não entra mais
+        assert c.post("/v1/auth/recover", headers=SVC, json={**body, "recovery_code": "codigo-do-servidor"}).status_code == 204
+        assert c.get("/v1/auth/me", headers=h).status_code == 401
+        assert c.post("/v1/auth/login", headers=SVC,
+                      json={"username": "admin", "password": "senha-forte-123"}).status_code == 401
+        assert c.post("/v1/auth/login", headers=SVC,
+                      json={"username": "admin", "password": "senha-nova-1234"}).status_code == 200
+        # senha curta e administrador inexistente → 422
+        assert c.post("/v1/auth/recover", headers=SVC,
+                      json={"username": "admin", "new_password": "curta", "recovery_code": "codigo-do-servidor"}).status_code == 422
+        assert c.post("/v1/auth/recover", headers=SVC,
+                      json={"username": "ninguem", "new_password": "senha-nova-1234",
+                            "recovery_code": "codigo-do-servidor"}).status_code == 422
+
+
 def test_password_change_rejects_short_and_invalidates_sessions(unreachable_client):
     c = unreachable_client
     h = login(c)

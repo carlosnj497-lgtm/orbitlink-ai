@@ -4,22 +4,31 @@ Segurança:
 * Long polling (getUpdates): o agente busca as mensagens; nenhuma porta fica aberta para a internet.
 * Só responde ao chat configurado em ASTRYON_TELEGRAM_CHAT_ID. Qualquer outro chat é ignorado em silêncio
   (nada é respondido, e o conteúdo não vai para o log).
+* Grupos: além de listar os user ids em telegram_allowed_user_ids, desligue o "privacy mode" do bot no
+  @BotFather (/setprivacy → Disable); com ele ligado o bot só recebe comandos, não as perguntas.
 * A IA continua somente leitura. Se ela propuser uma ação (ex.: reiniciar), o bot só repassa a proposta e manda
   confirmar no painel. Nada é executado a partir do Telegram.
-* Cota diária do assistente vale aqui também, mais um limite por minuto contra rajadas.
+* Cota diária do assistente vale aqui também, mais um limite por minuto contra rajadas (por pessoa, em grupos).
 * O token do bot nunca é registrado (a redação de logs remove /bot<token> e o httpx fica em WARNING).
 * Nota de voz: o áudio é transcrito pelo Whisper da Groq e nunca fica salvo em disco. O texto transcrito
   entra no mesmo histórico da conversa e o chat não autorizado não tem o áudio baixado.
+
+Concorrência: perguntas de texto esperam alguns segundos (debounce) para juntar mensagens fragmentadas numa
+pergunta só, e respondem a partir de uma task — o laço de polling não fica travado enquanto a IA pensa, e
+comandos rápidos (/status, botões) continuam instantâneos. O `ai_lock` impede que duas perguntas simultâneas
+disputem a mesma conversa ou a cota.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import contextvars
 import html
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from datetime import datetime
 from typing import Any, TypeVar
 from zoneinfo import ZoneInfo
@@ -31,6 +40,7 @@ from ..auth.local import RateLimiter
 from ..reports import digest, monthly
 from ..storage.db import Database, now_ts
 from . import copilot, speech, transcribe
+from . import telegram_texts as texts
 from . import telegram_views as views
 
 log = logging.getLogger("astryon.telegram")
@@ -42,42 +52,25 @@ KV_VOICE = "telegram:voice_replies"
 STALE_AFTER_S = 15 * 60  # mensagem que chega com o agente fora do ar há mais que isso não é respondida pela IA
 MAX_CHUNK = 3500  # o Telegram aceita 4096; folga para as tags HTML
 POLL_TIMEOUT_S = 25
+DEBOUNCE_S = 4.0  # espera para juntar mensagens fragmentadas numa pergunta só de IA
+ACTION_REFRESH_S = 4.0  # o Telegram só mostra "digitando..." por ~5 s: reenviar enquanto trabalha
 
-HELP = (
-    "🛰️ <b>ASTRYON · Central da sua Starlink</b>\n"
-    "Consulte os dados pelos botões ou converse comigo em português.\n\n"
-    "Exemplos:\n"
-    "- Como está a conexão agora?\n"
-    "- Quanto consumi este mês? Vou passar da franquia?\n"
-    "- Teve queda hoje? Por quê?\n"
-    "- A queda de ontem foi por causa da chuva?\n\n"
-    "Comandos:\n"
-    "/menu: abrir a central de consultas\n"
-    "/status: diagnóstico rápido por regras (não usa IA)\n"
-    "/consumo: download e upload estimados\n"
-    "/franquia: saldo e projeção do ciclo\n"
-    "/qualidade: latência, perda e disponibilidade\n"
-    "/quedas: interrupções recentes\n"
-    "/alertas: alertas ativos\n"
-    "/clima: clima agora e próximas horas\n"
-    "/horario: melhores horários para downloads e chamadas\n"
-    "/resumo: consumo, quedas e qualidade dos últimos 7 dias\n"
-    "/relatorio: PDF dos últimos 30 dias (com comparação e clima)\n"
-    "/bot: recursos, cotas e notificações\n"
-    "/nova: começa uma conversa nova\n"
-    "/audio ligar ou /audio desligar: respostas faladas do assistente\n"
-    "/ajuda: esta mensagem\n\n"
-    "Períodos: /consumo 7d, /qualidade 1h ou /quedas 24h.\n"
-    "Opções: 1h, 6h, 24h, 7d e 30d. Padrão: 24h.\n\n"
-    "As consultas por comando não gastam IA.\n"
-    "Você pode mandar sua pergunta por áudio (nota de voz), quando a transcrição estiver ativada.\n"
-    "Ações como reiniciar a antena só são confirmadas no painel."
-)
+# Mensagem em atendimento nesta task: de onde saem o tópico (grupos com tópicos) e o alvo das reações.
+_current_msg: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar("telegram_msg", default=None)
+
+HELP = texts.HELP  # compatibilidade com quem importa daqui
+
+
+def _topic() -> dict[str, Any]:
+    """Em grupos com tópicos, responde no mesmo tópico da mensagem atendida."""
+    msg = _current_msg.get()
+    thread = (msg or {}).get("message_thread_id")
+    return {"message_thread_id": thread} if thread else {}
 
 
 def is_group_chat(chat: dict[str, Any]) -> bool:
-    """Grupos, supergrupos e canais (no Telegram o id deles é negativo)."""
-    return chat.get("type") in ("group", "supergroup", "channel") or str(chat.get("id", "")).startswith("-")
+    """Grupos e supergrupos. Canais e chats privados são autorizados só pelo chat_id."""
+    return chat.get("type") in ("group", "supergroup")
 
 
 def enabled(settings: Any) -> bool:
@@ -88,8 +81,17 @@ def enabled(settings: Any) -> bool:
 
 def to_html(md: str) -> str:
     """Markdown simples do copiloto -> HTML aceito pelo Telegram (b, i, code). Todo o resto é escapado."""
+    text = html.escape(md, quote=False)
+
+    # Trechos de código ficam protegidos: negrito/itálico não deve atuar dentro de <code>.
+    def _code(m: re.Match[str]) -> str:
+        content = m.group(1).replace("*", "&#42;").replace("_", "&#95;")
+        return f"<code>{content}</code>"
+
+    text = re.sub(r"`([^`\n]+)`", _code, text)
+
     out = []
-    for line in html.escape(md, quote=False).split("\n"):
+    for line in text.split("\n"):
         m = re.match(r"^\s*#{1,6}\s+(.*)$", line)
         if m:
             line = f"<b>{m.group(1).strip()}</b>"
@@ -97,14 +99,14 @@ def to_html(md: str) -> str:
             continue
         out.append(line)
     text = "\n".join(out)
-    text = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", text)
     text = re.sub(r"\*\*([^*\n]+)\*\*", r"<b>\1</b>", text)
     text = re.sub(r"(?<![\w*])_([^_\n]+)_(?![\w*])", r"<i>\1</i>", text)
     return text
 
 
 def chunks(text: str, size: int = MAX_CHUNK) -> list[str]:
-    """Divide em pedaços de até `size` caracteres, preferindo quebrar em parágrafo ou linha."""
+    """Divide em pedaços de até `size` caracteres, preferindo quebrar em parágrafo ou linha
+    e sem separar um par de marcação (`**` ou crase): a metade solta viraria texto literal."""
     parts: list[str] = []
     rest = text.strip()
     while len(rest) > size:
@@ -113,30 +115,55 @@ def chunks(text: str, size: int = MAX_CHUNK) -> list[str]:
             cut = rest.rfind("\n", 0, size)
         if cut < size // 2:
             cut = size
-        parts.append(rest[:cut].rstrip())
+        cut = _before_open_markup(rest, cut)
+        part = rest[:cut].rstrip()
+        if not part:  # o corte recuou até o começo: corta seco para garantir progresso
+            cut, part = size, rest[:size].rstrip()
+        parts.append(part)
         rest = rest[cut:].lstrip()
     if rest:
         parts.append(rest)
     return parts
 
 
+def _before_open_markup(text: str, cut: int) -> int:
+    """Recua o corte para antes de um marcador que ficaria aberto no pedaço."""
+    for _ in range(3):  # recuar por um marcador pode desbalancear o outro; poucas passagens bastam
+        moved = False
+        for marker in ("**", "`", "_"):
+            if text[:cut].count(marker) % 2:
+                at = text.rfind(marker, 0, cut)
+                if at > 0:
+                    cut, moved = at, True
+        if not moved:
+            break
+    return cut
+
+
 class TelegramBot:
     def __init__(self, db: Database, settings: Any, collector: Callable[[], Any] = lambda: None,
                  transport: httpx.AsyncBaseTransport | None = None, ai_client: Any = None,
-                 poll_timeout: int = POLL_TIMEOUT_S, audio_transport: httpx.AsyncBaseTransport | None = None) -> None:
+                 poll_timeout: int = POLL_TIMEOUT_S, audio_transport: httpx.AsyncBaseTransport | None = None,
+                 debounce_s: float = DEBOUNCE_S) -> None:
         self.db = db
         self.settings = settings
         self.collector = collector
         self.ai_client = ai_client
         self.poll_timeout = poll_timeout
         self._transport = transport
+        self._debounce_s = debounce_s
+        self._pending: dict[str, dict[str, Any]] = {}  # perguntas de texto aguardando a janela do debounce
+        self._background: set[asyncio.Task[Any]] = set()  # tasks com dono: exceção não some em silêncio
+        self._ai_lock = asyncio.Lock()  # duas perguntas não disputam a mesma conversa nem a cota
+        self._shutting_down = False
         self.limiter = RateLimiter(int(getattr(settings, "telegram_chat_per_minute", 6)), 60)
         # O transcritor fala com a Groq, não com o Telegram: transport separado (o do Telegram carrega o token
         # na URL e rejeita qualquer requisição para fora da Bot API).
         self.transcriber = transcribe.Transcriber(settings, transport=audio_transport)
         self.speaker = speech.Speaker(settings)
         self.state: dict[str, Any] = {"running": False, "last_poll_ok": None, "last_error": None,
-                                      "answered": 0, "ignored_chats": 0, "transcribed": 0, "offset_reset": False}
+                                      "answered": 0, "ignored_chats": 0, "transcribed": 0, "offset_reset": False,
+                                      "ai_answered": 0, "ai_failed": 0, "ai_latency_avg_s": None}
 
     # ------------------------------------------------------------------ API do Telegram
     @property
@@ -160,16 +187,89 @@ class TelegramBot:
     async def send(self, client: httpx.AsyncClient, chat_id: int | str, markdown: str,
                    section: str = "") -> None:
         # Emojis ocupam duas unidades UTF-16; 1800 caracteres cabem mesmo se todos forem emojis.
-        parts = chunks(markdown, 1800)
+        parts = [p for p in chunks(markdown, 1800) if p]
         for index, part in enumerate(parts):
             extra = {"reply_markup": views.keyboard(section)} if section and index == len(parts) - 1 else {}
             try:
                 await self._call(client, "sendMessage", {"chat_id": chat_id, "text": to_html(part), "parse_mode": "HTML",
-                                                         "disable_web_page_preview": True, **extra})
+                                                         "disable_web_page_preview": True, **_topic(), **extra})
             except PermanentError:
                 # HTML recusado ("can't parse entities"): manda como texto puro em vez de perder a resposta
                 await self._call(client, "sendMessage", {"chat_id": chat_id, "text": part,
-                                                         "disable_web_page_preview": True, **extra})
+                                                         "disable_web_page_preview": True, **_topic(), **extra})
+
+    async def _edit(self, client: httpx.AsyncClient, msg: dict[str, Any], markdown: str, section: str) -> None:
+        """Edita o cartão de um relatório no lugar; se não der (antigo demais), abre uma mensagem nova."""
+        chat_id = msg["chat"]["id"]
+        message_id = msg.get("message_id")
+        parts = [p for p in chunks(markdown, 1800) if p]
+        if not message_id or len(parts) != 1:
+            await self.send(client, chat_id, markdown, section=section)
+            return
+        base = {"chat_id": chat_id, "message_id": message_id, "disable_web_page_preview": True,
+                "reply_markup": views.keyboard(section)}
+        try:
+            await self._call(client, "editMessageText", {**base, "text": to_html(parts[0]), "parse_mode": "HTML"})
+        except PermanentError as exc:
+            if "not modified" in str(exc):
+                return  # clicou no período já exibido
+            try:
+                # HTML recusado: tenta texto puro em vez de perder a resposta
+                await self._call(client, "editMessageText", {**base, "text": parts[0]})
+            except PermanentError:
+                await self.send(client, chat_id, markdown, section=section)
+
+    async def _react(self, client: httpx.AsyncClient, emoji: str | None, msg: dict[str, Any] | None = None) -> None:
+        """👀 ao receber, ✅ ao responder, vazio quando falhou. Reação é cosmética: nunca atrapalha o fluxo."""
+        msg = msg if msg is not None else _current_msg.get()
+        if not msg or not msg.get("message_id"):
+            return
+        reaction: list[dict[str, str]] = [] if emoji is None else [{"type": "emoji", "emoji": emoji}]
+        try:
+            await self._call(client, "setMessageReaction", {"chat_id": msg["chat"]["id"],
+                                                            "message_id": msg["message_id"], "reaction": reaction})
+        except Exception:  # noqa: BLE001, S110 - reação é cosmética: nem client fechado pode atrapalhar o fluxo
+            pass
+
+    async def _keep_action(self, client: httpx.AsyncClient, chat_id: int | str, action: str = "typing") -> None:
+        """Reenvia a ação a cada poucos segundos: o Telegram só mostra "digitando..." por ~5 s."""
+        while True:
+            try:
+                await self._call(client, "sendChatAction", {"chat_id": chat_id, "action": action, **_topic()})
+            except (httpx.HTTPError, PermanentError, RetryLater):
+                pass  # só cosmético
+            await asyncio.sleep(ACTION_REFRESH_S)
+
+    def _spawn(self, coro: Coroutine[Any, Any, None]) -> asyncio.Task[Any]:
+        """Task com dono: a referência não é perdida e a exceção vai para o log em vez de sumir."""
+        task = asyncio.create_task(coro)
+        self._background.add(task)
+
+        def _done(done: asyncio.Task[Any]) -> None:
+            self._background.discard(done)
+            if not done.cancelled() and done.exception() is not None:
+                log.warning("tarefa em segundo plano do Telegram falhou: %r", done.exception())
+
+        task.add_done_callback(_done)
+        return task
+
+    async def _stop_action(self, action: asyncio.Task[Any]) -> None:
+        action.cancel()
+        try:
+            await action
+        except asyncio.CancelledError:
+            pass
+        except Exception:  # noqa: BLE001 - ação é cosmética: uma falha nela nunca interrompe a resposta
+            log.warning("tarefa cosmética do Telegram falhou", exc_info=True)
+
+    async def stop(self) -> None:
+        """Cancela tarefas em segundo plano para desligar sem deixar rastro pendente."""
+        self._shutting_down = True
+        self.state["running"] = False
+        for task in list(self._background):
+            task.cancel()
+        if self._background:
+            await asyncio.gather(*self._background, return_exceptions=True)
 
     # ------------------------------------------------------------------ laço
     async def _offset_is_stale(self, client: httpx.AsyncClient, offset: int) -> bool:
@@ -247,8 +347,7 @@ class TelegramBot:
                     original = (callback.get("message") or {}) if callback else msg
                     if original and self._authorized(original):
                         try:
-                            await self.send(client, original["chat"]["id"],
-                                            "Não consegui concluir esta consulta agora. Tente novamente em instantes.",
+                            await self.send(client, original["chat"]["id"], texts.TRY_AGAIN_LATER,
                                             section="erro")
                         except (httpx.HTTPError, PermanentError, RetryLater):
                             pass
@@ -298,21 +397,49 @@ class TelegramBot:
     def _authorized(self, msg: dict[str, Any], sender: dict[str, Any] | None = None) -> bool:
         """Autoriza o chat configurado e, em grupos, também a pessoa.
 
-        Num chat privado o chat é a própria pessoa. Num grupo, qualquer membro (inclusive alguém adicionado
-        depois) poderia usar a IA e os botões; lá só os `telegram_allowed_user_ids` são atendidos.
+        Num chat privado (ou canal) o acesso é autorizado pelo chat_id. Num grupo/supergrupo,
+        qualquer membro poderia usar a IA e os botões; lá só os `telegram_allowed_user_ids`
+        são atendidos.
         """
         chat = msg.get("chat") or {}
         if str(chat.get("id")) != str(self.settings.telegram_chat_id).strip():
             return False
         if not is_group_chat(chat):
             return True
-        allowed = {int(u) for u in getattr(self.settings, "telegram_allowed_user_ids", []) or []}
-        sender = sender if sender is not None else msg.get("from")
-        uid = (sender or {}).get("id")
         try:
+            allowed = {int(u) for u in getattr(self.settings, "telegram_allowed_user_ids", []) or []}
+            sender = sender if sender is not None else msg.get("from")
+            uid = (sender or {}).get("id")
             return uid is not None and int(uid) in allowed
         except (TypeError, ValueError):
-            return False
+            return False  # configuração ou remetente fora do padrão: nega em vez de derrubar o atendimento
+
+    def _limit_key(self, msg: dict[str, Any]) -> str:
+        """Em grupos a cota por minuto é por pessoa; no privado, pelo próprio chat."""
+        chat = msg.get("chat") or {}
+        if is_group_chat(chat):
+            uid = (msg.get("from") or {}).get("id")
+            if uid is not None:
+                return f"{chat.get('id')}:{uid}"
+        return str(chat.get("id"))
+
+    def _conversation_key(self, msg: dict[str, Any]) -> str:
+        """Identificador da conversa com a IA: privado mantém a chave legada; grupos separam por usuário."""
+        chat = msg.get("chat") or {}
+        if is_group_chat(chat):
+            uid = (msg.get("from") or {}).get("id")
+            if uid is not None:
+                return f"{KV_CONVERSATION}:{chat.get('id')}:{uid}"
+        return KV_CONVERSATION
+
+    async def _get_conversation(self, msg: dict[str, Any]) -> int | None:
+        """Lê o ID da conversa ativa. Grupos nunca reusam a conversa de outro chat."""
+        key = self._conversation_key(msg)
+        conv = await self.db.run(self.db.get_kv, key)
+        return int(conv) if conv else None
+
+    async def _set_conversation(self, msg: dict[str, Any], conv_id: int) -> None:
+        await self.db.run(self.db.set_kv, self._conversation_key(msg), str(conv_id))
 
     async def handle_callback(self, client: httpx.AsyncClient, callback: dict[str, Any]) -> None:
         msg = callback.get("message") or {}
@@ -326,14 +453,31 @@ class TelegramBot:
                  and (len(bits) == 1 or len(bits) == 2 and bits[0] in views.REPORTS and bits[1] in views.PERIODS))
         await self._call(client, "answerCallbackQuery", {
             "callback_query_id": callback["id"],
-            "text": "" if valid else "Este botão expirou. Abra /menu.",
+            "text": "" if valid else texts.BUTTON_EXPIRED,
         })
-        if valid:
-            # A data do cartão é antiga, mas o clique é uma interação nova.
-            await self.handle(client, {"chat": msg["chat"], "from": callback.get("from"), "text": f"/{action}",
-                                       "date": now_ts()})
+        if not valid:
+            return
+        if len(bits) == 2:
+            # Troca de período: edita o cartão em vez de empilhar uma mensagem nova no chat.
+            body = await asyncio.to_thread(views.render, self.db, self.settings, bits[0], bits[1])
+            await self._edit(client, msg, body, section=bits[0])
+            return
+        # A data do cartão é antiga, mas o clique é uma interação nova.
+        synthetic: dict[str, Any] = {"chat": msg["chat"], "from": callback.get("from"), "text": f"/{action}",
+                                     "date": now_ts()}
+        if msg.get("message_thread_id"):
+            synthetic["message_thread_id"] = msg["message_thread_id"]  # responde no mesmo tópico
+        await self.handle(client, synthetic)
 
     async def handle(self, client: httpx.AsyncClient, msg: dict[str, Any]) -> None:
+        """Registra a mensagem em atendimento (tópico e reações) e despacha."""
+        token = _current_msg.set(msg)
+        try:
+            await self._dispatch(client, msg)
+        finally:
+            _current_msg.reset(token)
+
+    async def _dispatch(self, client: httpx.AsyncClient, msg: dict[str, Any]) -> None:
         if not self._authorized(msg):
             self.state["ignored_chats"] += 1
             log.info("mensagem de chat não autorizado ignorada")
@@ -345,11 +489,11 @@ class TelegramBot:
             if audio:
                 await self._handle_audio(client, chat_id, msg, audio)
                 return
-            await self.send(client, chat_id, "Só entendo texto ou áudio. Escreva a sua pergunta ou mande uma nota de voz.")
+            await self.send(client, chat_id, texts.ONLY_TEXT_OR_AUDIO)
             return
         cmd = text.split()[0].split("@")[0].lower() if text.startswith("/") else ""
         if cmd in ("/start", "/menu", "/ajuda", "/help"):
-            await self._send_html(client, chat_id, HELP)
+            await self._send_html(client, chat_id, texts.HELP)
             return
         if cmd == "/audio":
             option = text.split()[1:]
@@ -358,45 +502,50 @@ class TelegramBot:
             elif option == ["desligar"]:
                 await self.db.run(self.db.set_kv, KV_VOICE, "off")
             elif option:
-                await self.send(client, chat_id, "Use /audio ligar ou /audio desligar.")
+                await self.send(client, chat_id, texts.AUDIO_USAGE)
                 return
             state = "ativadas" if await self.db.run(self._voice_enabled) else "desativadas"
-            await self.send(client, chat_id, f"🔊 Respostas em áudio {state}.\n"
-                            "O assistente envia texto e voz. Consultas por comando continuam em texto.\n"
-                            "Use /audio ligar ou /audio desligar. Voz online: Microsoft Edge.",
-                            section="audio")
+            await self.send(client, chat_id, texts.audio_replies(state), section="audio")
             return
         if cmd == "/nova":
-            await self.db.run(self.db.execute, "DELETE FROM settings_kv WHERE key = ?", (KV_CONVERSATION,))
-            await self.send(client, chat_id, "💬 Conversa nova. Pode perguntar.\n"
-                            "O contexto anterior foi desvinculado; o histórico continua disponível no painel.", section="menu")
+            await self.db.run(self.db.execute, "DELETE FROM settings_kv WHERE key = ?",
+                              (self._conversation_key(msg),))
+            await self.send(client, chat_id, texts.NEW_CONVERSATION, section="menu")
             return
         if cmd.lstrip("/") in views.REPORTS | {"franquia", "alertas", "bot", "clima", "horario"}:
             command = cmd.lstrip("/")
             args = text.split()[1:]
             if args and (command not in views.REPORTS or len(args) != 1 or args[0] not in views.PERIODS):
-                await self.send(client, chat_id, "Período inválido. Use 1h, 6h, 24h, 7d ou 30d.\n"
-                                f"Exemplo: /{command} 7d" if command in views.REPORTS else f"Use /{command} sem argumentos.",
+                await self.send(client, chat_id, texts.invalid_period(command, command in views.REPORTS),
                                 section=command)
                 return
             period = args[0] if args else "24h"
-            body = await asyncio.to_thread(views.render, self.db, self.settings, command, period)
+            body = await asyncio.to_thread(views.render, self.db, self.settings, command, period, self.state)
             await self.send(client, chat_id, body, section=command)
             return
         if cmd == "/relatorio":
-            await self.send(client, chat_id, "📄 Gerando o relatório dos últimos 30 dias...")
-            end = now_ts()
-            start = end - 30 * 86400
-            pdf, caption = await asyncio.to_thread(monthly.build, self.db, self.settings, start, end, (start - 30 * 86400, start))
-            ok = await monthly.send_pdf(self.settings, pdf, caption.replace("Relatório do ciclo", "Relatório"),
-                                        f"astryon-relatorio-{datetime.now(ZoneInfo(self.settings.timezone)):%Y%m%d}.pdf",
-                                        self._transport)
+            await self.send(client, chat_id, texts.REPORT_GENERATING)
+            try:
+                end = now_ts()
+                start = end - 30 * 86400
+                pdf, caption = await asyncio.to_thread(monthly.build, self.db, self.settings, start, end, (start - 30 * 86400, start))
+                ok = await monthly.send_pdf(self.settings, pdf, caption.replace("Relatório do ciclo", "Relatório"),
+                                            f"astryon-relatorio-{datetime.now(ZoneInfo(self.settings.timezone)):%Y%m%d}.pdf",
+                                            self._transport)
+            except (httpx.HTTPError, PermanentError, RetryLater) as exc:
+                log.warning("falha ao gerar/enviar relatório pelo Telegram: %s", type(exc).__name__)
+                await self.send(client, chat_id, texts.REPORT_FAILED)
+                return
+            except Exception:  # noqa: BLE001
+                log.exception("erro inesperado ao gerar/enviar relatório pelo Telegram")
+                await self.send(client, chat_id, texts.REPORT_FAILED)
+                return
             if not ok:
-                await self.send(client, chat_id, "Não consegui enviar o PDF agora. Tente de novo em instantes.")
+                await self.send(client, chat_id, texts.REPORT_FAILED)
             return
         if cmd == "/resumo":
             text = await asyncio.to_thread(digest.build_rolling, self.db, self.settings)
-            await self.send(client, chat_id, text or "Ainda não há dados observados nos últimos 7 dias.", section="resumo")
+            await self.send(client, chat_id, text or texts.DIGEST_EMPTY, section="resumo")
             return
         if cmd == "/status":
             answer = await asyncio.to_thread(copilot.rules_answer, self.db, self.settings, self.collector())
@@ -405,44 +554,81 @@ class TelegramBot:
             await self.send(client, chat_id, answer, section="status")
             return
         if cmd:
-            await self._send_html(client, chat_id, "Comando desconhecido.\n\n" + HELP)
+            await self._send_html(client, chat_id, texts.UNKNOWN_COMMAND)
             return
 
         age = now_ts() - int(msg.get("date") or now_ts())
         if age > STALE_AFTER_S:
             await self._stale_notice(client, chat_id, msg)
             return
-        if not self.limiter.allow(str(chat_id)):
-            await self.send(client, chat_id, "Muitas perguntas em sequência. Espere um minuto e tente de novo.")
+        if not self.limiter.allow(self._limit_key(msg)):
+            await self.send(client, chat_id, texts.RATE_LIMITED)
             return
-        await self._answer(client, chat_id, text)
+        await self._react(client, "👀")
+        if self._debounce_s > 0:
+            # Texto fragmentado em várias mensagens vira uma pergunta só (e uma cobrança de cota).
+            # O atendimento sai do laço de polling: comandos rápidos não esperam a IA pensar.
+            self._enqueue(client, msg, text)
+            return
+        ok = await self._answer(client, chat_id, text, msg)
+        await self._react(client, "✅" if ok else None)
+
+    def _enqueue(self, client: httpx.AsyncClient, msg: dict[str, Any], text: str) -> None:
+        """Guarda o fragmento e (re)arma o timer: o flush mais novo junta tudo e pergunta uma vez."""
+        key = self._limit_key(msg)
+        entry = self._pending.setdefault(key, {"msgs": [], "texts": [], "task": None})
+        entry["msgs"].append(msg)
+        entry["texts"].append(text)
+        if entry["task"] is not None:
+            entry["task"].cancel()
+        entry["task"] = self._spawn(self._flush_later(client, key))
+
+    async def _flush_later(self, client: httpx.AsyncClient, key: str) -> None:
+        with contextlib.suppress(asyncio.CancelledError):
+            await asyncio.sleep(self._debounce_s)
+        if self._shutting_down:
+            return
+        entry = self._pending.get(key)
+        if not entry or entry["task"] is not asyncio.current_task():
+            return  # outra mensagem reiniciou o timer: o flush mais novo é quem responde
+        del self._pending[key]
+        last = entry["msgs"][-1]
+        token = _current_msg.set(last)
+        ok = False
+        try:
+            try:
+                ok = await self._answer(client, last["chat"]["id"], "\n".join(entry["texts"]), last)
+            except Exception:  # noqa: BLE001 - a limpeza das reações no finally não pode ser pulada
+                log.exception("falha ao responder pergunta agrupada do Telegram")
+        finally:
+            _current_msg.reset(token)
+            for m in entry["msgs"]:
+                await self._react(client, "✅" if ok else None, m)
 
     async def _stale_notice(self, client: httpx.AsyncClient, chat_id: int | str, msg: dict[str, Any]) -> None:
         tz = ZoneInfo(getattr(self.settings, "timezone", "UTC"))
         when = datetime.fromtimestamp(int(msg["date"]), tz).strftime("%d/%m %H:%M")
-        await self.send(client, chat_id, f"Recebi agora a sua mensagem de {when} (o agente estava fora do ar). "
-                                         "Pergunte de novo se ainda precisar: a resposta seria sobre o estado atual.")
+        await self.send(client, chat_id, texts.stale_notice(when))
 
     # ------------------------------------------------------------------ áudio (nota de voz)
     async def _handle_audio(self, client: httpx.AsyncClient, chat_id: int | str, msg: dict[str, Any],
                             audio: dict[str, Any]) -> None:
         """Nota de voz: transcreve com o Whisper da Groq e responde como se fosse texto."""
         if not self.transcriber.enabled():
-            await self.send(client, chat_id, "O reconhecimento de áudio está desativado neste agente. "
-                                             "Escreva a sua pergunta e eu respondo.")
+            await self.send(client, chat_id, texts.TRANSCRIBE_DISABLED)
             return
         # Mensagem antiga (agente fora do ar): não gasta transcrição nem responde com estado desatualizado.
         age = now_ts() - int(msg.get("date") or now_ts())
         if age > STALE_AFTER_S:
             await self._stale_notice(client, chat_id, msg)
             return
-        if not self.limiter.allow(str(chat_id)):
-            await self.send(client, chat_id, "Muitas perguntas em sequência. Espere um minuto e tente de novo.")
+        if not self.limiter.allow(self._limit_key(msg)):
+            await self.send(client, chat_id, texts.RATE_LIMITED)
             return
         try:
             transcribe.check_audio_quota(self.db, self.settings)
         except PermissionError as exc:
-            await self.send(client, chat_id, f"{exc} Use /status para o diagnóstico por regras.")
+            await self.send(client, chat_id, texts.quota_exceeded(exc))
             return
 
         mime = str(audio.get("mime_type") or "") or None
@@ -450,41 +636,46 @@ class TelegramBot:
             data = await self._download_audio(client, audio, mime)
         except transcribe.TranscriptionError as exc:
             log.warning("não consegui baixar o áudio do Telegram: %s", exc)
-            await self.send(client, chat_id, "Não consegui baixar o seu áudio. Mande de novo ou escreva a pergunta.")
+            await self.send(client, chat_id, texts.AUDIO_DOWNLOAD_FAILED)
             return
         except (httpx.HTTPError, PermanentError, RetryLater) as exc:
             log.warning("falha ao baixar o áudio do Telegram: %s", type(exc).__name__)
-            await self.send(client, chat_id, "Não consegui baixar o seu áudio agora. Tente de novo em instantes.")
+            await self.send(client, chat_id, texts.AUDIO_DOWNLOAD_RETRY)
             return
 
+        # Reconfere e reserva depois do download: outra aba/bot pode ter consumido a última vaga nesse meio-tempo.
+        try:
+            transcribe.reserve_audio_quota(self.db, self.settings)
+        except PermissionError as exc:
+            await self.send(client, chat_id, texts.quota_exceeded(exc))
+            return
         # O arquivo pode ser Opus (.ogg) ou outro formato; a extensão decide o mime enviado ao Whisper.
         name = transcribe.filename_for(mime, transcribe.extension_from_path(str(audio.get("file_path") or "")))
-        try:
-            await self._call(client, "sendChatAction", {"chat_id": chat_id, "action": "typing"})
-        except (httpx.HTTPError, PermanentError, RetryLater):
-            pass  # só cosmético
+        await self._react(client, "👀")
+        action = asyncio.create_task(self._keep_action(client, chat_id))
         try:
             question = await self.transcriber.transcribe(data, mime, name)
         except transcribe.TranscriptionError as exc:
             log.warning("transcrição falhou: %s", exc)
-            await self.send(client, chat_id, "Não consegui transcrever o seu áudio. "
-                                             "Escreva a pergunta ou mande a nota de voz de novo.")
+            await self.send(client, chat_id, texts.TRANSCRIBE_FAILED)
             return
         except httpx.HTTPError as exc:
             log.warning("transcrição falhou: %s", type(exc).__name__)
-            await self.send(client, chat_id, "O serviço de transcrição está indisponível agora. "
-                                             "Use /status para o diagnóstico por regras.")
+            await self.send(client, chat_id, texts.TRANSCRIBE_UNAVAILABLE)
             return
+        finally:
+            await self._stop_action(action)
         if not question:
-            await self.send(client, chat_id, "Não ouvi nada de útil no áudio. Tente de novo, mais perto do microfone.")
+            await self.send(client, chat_id, texts.TRANSCRIBE_EMPTY)
             return
 
         seconds = int(audio.get("duration") or 0)
         cost = transcribe.record_audio_usage(self.db, self.settings, seconds)
         self.state["transcribed"] += 1
         log.info("áudio transcrito (%ss, custo estimado US$ %s)", seconds, cost)
-        await self.send(client, chat_id, f"🎙 «{question}»")
-        await self._answer(client, chat_id, question, origin="voz")
+        await self.send(client, chat_id, texts.transcribed(question))
+        ok = await self._answer(client, chat_id, question, msg, origin="voz")
+        await self._react(client, "✅" if ok else None)
 
     async def _download_audio(self, client: httpx.AsyncClient, audio: dict[str, Any],
                               mime: str | None) -> bytes:
@@ -513,11 +704,11 @@ class TelegramBot:
         return data
 
     async def _audio_read(self, request: Callable[[], Awaitable[T]]) -> T:
-        """Leituras idempotentes: uma segunda tentativa em falhas transitórias de transporte."""
+        """Leituras idempotentes: uma segunda tentativa em falhas transitórias de transporte/tempo."""
         for attempt in range(2):
             try:
                 return await request()
-            except httpx.TransportError:
+            except (httpx.TransportError, httpx.TimeoutException):
                 if attempt:
                     raise
                 await asyncio.sleep(1)
@@ -525,48 +716,58 @@ class TelegramBot:
 
     async def _send_html(self, client: httpx.AsyncClient, chat_id: int | str, body: str) -> None:
         await self._call(client, "sendMessage", {"chat_id": chat_id, "text": body, "parse_mode": "HTML",
-                                               "reply_markup": views.keyboard()})
+                                                 **_topic(), "reply_markup": views.keyboard()})
 
     def _user(self) -> dict[str, Any] | None:
         return self.db.one("SELECT id, username, role FROM local_users WHERE role = 'admin' ORDER BY id LIMIT 1")
 
-    async def _answer(self, client: httpx.AsyncClient, chat_id: int | str, question: str, origin: str = "texto") -> None:
+    async def _answer(self, client: httpx.AsyncClient, chat_id: int | str, question: str,
+                      msg: dict[str, Any], origin: str = "texto") -> bool:
+        """Pergunta à IA e entrega. True = o usuário recebeu uma resposta (mesmo que de erro de cota)."""
         user = await self.db.run(self._user)
         if user is None:
-            await self.send(client, chat_id, "Crie primeiro o administrador no painel do ASTRYON; depois pergunte aqui.")
-            return
+            await self.send(client, chat_id, texts.NO_ADMIN)
+            return True
+        action = asyncio.create_task(self._keep_action(client, chat_id))
+        started = time.monotonic()
         try:
-            await self._call(client, "sendChatAction", {"chat_id": chat_id, "action": "typing"})
-        except (httpx.HTTPError, PermanentError, RetryLater):
-            pass  # só cosmético
-        conv = await self.db.run(self.db.get_kv, KV_CONVERSATION)
-        try:
-            try:
-                res = await self._ask(user, question, int(conv) if conv else None, origin)
-            except PermissionError as exc:
-                if "Limite" in str(exc):
-                    raise
-                # conversa apagada pela retenção: começa outra
-                res = await self._ask(user, question, None, origin)
+            async with self._ai_lock:
+                conv = await self._get_conversation(msg)
+                try:
+                    res = await self._ask(user, question, conv, origin)
+                except PermissionError as exc:
+                    if "Limite" in str(exc):
+                        raise
+                    # conversa apagada pela retenção: começa outra
+                    res = await self._ask(user, question, None, origin)
+                await self._set_conversation(msg, int(res["conversation_id"]))
+            self._record_ai_latency(time.monotonic() - started)
         except PermissionError as exc:  # cota diária
-            await self.send(client, chat_id, f"{exc} Use /status para o diagnóstico por regras.")
-            return
+            await self.send(client, chat_id, texts.quota_exceeded(exc))
+            return True
         except Exception as exc:  # noqa: BLE001 - qualquer falha da IA vira mensagem, nunca derruba o bot
+            self.state["ai_failed"] += 1
             log.warning("assistente falhou no Telegram: %s", type(exc).__name__)
-            await self.send(client, chat_id, f"Assistente indisponível agora ({type(exc).__name__}). "
-                                             "Use /status para o diagnóstico por regras.")
-            return
-        await self.db.run(self.db.set_kv, KV_CONVERSATION, str(res["conversation_id"]))
+            await self.send(client, chat_id, texts.ai_unavailable(type(exc).__name__))
+            return False
+        finally:
+            await self._stop_action(action)
         answer = res["answer"]
         proposal = res.get("proposal")
         if proposal:
             p = proposal.get("proposta") or {}
-            answer += (f"\n\n⚠️ **Proposta: {p.get('descricao') or p.get('acao')}.** Nada foi executado. "
-                       "Para confirmar, abra o painel em Controle da Starlink.")
+            answer += texts.proposal(p.get("descricao") or p.get("acao") or "")
         await self.send(client, chat_id, answer)
         self.state["answered"] += 1
+        self.state["ai_answered"] += 1
         if await self.db.run(self._voice_enabled):
             await self._speak(client, chat_id, answer)
+        return True
+
+    def _record_ai_latency(self, elapsed: float) -> None:
+        """Média móvel exponencial: uma resposta lenta pontual não distorce o quadro por muito tempo."""
+        prev = self.state["ai_latency_avg_s"]
+        self.state["ai_latency_avg_s"] = round(elapsed if prev is None else prev * 0.7 + elapsed * 0.3, 1)
 
     def _voice_enabled(self) -> bool:
         preference = self.db.get_kv(KV_VOICE)
@@ -574,15 +775,15 @@ class TelegramBot:
 
     async def _speak(self, client: httpx.AsyncClient, chat_id: int | str, answer: str) -> None:
         stage = "sintese"
+        action = asyncio.create_task(self._keep_action(client, chat_id, "record_voice"))
         try:
-            try:
-                await self._call(client, "sendChatAction", {"chat_id": chat_id, "action": "record_voice"})
-            except (httpx.HTTPError, PermanentError, RetryLater):
-                pass
             audio = await self.speaker.synthesize(answer)
             stage = "envio_telegram"
+            payload = {"chat_id": str(chat_id)}
+            if (msg := _current_msg.get()) and msg.get("message_thread_id"):
+                payload["message_thread_id"] = str(msg["message_thread_id"])
             response = await client.post(
-                f"{self._base}/sendVoice", data={"chat_id": str(chat_id)},
+                f"{self._base}/sendVoice", data=payload,
                 files={"voice": ("astryon.mp3", audio, "audio/mpeg")},
                 timeout=httpx.Timeout(120, connect=20, write=90),
             )
@@ -591,10 +792,12 @@ class TelegramBot:
                 raise ValueError("Telegram recusou o áudio")
         except Exception as exc:  # noqa: BLE001 - o texto já foi entregue; voz não derruba a conversa
             log.warning("resposta em áudio indisponível (%s): %s", stage, type(exc).__name__)
-            message = ("Não consegui confirmar a entrega da voz agora. A resposta completa está no texto acima."
+            message = (texts.VOICE_DELIVERY_UNCONFIRMED
                        if stage == "envio_telegram" and isinstance(exc, httpx.TransportError)
-                       else "Não consegui enviar a voz agora. A resposta completa está no texto acima.")
+                       else texts.VOICE_UNAVAILABLE)
             await self.send(client, chat_id, message)
+        finally:
+            await self._stop_action(action)
 
     async def _ask(self, user: dict[str, Any], question: str, conv: int | None, origin: str = "texto") -> dict[str, Any]:
         return await copilot.ask(self.db, self.settings, self.collector(), user, question, conv,

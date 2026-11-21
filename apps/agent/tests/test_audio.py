@@ -125,8 +125,9 @@ def _voice(chat=CHAT, uid=1, age_s=0, duration=5, file_size=len(AUDIO)):
 def _bot(db, s, tg, ai=None, groq=None):
     if db.get_kv(tb.KV_OFFSET) is None:
         db.set_kv(tb.KV_OFFSET, "0")
+    # debounce zerado: as respostas de texto saem de forma síncrona, como antes do agrupamento
     bot = tb.TelegramBot(db, s, transport=httpx.MockTransport(tg), ai_client=ai, poll_timeout=0,
-                         audio_transport=httpx.MockTransport(groq) if groq else None)
+                         audio_transport=httpx.MockTransport(groq) if groq else None, debounce_s=0)
     return bot
 
 

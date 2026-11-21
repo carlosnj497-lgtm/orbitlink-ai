@@ -3,7 +3,7 @@
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button, Card } from "@/components/ui/primitives";
-import { isChunkLoadError, markAndReload, shouldAutoReload } from "@/lib/chunk-recovery";
+import { clearChunkReloadHistory, isChunkLoadError, markAndReload, shouldAutoReload } from "@/lib/chunk-recovery";
 
 /** Texto do erro para o bloco "Detalhes técnicos" (erros de servidor já chegam sem detalhes, só com o digest). */
 function describeError(error: unknown): string {
@@ -39,8 +39,14 @@ export default function ErrorPage({ error, retry }: { error: unknown; retry: () 
         </p>
         {!reloading && (
           <div className="mt-5 flex justify-center gap-2">
-            {!chunk && <Button onClick={() => retry()}>Tentar novamente</Button>}
-            <Button variant="primary" onClick={() => window.location.reload()}>
+            <Button onClick={() => retry()}>Tentar novamente</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (chunk) clearChunkReloadHistory();
+                window.location.reload();
+              }}
+            >
               <RefreshCw /> Recarregar página
             </Button>
           </div>

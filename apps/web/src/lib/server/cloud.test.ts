@@ -55,12 +55,44 @@ describe("adaptador da nuvem", () => {
   });
 
   it("telemetria com balde de pelo menos 1 minuto e pontos numéricos", async () => {
-    mockSupabase({ "rpc/cloud_telemetry": [{ t: now - 3600, n: 3600, down_mbps: "5.5", up_mbps: 0.5, down_max_mbps: 40, up_max_mbps: 4, latency_ms: 30, drop_pct: 0.5, power_w: 21, source: "calculada" }] });
-    const r = (await cloudGet("tok", "telemetry", new URLSearchParams("range=24h"))) as { bucket_s: number; points: { down_mbps: number }[]; series_source: string };
+    mockSupabase({ "rpc/cloud_telemetry": [{ t: Math.floor((now - 3600) / 120) * 120, n: 3600, down_mbps: "5.5", up_mbps: 0.5, down_max_mbps: 40, up_max_mbps: 4, latency_ms: 30, drop_pct: 0.5, power_w: 21, source: "calculada" }] });
+    const r = (await cloudGet("tok", "telemetry", new URLSearchParams("range=24h"))) as { bucket_s: number; points: { down_mbps: number | null }[]; series_source: string };
     expect(r.bucket_s).toBeGreaterThanOrEqual(120);
-    expect(r.points[0].down_mbps).toBe(5.5);
+    expect(r.points.find((p) => p.down_mbps !== null)?.down_mbps).toBe(5.5);
     expect(r.series_source).toBe("minute_aggregates");
     expect((calls[0].body as { p_bucket: number }).p_bucket).toBe(r.bucket_s);
+  });
+
+  it("preenche buckets ausentes com null e informa as faixas de lacuna", async () => {
+    const end = Math.floor(now / 3600) * 3600;
+    const start = end - 3600;
+    mockSupabase({ "rpc/cloud_telemetry": [{ t: start, n: 60, down_mbps: 5, up_mbps: 1, down_max_mbps: null, up_max_mbps: null, latency_ms: 30, drop_pct: 0, power_w: null, source: "calculada" }] });
+    const r = (await cloudGet("tok", "telemetry", new URLSearchParams({ start: String(start), end: String(end), bucket_s: "60" }))) as {
+      points: { t: number; n: number; down_mbps: number | null }[]; gaps: { start_ts: number; end_ts: number }[];
+    };
+    expect(r.points).toHaveLength(60);
+    expect(r.points[0]).toMatchObject({ t: start, n: 60, down_mbps: 5 });
+    expect(r.points[1]).toMatchObject({ t: start + 60, n: 0, down_mbps: null });
+    expect(r.points.at(-1)).toMatchObject({ t: end - 60, n: 0, down_mbps: null });
+    expect(r.gaps).toEqual([expect.objectContaining({ start_ts: start + 60, end_ts: end })]);
+  });
+
+  it("série de consumo preserva dias sem bucket como lacuna, não como observação", async () => {
+    const start = 1_763_164_800;
+    const firstBucket = start - 75_600; // 0h local em UTC−3 dentro da janela: 03:00 UTC.
+    mockSupabase({ "rpc/cloud_usage_series": [
+      { t: firstBucket, bytes_download: 100, bytes_upload: 20, observed: 3600 },
+      { t: firstBucket + 172800, bytes_download: 300, bytes_upload: 40, observed: 3600 },
+    ] });
+    const r = (await cloudGet("tok", "usage/series", new URLSearchParams({ start: String(start), end: String(start + 259200), bucket: "day" }))) as {
+      points: { t: number; bytes_total: number; coverage: number }[]; gaps: { start_ts: number; end_ts: number }[];
+    };
+    // O fuso padrão é UTC−3: os buckets civis começam às 03:00 UTC.
+    expect(r.points).toHaveLength(4);
+    const middle = r.points.filter((p) => p.coverage === 0);
+    expect(middle).toHaveLength(2);
+    expect(middle.every((p) => p.bytes_total === 0)).toBe(true);
+    expect(r.gaps).toHaveLength(2);
   });
 
   it("eventos via PostgREST, com filtro de período e tipo", async () => {

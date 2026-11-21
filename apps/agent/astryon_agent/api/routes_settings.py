@@ -2,20 +2,26 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import __version__
+from ..auth.secrets_store import protect, unprotect
 from .deps import Admin, Ctx, User
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/settings", tags=["configuracoes"])
 
 SECRET_FIELDS = {"api_token", "supabase_anon_key", "supabase_agent_token", "groq_api_key", "setup_code",
                  "telegram_bot_token", "telegram_chat_id", "healthcheck_url",
                  # URLs de webhook (Slack, Discord...) levam o próprio segredo no caminho.
-                 "alert_webhook_url", "mqtt_username", "mqtt_password", "telegram_allowed_user_ids"}
+                 "alert_webhook_url", "mqtt_username", "mqtt_password", "telegram_allowed_user_ids",
+                 # SMTP da recuperação de senha por e-mail (editável em Configurações → Credenciais).
+                 "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from", "smtp_security"}
 RUNTIME_KEYS = {"terminal_name", "usage_monthly_limit_gb", "usage_cycle_start_day", "show_mac_addresses",
                 "weekly_digest_enabled", "weekly_digest_weekday", "weekly_digest_hour",
                 "ai_daily_request_limit", "ai_conversation_retention_days", "ai_audio_daily_request_limit",
@@ -23,6 +29,43 @@ RUNTIME_KEYS = {"terminal_name", "usage_monthly_limit_gb", "usage_cycle_start_da
 # Ajustes da Central de IA que valem na hora: (mínimo, máximo) dos inteiros. Chave e modelo continuam no .env.
 AI_INT_LIMITS = {"ai_daily_request_limit": (1, 10000), "ai_conversation_retention_days": (1, 3650),
                  "ai_audio_daily_request_limit": (0, 500)}
+
+# Campos que, ao serem alterados, só afetam serviços recriados na inicialização do agente.
+RESTART_REQUIRED_SECRETS = {"telegram_bot_token", "telegram_allowed_user_ids", "mqtt_username", "mqtt_password",
+                          "supabase_anon_key", "supabase_agent_token"}
+
+
+def _set_secret(settings: Any, key: str, value: str | None) -> None:
+    field = type(settings).model_fields[key]
+    if value is None:
+        setattr(settings, key, None)
+        return
+    if field.annotation is int:
+        setattr(settings, key, int(value))
+    elif field.annotation is bool:
+        setattr(settings, key, value.lower() in ("true", "1", "yes"))
+    elif field.annotation is list[int]:
+        setattr(settings, key, [int(x.strip()) for x in value.split(",") if x.strip().lstrip("-").isdigit()])
+    else:
+        setattr(settings, key, value)
+
+
+def apply_secret_overrides(c: Any) -> None:
+    """Sobrepõe segredos guardados cifrados no KV sobre os valores lidos do arquivo de ambiente."""
+    for key in SECRET_FIELDS:
+        stored = c.db.get_kv(f"secret:{key}")
+        if stored is None:
+            continue
+        try:
+            plain = unprotect(stored)
+        except Exception as exc:
+            # Segredo corrompido: ignora e deixa o valor original do .env (se houver).
+            log.warning("ignorando segredo corrompido em %s: %s", key, exc)
+            continue
+        if plain == "":
+            setattr(c.settings, key, None)
+        else:
+            _set_secret(c.settings, key, plain)
 
 
 def public_settings(c: Any) -> dict[str, Any]:
@@ -77,6 +120,31 @@ def put_settings(c: Ctx, _a: Admin, body: RuntimeSettings) -> dict[str, Any]:
     return public_settings(c)
 
 
+class CredentialsInput(BaseModel):
+    credentials: dict[str, str | None]
+
+
+@router.put("/credentials")
+def put_credentials(c: Ctx, _a: Admin, body: CredentialsInput) -> dict[str, Any]:
+    """Atualiza segredos cifrando-os no banco KV. Os valores nunca retornam ao navegador."""
+    restart_required: set[str] = set()
+    for key, value in body.credentials.items():
+        if key not in SECRET_FIELDS:
+            raise HTTPException(422, f"Campo não permitido: {key}")
+        kv_key = f"secret:{key}"
+        if value is None or value.strip() == "":
+            c.db.set_kv(kv_key, "")
+            setattr(c.settings, key, None)
+        else:
+            c.db.set_kv(kv_key, protect(value.strip()))
+            _set_secret(c.settings, key, value.strip())
+        if key in RESTART_REQUIRED_SECRETS:
+            restart_required.add(key)
+    data = public_settings(c)
+    data["restart_required"] = sorted(restart_required)
+    return data
+
+
 def apply_overrides(c: Any) -> None:
     name = c.db.get_kv("setting:terminal_name")
     if name:
@@ -112,5 +180,6 @@ def apply_overrides(c: Any) -> None:
 def register(app: Any) -> None:
     async def start(ctx: Any) -> None:
         apply_overrides(ctx)
+        apply_secret_overrides(ctx)
 
     app.state.startup_hooks.append(start)

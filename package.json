@@ -1,6 +1,6 @@
 {
   "name": "astryon",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "MIT",
   "description": "ASTRYON — monitoramento local das antenas Starlink + ESP32 (projeto independente, sem afiliação com a Starlink/SpaceX).",

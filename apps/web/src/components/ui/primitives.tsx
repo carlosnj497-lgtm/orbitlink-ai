@@ -3,7 +3,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
 import { Dialog as RDialog, Switch as RSwitch, ToggleGroup as RToggleGroup, Tooltip as RTooltip } from "radix-ui";
-import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import { Children, type ButtonHTMLAttributes, cloneElement, type HTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 /* ----------------------------------------------------------------- Card */
@@ -87,17 +87,43 @@ const button = cva(
 );
 
 export function Button({
+  asChild,
   variant,
   size,
   className,
   loading,
   children,
   ...p
-}: ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof button> & { loading?: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof button> & { loading?: boolean; asChild?: boolean }) {
+  const cls = cn(button({ variant, size }), loading && "relative disabled:opacity-100", className);
+  // Carregando troca o conteúdo visível por spinner (DESIGN.md); o span com opacity-0
+  // preserva a largura e o nome acessível do botão.
+  const content = loading ? (
+    <>
+      <span className="inline-flex items-center justify-center gap-2 opacity-0 [&>svg]:size-4">{children}</span>
+      <Loader2 className="absolute animate-spin" aria-hidden />
+    </>
+  ) : (
+    children
+  );
+  if (asChild) {
+    const child = Children.only(children) as ReactElement<{ className?: string; children?: ReactNode }>;
+    return cloneElement(child, {
+      className: cn(cls, child.props.className),
+      children: loading ? (
+        <>
+          <span className="inline-flex items-center justify-center gap-2 opacity-0 [&>svg]:size-4">{child.props.children}</span>
+          <Loader2 className="absolute animate-spin" aria-hidden />
+        </>
+      ) : (
+        child.props.children
+      ),
+      ...p,
+    });
+  }
   return (
-    <button className={cn(button({ variant, size }), className)} disabled={loading || p.disabled} {...p}>
-      {loading && <Loader2 className="animate-spin" aria-hidden />}
-      {children}
+    <button className={cls} disabled={loading || p.disabled} {...p}>
+      {content}
     </button>
   );
 }

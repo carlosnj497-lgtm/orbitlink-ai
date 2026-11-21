@@ -75,7 +75,7 @@ _SANITIZE = (
     "DELETE FROM esp32_pairing_codes",
     "DELETE FROM esp32_nonces",
     "UPDATE control_requests SET nonce_hash = ''",
-    "DELETE FROM settings_kv WHERE key = 'sync:agent_token'",
+    "DELETE FROM settings_kv WHERE key = 'sync:agent_token' OR key LIKE 'secret:%'",
 )
 
 

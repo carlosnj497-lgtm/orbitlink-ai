@@ -51,6 +51,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/recover/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Recovery
+         * @description Envia um código temporário pelo canal ativo (Telegram ou e-mail).
+         *
+         *     No e-mail, responde 204 mesmo quando o endereço não existe, para não revelar quais têm conta. Um pedido novo
+         *     invalida o código anterior; o limite por IP e por endereço impede bombardeio de mensagens.
+         */
+        post: operations["request_recovery_v1_auth_recover_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/recover/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Recovery */
+        post: operations["confirm_recovery_v1_auth_recover_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change Email */
+        post: operations["change_email_v1_auth_email_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recover
+         * @description Redefine a senha local a partir do código de recuperação (o mesmo segredo exigido no primeiro acesso).
+         *
+         *     O código é obrigatório mesmo em loopback: o painel é publicado pelo Nginx e toda chamada chega ao agente
+         *     vinda de 127.0.0.1, então o IP não distingue o dono de alguém da LAN. Sem `ASTRYON_SETUP_CODE` a
+         *     redefinição pela tela fica desligada de propósito.
+         */
+        post: operations["recover_v1_auth_recover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/login": {
         parameters: {
             query?: never;
@@ -882,6 +963,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ai/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Connection
+         * @description Confere a chave da Groq listando os modelos (não gasta tokens nem conta no limite diário).
+         */
+        post: operations["test_connection_v1_ai_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ai/ask": {
         parameters: {
             query?: never;
@@ -893,6 +994,28 @@ export interface paths {
         put?: never;
         /** Ask */
         post: operations["ask_v1_ai_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai/transcribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcribe Audio
+         * @description Transcreve uma nota de voz enviada pelo navegador (WebRTC/MediaRecorder) usando Whisper da Groq.
+         *
+         *     O arquivo NÃO é salvo em disco: lido para memória, transcrito e descartado.
+         */
+        post: operations["transcribe_audio_v1_ai_transcribe_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -969,6 +1092,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/settings/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Credentials
+         * @description Atualiza segredos cifrando-os no banco KV. Os valores nunca retornam ao navegador.
+         */
+        put: operations["put_credentials_v1_settings_credentials_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sync": {
         parameters: {
             query?: never;
@@ -997,6 +1140,67 @@ export interface paths {
         put?: never;
         /** Sync Now */
         post: operations["sync_now_v1_sync_now_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sync/pair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pair
+         * @description Liga este agente à conta na nuvem com o código gerado no painel da conta.
+         */
+        post: operations["pair_v1_sync_pair_post"];
+        /**
+         * Unpair
+         * @description Desliga este agente da conta (só aqui; para revogar o acesso, remova o agente no painel da conta).
+         */
+        delete: operations["unpair_v1_sync_pair_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/appliance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Appliance State */
+        get: operations["appliance_state_v1_appliance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/appliance/pair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Appliance Pair
+         * @description Pareamento sem login, só em modo aparelho e só enquanto ainda não houver conta ligada.
+         */
+        post: operations["appliance_pair_v1_appliance_pair_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1154,6 +1358,11 @@ export interface components {
             /** Conversation Id */
             conversation_id?: number | null;
         };
+        /** Body_transcribe_audio_v1_ai_transcribe_post */
+        Body_transcribe_audio_v1_ai_transcribe_post: {
+            /** File */
+            file: string;
+        };
         /** CodeBody */
         CodeBody: {
             /** Name */
@@ -1186,12 +1395,24 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** CredentialsInput */
+        CredentialsInput: {
+            /** Credentials */
+            credentials: {
+                [key: string]: string | null;
+            };
+        };
         /** CsvBody */
         CsvBody: {
             /** Filename */
             filename: string;
             /** Content */
             content: string;
+        };
+        /** EmailChange */
+        EmailChange: {
+            /** Email */
+            email: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1214,6 +1435,13 @@ export interface components {
             /** Enabled */
             enabled?: boolean | null;
         };
+        /** PairBody */
+        PairBody: {
+            /** Code */
+            code: string;
+            /** Name */
+            name?: string | null;
+        };
         /** PasswordChange */
         PasswordChange: {
             /** Old Password */
@@ -1227,6 +1455,29 @@ export interface components {
             action: string;
             /** Reason */
             reason?: string | null;
+        };
+        /** RecoveryConfirm */
+        RecoveryConfirm: {
+            /** Email */
+            email?: string | null;
+            /** Code */
+            code: string;
+            /** New Password */
+            new_password: string;
+        };
+        /** RecoveryRequest */
+        RecoveryRequest: {
+            /** Email */
+            email?: string | null;
+        };
+        /** RecoveryReset */
+        RecoveryReset: {
+            /** Username */
+            username: string;
+            /** New Password */
+            new_password: string;
+            /** Recovery Code */
+            recovery_code?: string | null;
         };
         /** RuleBody */
         RuleBody: {
@@ -1284,6 +1535,14 @@ export interface components {
             weekly_digest_weekday?: number | null;
             /** Weekly Digest Hour */
             weekly_digest_hour?: number | null;
+            /** Ai Daily Request Limit */
+            ai_daily_request_limit?: number | null;
+            /** Ai Conversation Retention Days */
+            ai_conversation_retention_days?: number | null;
+            /** Ai Audio Daily Request Limit */
+            ai_audio_daily_request_limit?: number | null;
+            /** Ai Transcribe Enabled */
+            ai_transcribe_enabled?: boolean | null;
         };
         /** SetupBody */
         SetupBody: {
@@ -1293,6 +1552,8 @@ export interface components {
             password: string;
             /** Setup Code */
             setup_code?: string | null;
+            /** Email */
+            email?: string | null;
         };
         /** SilenceBody */
         SilenceBody: {
@@ -1401,6 +1662,141 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_recovery_v1_auth_recover_request_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-forwarded-for"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoveryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_recovery_v1_auth_recover_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-forwarded-for"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoveryConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_email_v1_auth_email_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-astryon-session"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recover_v1_auth_recover_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoveryReset"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -3290,6 +3686,40 @@ export interface operations {
             };
         };
     };
+    test_connection_v1_ai_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ask_v1_ai_ask_post: {
         parameters: {
             query?: never;
@@ -3314,6 +3744,44 @@ export interface operations {
                 content: {
                     "application/json": {
                         [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transcribe_audio_v1_ai_transcribe_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_transcribe_audio_v1_ai_transcribe_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
                     };
                 };
             };
@@ -3538,6 +4006,44 @@ export interface operations {
             };
         };
     };
+    put_credentials_v1_settings_credentials_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredentialsInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     sync_state_v1_sync_get: {
         parameters: {
             query?: never;
@@ -3583,6 +4089,148 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pair_v1_sync_pair_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PairBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unpair_v1_sync_pair_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-astryon-session"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    appliance_state_v1_appliance_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    appliance_pair_v1_appliance_pair_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PairBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

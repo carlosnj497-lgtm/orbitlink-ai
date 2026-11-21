@@ -353,12 +353,49 @@ textarea {
   animation: pop-in 140ms ease-out;
 }
 
+/* Barra de progresso linear (ex.: espera do redirecionamento após salvar a senha nova). */
+@keyframes fill-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.ol-fill {
+  animation: fill-x 1.5s linear both;
+}
+
+/* Antena na hero: leve balanço + pulso de opacidade quando não há comunicação (buscando/tentando reconectar). */
+@keyframes dish-seek {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    opacity: 0.4;
+    transform: rotate(0deg);
+  }
+  75% {
+    transform: rotate(1.5deg);
+  }
+}
+
+.animate-dish-seek {
+  animation: dish-seek 3s ease-in-out infinite;
+  transform-origin: 50% 88%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-drawer-in,
   .animate-fade-in,
   .animate-rise,
   .animate-pop-in,
   .animate-pulse-dot,
+  .animate-dish-seek,
+  .ol-fill,
   .ol-live::after,
   .ol-scan::after {
     animation: none;

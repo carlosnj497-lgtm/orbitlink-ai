@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { KeyRound, UserRound } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { KeyRound, Mail, UserRound } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Button, Callout, Input, Label } from "@/components/ui/primitives";
 import { requestJson } from "@/lib/api";
@@ -12,7 +12,8 @@ import { Row, Section } from "./shared";
 /* ----------------------------------------------------------------- Conta */
 export function AccountSection() {
   const demo = useDemo();
-  const me = useQuery<{ username: string; role: string } | null>({
+  const qc = useQueryClient();
+  const me = useQuery<{ username: string; role: string; email?: string | null } | null>({
     queryKey: ["auth", "me"],
     queryFn: async () => {
       const r = await fetch("/api/auth/me");
@@ -24,9 +25,30 @@ export function AccountSection() {
   const [old, setOld] = useState("");
   const [nw, setNw] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [email, setEmail] = useState<string | null>(null);
+  const [emailMsg, setEmailMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [emailBusy, setEmailBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const mismatch = confirm.length > 0 && confirm !== nw;
+
+  async function saveEmail(e: FormEvent) {
+    e.preventDefault();
+    const value = (email ?? me.data?.email ?? "").trim();
+    if (!value) return;
+    setEmailBusy(true);
+    setEmailMsg(null);
+    const r = await requestJson("/api/auth/email", { json: { email: value } });
+    setEmailBusy(false);
+    if (r.ok) {
+      setEmailMsg({ ok: true, text: "E-mail de recuperação salvo. O próximo código vai para esse endereço." });
+      setEmail(null);
+      await qc.invalidateQueries({ queryKey: ["auth", "me"] });
+    } else {
+      setEmailMsg({ ok: false, text: r.error ?? "Não foi possível salvar o e-mail." });
+    }
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (mismatch) return;
@@ -54,7 +76,36 @@ export function AccountSection() {
       <dl className="mb-4">
         <Row label="Usuário" value={demo ? "Visitante (demonstração)" : (me.data?.username ?? "—")} />
         <Row label="Papel" value={demo ? "—" : me.data?.role === "admin" ? "Administrador local" : (me.data?.role ?? "—")} />
+        <Row label="E-mail de recuperação" value={demo ? "—" : (me.data?.email ?? "não cadastrado")} />
       </dl>
+
+      <form onSubmit={saveEmail} className="mb-5 grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_auto]">
+        <div className="space-y-1">
+          <Label htmlFor="recovery-email">E-mail para recuperar a senha</Label>
+          <Input
+            id="recovery-email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            maxLength={200}
+            value={email ?? me.data?.email ?? ""}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={demo || emailBusy}
+          />
+          <p className="text-xs text-fg-subtle">
+            O código temporário do &quot;Esqueci a senha&quot; vai para este endereço.
+          </p>
+        </div>
+        <Button size="sm" type="submit" variant="secondary" loading={emailBusy} disabled={demo || !(email ?? me.data?.email ?? "").trim()}>
+          <Mail /> Salvar e-mail
+        </Button>
+        {emailMsg && (
+          <Callout tone={emailMsg.ok ? "ok" : "crit"} className="sm:col-span-2">
+            {emailMsg.text}
+          </Callout>
+        )}
+      </form>
+
       <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="space-y-1">
           <Label htmlFor="old">Senha atual</Label>

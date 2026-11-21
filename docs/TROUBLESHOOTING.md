@@ -40,5 +40,6 @@ No ambiente de desenvolvimento, use `apps/agent/.venv/bin/python -m astryon_agen
 (no Windows, `apps\agent\.venv\Scripts\python.exe -m astryon_agent`) no lugar de `astryon-agent`.
 A senha é solicitada sem aparecer na tela. O comando só recupera um administrador
 cujo hash está vazio; contas ativas continuam exigindo a troca normal de senha.
+Com Telegram ou SMTP configurado, o caminho mais simples é **`/login/redefinir`** → código temporário no Telegram ou no e-mail cadastrado.
 Inicie o agente e entre com a nova senha. Pareie novamente ESP32 e nuvem.
 O procedimento também funciona com backups sanitizados de versões anteriores.

@@ -1,17 +1,18 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, History, MessageSquarePlus, Mic, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowUp, CheckCircle2, History, MessageSquarePlus, Mic, MicOff, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/domain";
 import { Markdown } from "@/components/markdown";
-import { Button, Callout, Card, Dialog } from "@/components/ui/primitives";
-import { api, ApiError, useAgent } from "@/lib/api";
+import { Button, Callout, Card, Dialog, EmptyState, Tip } from "@/components/ui/primitives";
+import { api, ApiError, errorText, noteServerDate, useAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
 import { fmtAgo, usageForToday } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
+import { type AgentInfo } from "@astryon/shared";
 import { type CheckState, StateDot, StateIcon } from "./diagnostics-parts/checklist";
 
 interface AiStatus {
@@ -35,7 +36,7 @@ interface AskResponse {
   engine: "groq" | "regras";
   model?: string;
   tools_used: string[];
-  proposal: { proposta: { acao: string; descricao: string; consequencias: string[] }; disponivel: boolean; status_capacidade: string } | null;
+  proposal: { proposta: { acao: string; descricao: string; consequencias: string[]; motivo?: string }; disponivel: boolean; status_capacidade: string } | null;
   usage?: { input_tokens: number; output_tokens: number; estimated_cost_usd: number | null };
 }
 
@@ -60,6 +61,27 @@ interface Msg {
   /** Ferramentas lidas do histórico salvo (conversas antigas não têm o restante dos metadados). */
   tools?: string[];
   error?: boolean;
+}
+
+interface PrepareResponse {
+  operation_id: string;
+  nonce: string;
+  expires_at: number;
+  action: string;
+  label: string;
+  target: string;
+  confirm_text: string;
+  consequences: string[];
+}
+
+interface ConfirmResponse {
+  operation_id: string;
+  status: string;
+  detail: string;
+}
+
+interface TranscribeResponse {
+  text: string;
 }
 
 const SUGGESTIONS = [
@@ -147,7 +169,13 @@ function HistoryList({
           ))}
         </div>
       ) : items.length === 0 ? (
-        <p className="px-3 pb-4 text-xs leading-relaxed text-fg-subtle">Nenhuma conversa salva. As conversas ficam só neste computador e expiram automaticamente.</p>
+        <EmptyState
+          icon={<History />}
+          title="Nenhuma conversa salva"
+          className="px-4 py-6"
+        >
+          As conversas ficam só neste computador e expiram automaticamente. Comece uma nova pergunta ao lado.
+        </EmptyState>
       ) : (
         <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
           {items.map((c) => {
@@ -257,7 +285,15 @@ function ToolChips({ tools }: { tools: string[] }) {
   );
 }
 
-function Message({ m, base }: { m: Msg; base: string }) {
+interface MessageProps {
+  m: Msg;
+  base: string;
+  onRetry?: () => void;
+  onRunAction?: (proposal: NonNullable<AskResponse["proposal"]>) => void;
+  runningAction?: boolean;
+}
+
+function Message({ m, base, onRetry, onRunAction, runningAction }: MessageProps) {
   if (m.role === "user") {
     return (
       <div className="animate-rise flex justify-end">
@@ -268,13 +304,27 @@ function Message({ m, base }: { m: Msg; base: string }) {
     );
   }
   const tools = m.meta?.tools_used ?? m.tools ?? [];
+  const tooltip = m.meta
+    ? `${m.meta.engine === "groq" ? `Groq · ${m.meta.model}` : "Regras determinísticas"}${m.meta.usage ? ` · ${m.meta.usage.input_tokens + m.meta.usage.output_tokens} tokens` : ""}${m.meta.usage?.estimated_cost_usd != null ? ` · US$ ${m.meta.usage.estimated_cost_usd.toFixed(4)}` : ""}`
+    : undefined;
   return (
     <div className="animate-rise flex gap-3">
       <span aria-hidden className={cn("mt-0.5 grid size-7 shrink-0 place-items-center rounded-md border", m.error ? "border-crit/40 text-crit" : "border-accent-2/50 bg-bg-elev text-accent")}>
         {m.error ? <StateIcon state="crit" className="size-4" /> : <Sparkles className="size-3.5 stroke-[1.75]" />}
       </span>
       <div className="min-w-0 max-w-[48rem] flex-1">
-        {m.error ? <p className="text-sm text-crit">{m.text}</p> : <Markdown text={m.text} />}
+        {m.error ? (
+          <div className="rounded-md border border-crit/30 bg-crit/10 px-3 py-2">
+            <p className="text-sm text-crit">{m.text}</p>
+            {onRetry && (
+              <Button size="sm" variant="ghost" className="mt-1 h-7 px-2 text-xs text-crit hover:bg-crit/10" onClick={onRetry}>
+                <RefreshCw className="size-3.5" /> Tentar de novo
+              </Button>
+            )}
+          </div>
+        ) : (
+          <Markdown text={m.text} />
+        )}
         {m.meta?.proposal && (
           <div className="mt-3 rounded-md border border-warn/35 bg-warn-soft p-3 text-sm">
             <p className="flex items-start gap-2 font-medium text-fg">
@@ -284,19 +334,31 @@ function Message({ m, base }: { m: Msg; base: string }) {
             <p className="mt-0.5 pl-6 text-xs text-fg-muted">
               {m.meta.proposal.disponivel ? "Disponível para confirmação manual." : `Indisponível (${m.meta.proposal.status_capacidade}).`} Nada foi executado.
             </p>
-            <Link href={`${base}/controle`} className="mt-2 ml-6 inline-block text-xs font-medium text-accent hover:underline">
-              Abrir Controle da Starlink →
-            </Link>
+            {m.meta.proposal.disponivel && onRunAction ? (
+              <Button
+                size="sm"
+                variant="primary"
+                className="mt-2 ml-6 h-8"
+                onClick={() => onRunAction(m.meta!.proposal!)}
+                loading={runningAction}
+              >
+                <CheckCircle2 className="size-3.5" /> Confirmar e executar
+              </Button>
+            ) : (
+              <Link href={`${base}/controle`} className="mt-2 ml-6 inline-block text-xs font-medium text-accent hover:underline">
+                Abrir Controle da Starlink →
+              </Link>
+            )}
           </div>
         )}
         <ToolChips tools={tools} />
-        {m.meta && (
-          <p className="tabular mt-2 flex items-center gap-1.5 text-[10.5px] text-fg-subtle">
-            <StateDot state={m.meta.engine === "groq" ? "ok" : "off"} className="size-1.5" />
-            {m.meta.engine === "groq" ? `Groq · ${m.meta.model}` : "Regras determinísticas"}
-            {m.meta.usage && ` · ${m.meta.usage.input_tokens + m.meta.usage.output_tokens} tokens`}
-            {m.meta.usage?.estimated_cost_usd != null && ` · US$ ${m.meta.usage.estimated_cost_usd.toFixed(4)}`}
-          </p>
+        {m.meta && tooltip && (
+          <Tip content={tooltip} side="right">
+            <p className="tabular mt-2 inline-flex cursor-help items-center gap-1.5 text-[10.5px] text-fg-subtle">
+              <StateDot state={m.meta.engine === "groq" ? "ok" : "off"} className="size-1.5" />
+              {m.meta.engine === "groq" ? "Groq" : "Regras"}
+            </p>
+          </Tip>
         )}
       </div>
     </div>
@@ -318,29 +380,53 @@ function Thinking() {
 }
 
 /* ----------------------------------------------------------------- Estado do motor */
-/** Linha de estado do motor: Groq ligado (verde) ou só regras (desligado), e o uso de hoje contra o limite. */
-function EngineLine({ status, loading, today, audioToday }: { status: AiStatus | undefined; loading: boolean; today: number; audioToday: number }) {
-  if (!status) return loading ? <div className="skeleton mb-4 h-11 w-full rounded-md" aria-hidden /> : null;
-  const on = status.configured;
-  const limit = status.daily_limit;
+/** Linha de estado do motor: Groq ligado (verde) ou só regras (desligado), e o uso de hoje contra o limite.
+ *  Mesmo sem ai/status (demo/offline) mostra uma linha explicativa para não deixar o topo vazio. */
+function EngineLine({
+  status,
+  loading,
+  today,
+  audioToday,
+  agent,
+  demo,
+}: {
+  status: AiStatus | undefined;
+  loading: boolean;
+  today: number;
+  audioToday: number;
+  agent: AgentInfo | undefined;
+  demo: boolean;
+}) {
+  if (loading) return <div className="skeleton mb-4 h-11 w-full rounded-md" aria-hidden />;
+  const on = status?.configured ?? agent?.ai_configured ?? false;
+  const limit = status?.daily_limit ?? 0;
   const ratio = limit > 0 ? today / limit : 0;
   const use: CheckState = ratio >= 1 ? "crit" : ratio >= 0.8 ? "warn" : "ok";
-  const audio = status.audio;
+  const audio = status?.audio;
+  const showMeter = status && (on || status.daily_limit > 0);
   return (
     <section aria-label="Estado do motor de IA" className="ol-card mb-4 flex flex-wrap items-center gap-x-6 gap-y-2.5 px-4 py-2.5">
       <p className="flex min-w-0 items-center gap-2 text-sm text-fg">
-        <StateDot state={on ? "ok" : "off"} />
-        {on ? (
+        <StateDot state={on ? "ok" : demo ? "off" : "warn"} />
+        {demo ? (
           <>
-            Groq ligado <span className="tabular truncate text-xs text-fg-subtle">{status.model}</span>
+            Modo demonstração <span className="text-xs text-fg-subtle">(IA inativa)</span>
           </>
-        ) : (
+        ) : on ? (
+          <>
+            Groq ligado <span className="tabular truncate text-xs text-fg-subtle">{status?.model}</span>
+          </>
+        ) : status ? (
           <>
             Somente regras <span className="text-xs text-fg-subtle">(sem chave de API)</span>
           </>
+        ) : (
+          <>
+            Estado da IA indisponível <span className="text-xs text-fg-subtle">(agente offline?)</span>
+          </>
         )}
       </p>
-      {on && (
+      {showMeter && (
         <div className="flex items-center gap-2.5 text-xs text-fg-muted">
           <span>Perguntas</span>
           <span
@@ -362,7 +448,13 @@ function EngineLine({ status, loading, today, audioToday }: { status: AiStatus |
           <span className="tabular text-fg">{`${audioToday}/${audio.daily_limit}`}</span> áudios hoje
         </p>
       )}
-      <p className="text-xs text-fg-subtle sm:ml-auto">{on ? "A IA escolhe quais dados consultar; as consultas aparecem marcadas em cada resposta." : "As respostas vêm do diagnóstico por regras do agente."}</p>
+      <p className="text-xs text-fg-subtle sm:ml-auto">
+        {demo
+          ? "Conecte um agente real para fazer perguntas."
+          : on
+            ? "A IA escolhe quais dados consultar; as consultas aparecem marcadas em cada resposta."
+            : "As respostas vêm do diagnóstico por regras do agente."}
+      </p>
     </section>
   );
 }
@@ -373,6 +465,7 @@ export default function AssistantView() {
   const clock = useNow(60_000);
   const base = useBasePath();
   const qc = useQueryClient();
+  const agent = useAgent<AgentInfo>("agent", { refetchInterval: 30_000 });
   const status = useAgent<AiStatus>("ai/status");
   const history = useAgent<{ conversations?: Conversation[] }>(demo ? null : "ai/conversations");
   const conversations = Array.isArray(history.data?.conversations) ? history.data.conversations : [];
@@ -396,17 +489,122 @@ export default function AssistantView() {
     onError: (e: ApiError) => setMsgs((m) => [...m, { role: "assistant", text: e.message, error: true }]),
   });
 
-  // Rola só a área do chat (nunca a página) e só quando há conversa: abrir a tela no celular não pode
-  // empurrar o topo para fora da vista. Corpo em bloco: o efeito não pode devolver nada além de função.
+  // Retry da última pergunta feita (usado em mensagens de erro).
+  const [lastQuestion, setLastQuestion] = useState<string>("");
+
+  // ----------------------------------------------------------------- Ação inline (prepare → confirm)
+  const [runActionMsg, setRunActionMsg] = useState<{ action: string; text: string } | null>(null);
+  const prepareAction = useMutation({
+    mutationKey: ["control", "prepare"],
+    mutationFn: ({ action, reason }: { action: string; reason?: string }) =>
+      api<PrepareResponse>("control/prepare", { method: "POST", body: JSON.stringify({ action, reason }) }),
+  });
+  const confirmAction = useMutation({
+    mutationKey: ["control", "confirm"],
+    mutationFn: ({ operation_id, nonce, confirm_text }: { operation_id: string; nonce: string; confirm_text: string }) =>
+      api<ConfirmResponse>("control/confirm", { method: "POST", body: JSON.stringify({ operation_id, nonce, confirm_text }) }),
+    onSuccess: (r) => {
+      setMsgs((m) => [
+        ...m,
+        { role: "assistant", text: `✓ Ação executada: ${runActionMsg?.text ?? r.status}\n\n${r.detail}` },
+      ]);
+      setRunActionMsg(null);
+    },
+    onError: (e: ApiError) => {
+      setMsgs((m) => [
+        ...m,
+        { role: "assistant", text: `Não foi possível executar a ação: ${e.message}`, error: true },
+      ]);
+      setRunActionMsg(null);
+    },
+  });
+
+  async function runProposal(proposal: NonNullable<AskResponse["proposal"]>) {
+    if (prepareAction.isPending || confirmAction.isPending) return;
+    setRunActionMsg({ action: proposal.proposta.acao, text: proposal.proposta.descricao });
+    try {
+      const p = await prepareAction.mutateAsync({ action: proposal.proposta.acao, reason: proposal.proposta.motivo });
+      await confirmAction.mutateAsync({
+        operation_id: p.operation_id,
+        nonce: p.nonce,
+        confirm_text: p.confirm_text,
+      });
+    } catch {
+      // Erros já vão para onError das mutações.
+    }
+  }
+
+  // ----------------------------------------------------------------- Áudio (gravar e transcrever no navegador)
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
+  const transcribe = useMutation({
+    mutationKey: ["ai", "transcribe"],
+    mutationFn: async (blob: Blob) => {
+      const form = new FormData();
+      form.append("file", blob, "recording.webm");
+      const res = await fetch("/api/agent/ai/transcribe", { method: "POST", body: form });
+      noteServerDate(res);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { detail?: unknown; code?: string };
+        throw new ApiError(res.status, errorText(body, res.status), body.code);
+      }
+      return (await res.json()) as TranscribeResponse;
+    },
+    onSuccess: (r) => {
+      if (r.text) {
+        setQ(r.text);
+        input.current?.focus();
+      }
+    },
+    onError: (e: ApiError) => setMsgs((m) => [...m, { role: "assistant", text: e.message, error: true }]),
+  });
+
+  async function toggleRecording() {
+    if (recording) {
+      recorderRef.current?.stop();
+      return;
+    }
+    if (demo) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      recorderRef.current = recorder;
+      audioChunks.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size) audioChunks.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunks.current, { type: mime });
+        if (blob.size > 0) transcribe.mutate(blob);
+        setRecording(false);
+      };
+      recorder.onerror = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+      };
+      recorder.start(200);
+      setRecording(true);
+    } catch {
+      setMsgs((m) => [...m, { role: "assistant", text: "Não foi possível acessar o microfone. Verifique a permissão do navegador.", error: true }]);
+    }
+  }
+
+  // Rola a área de chat só se o usuário já estiver perto do final. Isso evita puxar o scroll
+  // quando ele está relendo uma resposta longa, mas mantém o auto-scroll natural durante a conversa.
   useEffect(() => {
     const el = scroller.current;
     if (!el || (msgs.length === 0 && !ask.isPending)) return;
-    el.scrollTo?.({ top: el.scrollHeight, behavior: "smooth" });
+    const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 120;
+    if (nearBottom) {
+      el.scrollTo?.({ top: el.scrollHeight, behavior: "smooth" });
+    }
   }, [msgs, ask.isPending]);
 
   function send(text: string) {
     const t = text.trim();
     if (!t || ask.isPending || demo) return;
+    setLastQuestion(t);
     setMsgs((m) => [...m, { role: "user", text: t }]);
     setQ("");
     ask.mutate(t);
@@ -516,12 +714,12 @@ export default function AssistantView() {
       <PageHeader
         title="Central de IA"
         icon={<Sparkles />}
-        description="Perguntas em português sobre a sua conexão, respondidas só com dados registrados pelo agente, com período, fonte e incerteza."
+        description="Pergunte sobre estado, consumo, quedas e alertas. Respostas só leem dados; ações só com sua confirmação."
       />
-      <EngineLine status={status.data} loading={status.isLoading} today={today?.requests ?? 0} audioToday={audioToday?.requests ?? 0} />
+      <EngineLine status={status.data} loading={status.isLoading} today={today?.requests ?? 0} audioToday={audioToday?.requests ?? 0} agent={agent.data} demo={demo} />
       {demo && (
-        <Callout tone="demo" className="mb-4">
-          A Central de IA não responde na demonstração.
+        <Callout tone="demo" icon={<AlertTriangle />} className="mb-4">
+          No modo demonstração as perguntas não são enviadas. Conecte um agente para usar a IA.
         </Callout>
       )}
 
@@ -561,22 +759,34 @@ export default function AssistantView() {
                 <p className="mt-1 max-w-xl text-sm text-fg-muted">
                   Pergunte sobre o estado da antena, consumo, quedas, perda por horário, obstrução, alertas, dispositivos da rede e o ESP32. As respostas usam só os dados registrados pelo agente, lidos sem alterar nada.
                 </p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => send(s)}
-                      disabled={demo}
-                      className="rounded-md border border-border-strong bg-surface-2 px-3 py-2 text-left text-xs text-fg-muted transition-colors hover:border-accent-2/60 hover:text-fg disabled:opacity-50"
-                    >
-                      {s}
-                    </button>
-                  ))}
+                <div className="mt-5">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">Sugestões de perguntas</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => send(s)}
+                        disabled={demo}
+                        className="rounded-full border border-border bg-bg-elev px-3 py-1.5 text-left text-xs text-fg-muted transition-colors hover:border-accent-2/60 hover:bg-surface-2 hover:text-fg disabled:opacity-50"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
-              msgs.map((m, i) => <Message key={i} m={m} base={base} />)
+              msgs.map((m, i) => (
+                <Message
+                  key={i}
+                  m={m}
+                  base={base}
+                  onRetry={m.error && lastQuestion ? () => send(lastQuestion) : undefined}
+                  onRunAction={m.meta?.proposal?.disponivel ? runProposal : undefined}
+                  runningAction={prepareAction.isPending || confirmAction.isPending}
+                />
+              ))
             )}
             {ask.isPending && <Thinking />}
           </div>
@@ -595,14 +805,35 @@ export default function AssistantView() {
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={onKey}
                 maxLength={2000}
-                disabled={demo}
+                disabled={demo || recording}
                 className="max-h-40 min-h-9 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-fg [field-sizing:content] placeholder:text-fg-subtle focus:outline-none disabled:opacity-50"
               />
+              {audio?.enabled && (
+                <Tip content={recording ? "Parar gravação" : "Gravar pergunta de voz"} side="top">
+                  <button
+                    type="button"
+                    onClick={() => void toggleRecording()}
+                    disabled={demo}
+                    aria-label={recording ? "Parar gravação" : "Gravar pergunta de voz"}
+                    className={cn(
+                      "grid size-10 shrink-0 place-items-center rounded-md transition-colors disabled:opacity-50",
+                      recording
+                        ? "animate-pulse bg-crit text-white"
+                        : "text-fg-muted hover:bg-surface-3 hover:text-fg",
+                      transcribe.isPending && "animate-pulse text-accent",
+                    )}
+                  >
+                    {transcribe.isPending ? <Mic className="size-4" /> : recording ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                  </button>
+                </Tip>
+              )}
               <Button type="submit" variant="primary" size="icon" loading={ask.isPending} disabled={!q.trim() || demo} aria-label="Enviar pergunta">
                 {!ask.isPending && <ArrowUp />}
               </Button>
             </div>
-            <p className="mt-1.5 hidden px-1 text-[10.5px] text-fg-subtle sm:block">Enter envia · Shift+Enter quebra a linha</p>
+            <p className="mt-1.5 hidden px-1 text-[10.5px] text-fg-subtle sm:block">
+              {recording ? "Gravando… clique no microfone para parar" : "Enter envia · Shift+Enter quebra a linha"}
+            </p>
           </form>
         </Card>
 

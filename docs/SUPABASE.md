@@ -6,10 +6,19 @@ O agente funciona sem Supabase. Quando configurado, ele envia agregados por minu
 
 **Sem Docker:** use o SQL Editor do painel do Supabase.
 
-1. Abra o projeto → SQL Editor → cole e execute `supabase/migrations/20261112000001_astryon_core.sql`.
+1. Abra o projeto → SQL Editor e execute **TODAS** as migrations de `supabase/migrations/`, uma de cada vez e **na ordem do nome**:
+   - `20261112000001_astryon_core.sql`
+   - `20261115000001_pairing_and_account.sql`
+   - `20261115000002_cloud_queries.sql`
+   - `20261115000003_lock_function_grants.sql` (obrigatória: restringe o acesso às funções internas)
+   - `20261120000001_cloud_regressions.sql` (limites, agregações, lacunas e exportação da nuvem)
 2. Confira: Table Editor → as tabelas aparecem com o cadeado de RLS ativo.
 
-Alternativa com a CLI (`supabase link` + `supabase db push`, que não exige Docker para o push remoto).
+> **Instalações antigas:** aplique todas as migrations ausentes, na ordem do nome. Em particular, quem aplicou apenas
+> `20261112000001_astryon_core.sql` precisa aplicar as migrations seguintes, sobretudo
+> `20261115000003_lock_function_grants.sql`; sem ela, grants perigosos das funções internas permanecem ativos.
+
+Alternativa com a CLI (`supabase link` + `supabase db push`, que não exige Docker para o push remoto e aplica as migrations pendentes na ordem).
 
 ## Parear o agente
 

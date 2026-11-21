@@ -1,30 +1,27 @@
 "use client";
 
-import { Eye, LogIn, ShieldCheck } from "lucide-react";
-import Image from "next/image";
+import { AlertTriangle, Eye, EyeOff, Info, LogIn, RefreshCw, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { type FormEvent, useState } from "react";
-import { Button, Callout, Card, Input, Label } from "@/components/ui/primitives";
+import { type FormEvent, useEffect, useId, useState } from "react";
+import { Button, Callout, Input, Label, Skeleton } from "@/components/ui/primitives";
 import { requestJson } from "@/lib/api";
 import { safeNext } from "@/lib/safe-next";
+import { loadAuthState } from "./login-parts/auth-state";
+import { PasswordStrength } from "./login-parts/password-strength";
+import { LoginShell } from "./login-parts/shell";
 
-type AuthState = { setup_required: boolean; setup_code_required?: boolean; supabase_configured: boolean } | { detail: string };
-
-const OFFLINE = "Agente ASTRYON offline. Inicie com scripts\\start.ps1.";
-
-async function loadAuthState(): Promise<AuthState> {
-  const r = await requestJson<AuthState>("/api/auth/state", { cache: "no-store" });
-  if (r.ok && r.data) return r.data;
-  return { detail: r.status ? (r.error ?? OFFLINE) : OFFLINE };
-}
+const LAST_USER_KEY = "astryon:last-username";
 
 export function LoginForm() {
   const params = useSearchParams();
-  const { data: state = null } = useQuery({ queryKey: ["auth", "state"], queryFn: loadAuthState, retry: false });
-  const [username, setUsername] = useState("admin");
+  const { data: state = null, refetch, isFetching } = useQuery({ queryKey: ["auth", "state"], queryFn: loadAuthState, retry: false });
+  const savedUser = typeof window !== "undefined" ? window.localStorage.getItem(LAST_USER_KEY) : "";
+  const [username, setUsername] = useState(() => savedUser ?? "");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [setupCode, setSetupCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +29,29 @@ export function LoginForm() {
 
   const setup = state && "setup_required" in state && state.setup_required;
   const needCode = setup && "setup_code_required" in state && state.setup_code_required;
+  const channel = state && "setup_required" in state ? (state.recovery_channel ?? (state.email_recovery ? "email" : null)) : null;
+  const emailRecovery = channel === "email";
+  const telegramRecovery = channel === "telegram";
   const offline = state && "detail" in state;
+  const sessionExpired = params.get("motivo") === "expirada";
+  const id = useId();
+  const passwordHelpId = `${id}-password-help`;
+
+  const status = !state
+    ? ({ tone: "info" as const, label: "Consultando sistema" })
+    : offline
+      ? ({ tone: "crit" as const, label: "Agente offline" })
+      : setup
+        ? ({ tone: "info" as const, label: "Primeiro acesso" })
+        : ({ tone: "ok" as const, label: "Sistema pronto" });
+
+  useEffect(() => {
+    if (sessionExpired && window.history.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("motivo");
+      window.history.replaceState({}, "", url);
+    }
+  }, [sessionExpired]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -41,78 +60,214 @@ export function LoginForm() {
       setError("As senhas não conferem.");
       return;
     }
+    if (setup && password.length < 10) {
+      setError("A senha precisa de pelo menos 10 caracteres.");
+      return;
+    }
+    if (setup && emailRecovery && email.trim().length === 0) {
+      setError("Informe um e-mail para recuperar a senha quando precisar.");
+      return;
+    }
     setBusy(true);
-    const r = await requestJson(`/api/auth/${setup ? "setup" : "login"}`, { json: setup && needCode ? { username, password, setup_code: setupCode } : { username, password } }, "Não foi possível falar com o painel.");
+    const payload = {
+      username,
+      password,
+      ...(setup && needCode ? { setup_code: setupCode } : {}),
+      ...(setup && email.trim() ? { email: email.trim() } : {}),
+    };
+    const r = await requestJson(`/api/auth/${setup ? "setup" : "login"}`, { json: payload }, "Não foi possível falar com o painel.");
     setBusy(false);
     if (!r.ok) {
       setError(r.error ?? "Falha na autenticação.");
       return;
     }
+    if (typeof window !== "undefined" && username.trim()) {
+      window.localStorage.setItem(LAST_USER_KEY, username.trim());
+    }
     window.location.href = safeNext(params.get("next"), window.location.origin);
   }
 
+  const title = setup ? "Criar administrador local" : "Acessar o console";
+  const subtitle = setup
+    ? "Defina o usuário administrador. A senha fica somente neste servidor (hash scrypt)."
+    : "Autentique-se para monitorar a conexão.";
+
   return (
-    <div className="w-full max-w-sm">
-      <div className="mb-5 flex flex-col items-center text-center">
-        {/* Antena e logo: imagens enviadas pelo dono (fundo transparente). */}
-        <Image src="/dish-login.webp" alt="" width={338} height={420} unoptimized preload className="h-28 w-auto drop-shadow-[0_10px_24px_rgba(0,0,0,0.7)] sm:h-32" />
-        <h1 className="mt-3">
-          <Image src="/astryon-logo.webp" alt="ASTRYON — Space Systems" width={800} height={298} unoptimized preload className="h-auto w-56 sm:w-64" />
-        </h1>
-        <p className="sr-only">Painel local da sua Starlink Mini</p>
-      </div>
-      <Card className="ol-glow ol-hud p-6">
-        <h2 className="text-base font-semibold">{setup ? "Criar administrador local" : "Entrar"}</h2>
-        <p className="mt-1 text-sm text-fg-muted">
-          {setup
-            ? "Primeiro acesso: defina o usuário que poderá ver dados e confirmar ações. A senha fica somente neste computador (hash scrypt)."
-            : "Use o usuário local configurado na instalação."}
-        </p>
-        {offline && (
-          <Callout tone="crit" className="mt-4" title="Sem conexão com o agente">
-            {(state as { detail: string }).detail}
-          </Callout>
-        )}
-        <form onSubmit={submit} className="mt-4 space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="u">Usuário</Label>
-            <Input id="u" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required minLength={3} />
+    <LoginShell
+      mode="local"
+      status={status}
+      title={title}
+      subtitle={subtitle}
+      version={state && "version" in state ? state.version : null}
+    >
+      {!state && (
+        <div className="space-y-3" aria-busy="true">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-3/4" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      )}
+
+      {state && offline && (
+        <Callout tone="crit" icon={<AlertTriangle className="size-4" />} title="Sem conexão com o agente">
+          {(state as { detail: string }).detail}
+          <div className="mt-3">
+            <Button type="button" size="sm" variant="secondary" onClick={() => refetch()} disabled={isFetching} className="h-11 sm:h-8">
+              {isFetching ? <RefreshCw className="size-3.5 animate-spin" aria-hidden /> : <RefreshCw className="size-3.5" aria-hidden />}
+              Testar conexão
+            </Button>
           </div>
+        </Callout>
+      )}
+
+      {sessionExpired && (
+        <Callout tone="warn" icon={<AlertTriangle className="size-4" />} title="Sessão expirada">
+          Sua sessão expirou por inatividade. Entre novamente para continuar.
+        </Callout>
+      )}
+
+      {state && !offline && (
+        <form onSubmit={submit} className="space-y-4" aria-label={title}>
+          {error && (
+            <Callout tone="crit" icon={<AlertTriangle className="size-4" />}>
+              {error}
+            </Callout>
+          )}
+
           <div className="space-y-1.5">
-            <Label htmlFor="p">Senha</Label>
-            <Input id="p" type="password" autoComplete={setup ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={setup ? 10 : 1} />
+            <Label htmlFor={`${id}-u`}>Usuário</Label>
+            <Input
+              id={`${id}-u`}
+              autoComplete="username"
+              autoFocus
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              minLength={3}
+              disabled={busy}
+              placeholder={setup ? "ex: admin" : undefined}
+              className="h-11 sm:h-9"
+            />
           </div>
+
           {setup && (
             <div className="space-y-1.5">
-              <Label htmlFor="c">Confirmar senha</Label>
-              <Input id="c" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={10} />
-              <p className="text-xs text-fg-subtle">Mínimo de 10 caracteres.</p>
+              <Label htmlFor={`${id}-e`}>
+                E-mail para recuperação {emailRecovery ? "" : "(opcional)"}
+              </Label>
+              <Input
+                id={`${id}-e`}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required={emailRecovery}
+                maxLength={200}
+                disabled={busy}
+                aria-describedby={`${id}-e-help`}
+                className="h-11 sm:h-9"
+              />
+              <p id={`${id}-e-help`} className="text-xs leading-relaxed text-fg-subtle">
+                {emailRecovery
+                  ? "É para cá que enviaremos o código quando você esquecer a senha."
+                  : telegramRecovery
+                    ? "A recuperação é pelo Telegram. O e-mail é opcional."
+                    : "Opcional enquanto nenhum canal de recuperação está configurado no servidor."}
+              </p>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor={`${id}-p`}>Senha</Label>
+            <div className="relative">
+              <Input
+                id={`${id}-p`}
+                type={showPassword ? "text" : "password"}
+                autoComplete={setup ? "new-password" : "current-password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={setup ? 10 : undefined}
+                disabled={busy}
+                aria-describedby={setup ? passwordHelpId : undefined}
+                className="h-11 pr-12 sm:h-9"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-0.5 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-md text-fg-subtle transition-colors hover:bg-surface-2 hover:text-fg active:bg-surface-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-2 sm:size-8"
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+              </button>
+            </div>
+            {setup ? (
+              <div id={passwordHelpId} className="space-y-2">
+                <p className="text-xs text-fg-subtle">Mínimo de 10 caracteres.</p>
+                <PasswordStrength password={password} />
+              </div>
+            ) : (
+              <div className="flex justify-end">
+                <Link href="/login/redefinir" className="py-0.5 text-xs text-fg-subtle transition-colors hover:text-fg hover:underline">
+                  Esqueci a senha
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {setup && (
+            <div className="space-y-1.5">
+              <Label htmlFor={`${id}-c`}>Confirmar senha</Label>
+              <Input
+                id={`${id}-c`}
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+                minLength={10}
+                disabled={busy}
+                aria-invalid={confirm.length > 0 && password !== confirm}
+                className="h-11 sm:h-9"
+              />
+              {confirm.length > 0 && password !== confirm && <p className="text-xs text-crit">As senhas não conferem.</p>}
+            </div>
+          )}
+
           {needCode && (
             <div className="space-y-1.5">
-              <Label htmlFor="sc">Código de configuração do servidor</Label>
-              <Input id="sc" autoComplete="off" value={setupCode} onChange={(e) => setSetupCode(e.target.value)} required />
-              <p className="text-xs text-fg-subtle">No servidor: <code className="font-mono">sudo cat /etc/astryon/setup-code</code></p>
+              <Label htmlFor={`${id}-sc`}>Código de configuração</Label>
+              <Input id={`${id}-sc`} autoComplete="off" value={setupCode} onChange={(e) => setSetupCode(e.target.value)} required disabled={busy} className="h-11 sm:h-9" />
+              <p className="text-xs text-fg-subtle">
+                No servidor: <code className="rounded-sm bg-surface-2 px-1 py-0.5 font-mono text-[10.5px]">sudo cat /etc/astryon/setup-code</code>
+              </p>
             </div>
           )}
-          {error && (
-            <p role="alert" className="text-sm text-crit">
-              {error}
-            </p>
-          )}
-          <Button type="submit" variant="primary" className="w-full" loading={busy} disabled={!!offline || state === null}>
+
+          <Button
+            type="submit"
+            variant="primary"
+            className="h-11 w-full sm:h-9"
+            loading={busy}
+            disabled={Boolean(offline || state === null || (setup && password !== confirm) || (setup && emailRecovery && !email.trim()))}
+          >
             {setup ? <ShieldCheck /> : <LogIn />}
-            {setup ? "Criar e entrar" : "Entrar"}
+            {setup ? "Criar e entrar" : "Entrar no console"}
           </Button>
+
+          {setup && (
+            <Callout tone="info" icon={<Info className="size-4" />} className="text-xs">
+              {emailRecovery
+                ? "Guarde a senha em um gerenciador. Se precisar, o código de recuperação chega no e-mail cadastrado."
+                : telegramRecovery
+                  ? "Guarde a senha em um gerenciador. Se precisar, o código de recuperação chega no seu Telegram."
+                  : "Guarde a senha em um gerenciador. O envio de código ainda não está configurado neste servidor."}
+            </Callout>
+          )}
         </form>
-      </Card>
-      <div className="mt-4 flex items-center justify-center text-xs text-fg-subtle">
-        <Link href="/demo" className="inline-flex items-center gap-1 hover:text-fg">
-          <Eye className="size-3.5" /> Ver demonstração (dados fictícios)
-        </Link>
-        <span className="sr-only">Sem afiliação com a Starlink/SpaceX</span>
-      </div>
-    </div>
+      )}
+    </LoginShell>
   );
 }

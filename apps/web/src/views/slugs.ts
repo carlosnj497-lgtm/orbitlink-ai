@@ -53,7 +53,7 @@ export const TAGLINES: Record<string, string> = {
   esp32: "Telemetria física opcional via ESP32",
   diagnosticos: "Achados por regras a partir dos dados registrados",
   instalacao: "Verificação do ambiente, da rede e da antena",
-  assistente: "Perguntas sobre a sua Starlink, respondidas com os dados do agente",
+  assistente: "Pergunte sobre conexão, consumo e alertas. Respostas só leem dados; ações precisam da sua confirmação.",
   obstrucoes: "Céu visto pela antena e tendência de obstrução",
   interrupcoes: "Interrupções e eventos de conexão registrados",
   relatorios: "Exportações geradas a partir dos dados locais",

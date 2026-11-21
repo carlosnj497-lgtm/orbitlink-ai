@@ -55,6 +55,71 @@ describe("rota /api/auth/password (painel local)", () => {
     expect(agentFetch).toHaveBeenCalledWith("/v1/auth/password", expect.objectContaining({ session: "s" }));
   });
 
+  it("recover não exige sessão: quem esqueceu a senha não tem uma", async () => {
+    agentFetch.mockResolvedValue(new Response(null, { status: 204 }));
+    const req = new NextRequest("http://localhost/api/auth/recover", {
+      method: "POST",
+      body: JSON.stringify({ username: "admin", new_password: "x", recovery_code: "c" }),
+      headers: { "content-type": "application/json" },
+    });
+    const res = await authRoute.POST(req, params("recover"));
+    expect(res.status).toBe(204);
+    expect(agentFetch).toHaveBeenCalledWith("/v1/auth/recover", expect.objectContaining({ method: "POST" }));
+  });
+
+  it("recover por e-mail não exige sessão e repassa o IP do último salto", async () => {
+    agentFetch.mockResolvedValue(new Response(null, { status: 204 }));
+    const req = new NextRequest("http://localhost/api/auth/recover-request", {
+      method: "POST",
+      body: JSON.stringify({ email: "admin@exemplo.com" }),
+      headers: { "x-forwarded-for": "6.6.6.6, 192.168.1.20", "content-type": "application/json" },
+    });
+    const res = await authRoute.POST(req, params("recover-request"));
+    expect(res.status).toBe(204);
+    const [path, init] = agentFetch.mock.calls[0];
+    expect(path).toBe("/v1/auth/recover/request");
+    expect((init?.headers as Record<string, string>)["X-Forwarded-For"]).toBe("192.168.1.20");
+    expect(init).not.toHaveProperty("session");
+  });
+
+  it("recover-confirm repassa o código ao agente sem sessão", async () => {
+    agentFetch.mockResolvedValue(new Response(null, { status: 204 }));
+    const req = new NextRequest("http://localhost/api/auth/recover-confirm", {
+      method: "POST",
+      body: JSON.stringify({ email: "admin@exemplo.com", code: "ABCD-EFGH", new_password: "senha-nova-123" }),
+      headers: { "content-type": "application/json" },
+    });
+    const res = await authRoute.POST(req, params("recover-confirm"));
+    expect(res.status).toBe(204);
+    expect(agentFetch).toHaveBeenCalledWith("/v1/auth/recover/confirm", expect.objectContaining({ method: "POST" }));
+  });
+
+  it("e-mail de recuperação é salvo com a sessão do usuário", async () => {
+    agentFetch.mockResolvedValue(new Response(null, { status: 204 }));
+    const req = new NextRequest("http://localhost/api/auth/email", {
+      method: "POST",
+      body: JSON.stringify({ email: "novo@exemplo.com" }),
+      headers: { cookie: "astryon_session=s", "content-type": "application/json" },
+    });
+    const res = await authRoute.POST(req, params("email"));
+    expect(res.status).toBe(204);
+    expect(agentFetch).toHaveBeenCalledWith("/v1/auth/email", expect.objectContaining({ session: "s" }));
+  });
+
+  it("cadastro do administrador leva o e-mail ao agente", async () => {
+    agentFetch.mockResolvedValueOnce(Response.json({ user_id: 1 }, { status: 201 }));
+    agentFetch.mockResolvedValueOnce(Response.json({ session: "t", expires_at: 0 }));
+    const req = new NextRequest("http://localhost/api/auth/setup", {
+      method: "POST",
+      body: JSON.stringify({ username: "admin", password: "senha-forte-123", email: "admin@exemplo.com" }),
+      headers: { "content-type": "application/json" },
+    });
+    const res = await authRoute.POST(req, params("setup"));
+    expect(res.status).toBe(200);
+    const body = JSON.parse(String(agentFetch.mock.calls[0][1]?.body)) as Record<string, string>;
+    expect(body.email).toBe("admin@exemplo.com");
+  });
+
   it("login repassa ao agente o IP do último salto, não o escolhido pelo cliente", async () => {
     agentFetch.mockResolvedValue(Response.json({ detail: "Usuário ou senha inválidos." }, { status: 401 }));
     const req = new NextRequest("http://localhost/api/auth/login", {
@@ -120,8 +185,8 @@ describe("modo nuvem: fim do ciclo e limites do resumo", () => {
     expect(r.bucket).toBe("month");
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toMatchObject({ p_bucket: "month" });
-    expect(r.points[0].coverage).toBeCloseTo(1);
-    expect(r.points[0].bytes_total).toBe(15);
+    const observed = r.points.find((p) => p.bytes_total === 15)!;
+    expect(observed.coverage).toBeCloseTo(1);
   });
 });
 
@@ -162,6 +227,35 @@ describe("coerência do modo nuvem", () => {
     expect(cloudConfigError({ ASTRYON_CLOUD: "1", ASTRYON_SUPABASE_URL: "u", ASTRYON_SUPABASE_ANON_KEY: "k" }, false)).toMatch(/construído sem/);
     expect(cloudConfigError({}, true)).toMatch(/construído para a nuvem/);
     expect(cloudConfigError({ ASTRYON_CLOUD: "1" }, true)).toMatch(/SUPABASE/);
+  });
+});
+
+describe("logout revoga a sessão sem impedir a saída local por falha de rede", () => {
+  it("nuvem chama GoTrue com Bearer server-side e limpa os dois cookies mesmo se a revogação falhar", async () => {
+    process.env.ASTRYON_CLOUD = "1";
+    process.env.NEXT_PUBLIC_ASTRYON_CLOUD = "1";
+    const fetchMock = vi.fn(async () => Response.json({}));
+    vi.stubGlobal("fetch", fetchMock);
+    const req = () => new NextRequest("http://localhost/api/auth/logout", { method: "POST", headers: { cookie: "astryon_session=access-secreto; astryon_refresh=refresh-secreto" } });
+    const res = await authRoute.POST(req(), params("logout"));
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith("https://exemplo.supabase.co/auth/v1/logout?scope=local", expect.objectContaining({ method: "POST", headers: expect.objectContaining({ Authorization: "Bearer access-secreto", apikey: "anon" }) }));
+    expect(res.headers.get("set-cookie")).toContain("astryon_session=;");
+    expect(res.headers.get("set-cookie")).toContain("astryon_refresh=;");
+    expect(await res.text()).not.toContain("access-secreto");
+
+    fetchMock.mockRejectedValueOnce(new Error("offline"));
+    const offline = await authRoute.POST(req(), params("logout"));
+    expect(offline.status).toBe(200);
+    expect(offline.headers.get("set-cookie")).toContain("astryon_session=;");
+  });
+
+  it("painel local também apaga o cookie se o agente estiver fora", async () => {
+    agentFetch.mockRejectedValue(new Error("offline"));
+    const res = await authRoute.POST(new NextRequest("http://localhost/api/auth/logout", { method: "POST", headers: { cookie: "astryon_session=s" } }), params("logout"));
+    expect(agentFetch).toHaveBeenCalledWith("/v1/auth/logout", expect.objectContaining({ method: "POST", session: "s" }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("set-cookie")).toContain("astryon_session=;");
   });
 });
 

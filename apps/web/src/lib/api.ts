@@ -57,7 +57,7 @@ export function __setClockOffsetMs(ms: number): void {
 }
 
 function handleUnauthorized(status: number): void {
-  if (status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) reloadToLogin();
+  if (status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) reloadToLogin("&motivo=expirada");
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {

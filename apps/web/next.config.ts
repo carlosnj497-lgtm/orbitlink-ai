@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
@@ -5,6 +6,9 @@ import type { NextConfig } from "next";
 // O .env fica na raiz do monorepo (compartilhado com o agente Python). forceReload=true porque o Next já
 // carregou (e armazenou em cache) o env do diretório apps/web antes de avaliar este arquivo.
 loadEnvConfig(path.resolve(__dirname, "../.."), process.env.NODE_ENV !== "production", undefined, true);
+
+// Versão exposta ao cliente para mostrar no rodapé da tela de login.
+const webVersion = process.env.NEXT_PUBLIC_ASTRYON_VERSION ?? JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf-8")).version;
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -54,6 +58,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_ASTRYON_VERSION: webVersion },
   // Opcional: build de verificação em outra pasta, sem sobrescrever o ".next" que o serviço em execução usa.
   distDir: process.env.ASTRYON_WEB_DIST_DIR || ".next",
   // Instalador do Windows: servidor autossuficiente (server.js + node_modules mínimos) para rodar com node.exe

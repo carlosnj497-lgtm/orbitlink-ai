@@ -1,6 +1,6 @@
 {
   "name": "@astryon/supabase",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,6 +8,6 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   }
 }

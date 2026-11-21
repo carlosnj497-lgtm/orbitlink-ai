@@ -2,12 +2,13 @@
 
 import type { AgentInfo } from "@astryon/shared";
 import { useIsMutating } from "@tanstack/react-query";
-import { House, Menu, ScrollText, Sparkles, Wifi } from "lucide-react";
+import { House, Menu, SatelliteDish, ScrollText, Sparkles, Wifi } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useState } from "react";
 import { useAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { CLOUD } from "@/lib/cloud-flag";
 import { useBasePath, useDemo } from "@/lib/demo-context";
 import { TimezoneSync, useDisplayTimezone } from "@/lib/timezone";
 import { usePersistentFlag } from "@/lib/use-persistent-flag";
@@ -80,17 +81,24 @@ const TAB_ITEMS = [
   { slug: "interrupcoes", label: "Eventos", icon: ScrollText },
 ] as const;
 
-function MobileTabBar({ slug, onOpenMenu, menuOpen }: { slug: string; onOpenMenu: () => void; menuOpen: boolean }) {
+const CLOUD_TAB_ITEMS = [
+  { slug: "", label: "Início", icon: House },
+  { slug: "consumo", label: "Consumo", icon: Wifi },
+  { slug: "antena", label: "Antena", icon: SatelliteDish },
+  { slug: "interrupcoes", label: "Eventos", icon: ScrollText },
+] as const;
+
+export function MobileTabBar({ slug, onOpenMenu, menuOpen }: { slug: string; onOpenMenu: () => void; menuOpen: boolean }) {
   const base = useBasePath();
   const current = sectionOf(slug);
   // Mesmas chaves do cabeçalho: o estado da IA aparece aqui em telas estreitas, onde o chip some.
-  const { data: agent } = useAgent<AgentInfo>("agent", { refetchInterval: 30_000 });
+  const { data: agent } = useAgent<AgentInfo>(CLOUD ? null : "agent", { refetchInterval: 30_000 });
   const aiBusy = useIsMutating({ mutationKey: ["ai", "ask"] }) > 0;
   const item = "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[10.5px] font-medium transition-colors";
   return (
     <nav aria-label="Navegação rápida" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-black/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
       <ul className="flex">
-        {TAB_ITEMS.map((t) => {
+        {(CLOUD ? CLOUD_TAB_ITEMS : TAB_ITEMS).map((t) => {
           const active = current?.id === sectionOf(t.slug)?.id;
           const Icon = t.icon;
           return (

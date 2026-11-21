@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import type { ComponentType } from "react";
 import { Skeleton } from "@/components/ui/primitives";
+import { ViewErrorBoundary } from "./view-error-boundary";
 
 const loading = () => (
   <div className="space-y-4">
@@ -40,5 +41,12 @@ export const VIEWS: Record<string, ComponentType> = {
 
 export function ViewRouter({ slug }: { slug: string }) {
   const View = VIEWS[slug];
-  return View ? <View /> : null;
+  if (!View) return null;
+  const content = <View />;
+  // A página de relatórios é carregada dinamicamente; erros de chunk (version skew) são
+  // recuperados com recarga automática antes de chegarem ao error.tsx do segmento.
+  if (slug === "relatorios") {
+    return <ViewErrorBoundary>{content}</ViewErrorBoundary>;
+  }
+  return content;
 }

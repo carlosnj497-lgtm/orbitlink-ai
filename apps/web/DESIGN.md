@@ -319,7 +319,7 @@ Linhas finas (1.1-1.4px) sem animação de entrada, área com degradê suave, gr
 Letreiro em caixa alta larga, itálico, peso black, inclinação de -6°, espaçamento 0.24em (0.2em no tamanho pequeno), com arco de órbita em SVG nascendo no A e cruzando sobre o X. Monocromático, na cor do texto. Abaixo, no desktop, "Starlink Mini · Monitor" em rótulo técnico de 9.5px e 0.26em. Desenhado com tipografia, nunca com o arquivo oficial do logo.
 
 ### Motion
-Curva padrão `cubic-bezier(0.22, 1, 0.36, 1)`. Entrada de tela: subida de 6px com fade em 320ms, uma por navegação. Gaveta 220ms, fade 200ms, pop de menus e tooltips 140ms. Indicadores vivos: eco de radar de 2.2s no ponto de enlace, pulso de 2s em reconexão e processamento, varredura de 1.4s no chip "IA processando". Skeleton com brilho de 1.6s. Com `prefers-reduced-motion: reduce`, todas as animações e transições são anuladas (0.01ms, uma iteração) e os indicadores vivos ficam estáticos.
+Curva padrão `cubic-bezier(0.22, 1, 0.36, 1)`. Entrada de tela: subida de 6px com fade em 320ms, uma por navegação. Gaveta 220ms, fade 200ms, pop de menus e tooltips 140ms. Indicadores vivos: eco de radar de 2.2s no ponto de enlace, pulso de 2s em reconexão e processamento, varredura de 1.4s no chip "IA processando". Skeleton com brilho de 1.6s. Barra de progresso linear (`.ol-fill`, scaleX 0→1, fill `both`) só para esperas curtas de duração conhecida, como o redirecionamento após salvar a senha nova. Com `prefers-reduced-motion: reduce`, todas as animações e transições são anuladas (0.01ms, uma iteração) e os indicadores vivos ficam estáticos.
 
 ## Do's and Don'ts
 

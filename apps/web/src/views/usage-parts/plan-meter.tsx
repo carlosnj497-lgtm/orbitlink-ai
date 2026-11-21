@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SourceBadge } from "@/components/domain";
 import { Badge, Skeleton } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
+import { CLOUD } from "@/lib/cloud-flag";
 import { useBasePath } from "@/lib/demo-context";
 import { fmtBytesStr, fmtDay, fmtNumber } from "@/lib/format";
 
@@ -26,9 +27,11 @@ export function PlanCard({ p, className }: { p: UsagePlan | undefined; className
           <p className="text-sm font-medium text-fg">Franquia do plano não configurada</p>
           <p className="text-xs text-fg-subtle">Informe a franquia mensal e o dia de virada do ciclo para acompanhar o consumo e receber alertas em 80% e 100%.</p>
         </div>
-        <Link href={settingsHref} className="text-sm font-medium text-accent hover:underline">
-          Configurar
-        </Link>
+        {!CLOUD && (
+          <Link href={settingsHref} className="text-sm font-medium text-accent hover:underline">
+            Configurar
+          </Link>
+        )}
       </div>
     );
   }

@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 export function DishArt({ className, dim = false }: { className?: string; dim?: boolean }) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   return (
-    <svg viewBox="0 0 220 150" className={cn("shrink-0", dim && "opacity-55 saturate-50", className)} aria-hidden>
+    <svg viewBox="0 0 220 150" className={cn("shrink-0", dim && "opacity-55 saturate-50 animate-dish-seek", className)} aria-hidden>
       <defs>
         <linearGradient id={`${id}-face`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#ffffff" />

@@ -178,6 +178,42 @@ env_set() {
 
 random_token() { openssl rand -base64 48 | tr '+/' '-_' | tr -d '=\n' | cut -c1-48; }
 
+# ---------------------------------------------------------------- arquivos de configuração (rollback)
+backup_files() {
+  # backup_files DIR ARQUIVO... -> copia arquivos absolutos e registra também os que não existiam.
+  local dir="$1" path saved
+  shift
+  for path in "$@"; do
+    [[ "${path}" == /* ]] || { warn "backup exige caminho absoluto: ${path}"; return 1; }
+    saved="${dir}/files${path}"
+    mkdir -p "$(dirname "${saved}")"
+    if [[ -e "${path}" || -L "${path}" ]]; then
+      cp -a -- "${path}" "${saved}"
+    else
+      : > "${saved}.absent"
+    fi
+  done
+}
+
+restore_files() {
+  # restore_files DIR ARQUIVO... -> restaura o backup e remove arquivos que não existiam antes.
+  local dir="$1" path saved
+  shift
+  for path in "$@"; do
+    saved="${dir}/files${path}"
+    if [[ -e "${saved}" || -L "${saved}" ]]; then
+      mkdir -p "$(dirname "${path}")"
+      rm -f -- "${path}"
+      cp -a -- "${saved}" "${path}"
+    elif [[ -f "${saved}.absent" ]]; then
+      rm -f -- "${path}"
+    else
+      warn "backup ausente para ${path}"
+      return 1
+    fi
+  done
+}
+
 # ---------------------------------------------------------------- código-fonte (cópia do root)
 src_replace_from_tar() {
   # Lê um tar da entrada padrão e troca ${OL_SRC} de uma vez. Extrai como root numa pasta nova e vazia,
@@ -383,4 +419,40 @@ health_check() {
   if wait_http "${OL_AGENT_URL}/v1/health" "${1:-40}"; then ok "agente responde em ${OL_AGENT_URL}"; else warn "agente não respondeu"; okall=1; fi
   if wait_http "${OL_WEB_URL}/login" "${1:-40}"; then ok "painel responde em ${OL_WEB_URL}"; else warn "painel não respondeu"; okall=1; fi
   return "${okall}"
+}
+
+install_health_check() {
+  # Instalação só pode anunciar sucesso depois que agente e painel responderem.
+  if health_check "${1:-40}"; then
+    ok "instalação concluída"
+    return 0
+  fi
+  warn "algum serviço não respondeu — diagnóstico: sudo astryonctl doctor"
+  return 1
+}
+
+rollback_update() {
+  # rollback_update BACKUP RELEASE_ANTERIOR UNITS_ALTERADAS NGINX_ALTERADO ARQUIVO...
+  # Restaura configuração e release como um conjunto; o chamador sempre termina com erro.
+  local backup="$1" prev="$2" units_changed="$3" nginx_changed="$4"
+  shift 4
+  restore_files "${backup}" "$@" || return 1
+  if [[ "${units_changed}" -eq 1 ]]; then
+    systemctl daemon-reload || { warn "systemd não recarregou as unidades restauradas"; return 1; }
+  fi
+  if [[ "${nginx_changed}" -eq 1 ]]; then
+    systemctl reload nginx || { warn "Nginx não recarregou a configuração restaurada"; return 1; }
+  fi
+  if [[ -z "${prev}" || ! -d "${prev}" ]]; then
+    warn "release anterior não encontrada; configuração restaurada, mas não há release para ativar"
+    return 1
+  fi
+  switch_release "${prev}"
+  systemctl restart astryon-agent.service astryon-web.service || { warn "serviços não reiniciaram no rollback"; return 1; }
+  if health_check 40; then
+    ok "rollback concluído"
+    return 0
+  fi
+  warn "rollback também não respondeu: sudo astryonctl doctor"
+  return 1
 }

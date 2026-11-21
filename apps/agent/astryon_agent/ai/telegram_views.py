@@ -58,10 +58,21 @@ def keyboard(section: str = "menu") -> dict[str, Any]:
 
 
 def number(value: Any, unit: str = "") -> str:
-    return "indisponível" if value is None else f"{value:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".") + unit
+    if value is None:
+        return "indisponível"
+    try:
+        return f"{value:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".") + unit
+    except (TypeError, ValueError):
+        return "indisponível"
 
 
-def render(db: Database, settings: Any, command: str, period: str = "24h") -> str:
+def pct(value: Any) -> str:
+    """Formata um fração 0..1 como porcentagem; valores nulos viram 'indisponível'."""
+    return "indisponível" if value is None else number(value * 100, "%")
+
+
+def render(db: Database, settings: Any, command: str, period: str = "24h",
+           stats: dict[str, Any] | None = None) -> str:
     end = now_ts()
     start = end - PERIODS[period]
     tz = settings.timezone
@@ -81,7 +92,7 @@ def render(db: Database, settings: Any, command: str, period: str = "24h") -> st
                       f"↑ Upload: {_fmt_bytes(u['bytes_upload'])}"]
         else:
             lines.append("Sem dados observados neste período.")
-        lines += [f"\nCobertura: {number(u['coverage'] * 100, '%')} · fonte: {u['source']}",
+        lines += [f"\nCobertura: {pct(u['coverage'])} · fonte: {u['source']}",
                   "Estimativa local. Lacunas não são consumo zero; a fatura oficial pode diferir."]
         return "\n".join(lines)
     if command == "franquia":
@@ -94,7 +105,7 @@ def render(db: Database, settings: Any, command: str, period: str = "24h") -> st
                       f"Utilizado: {number(p['pct_used'], '%')}",
                       f"Saldo estimado: {_fmt_bytes(p['remaining_bytes']) if p['remaining_bytes'] is not None else 'indisponível'}",
                       f"Projeção ao fim do ciclo: {number(p['projected_pct'], '%')}"]
-        lines += [f"\nCobertura: {number(p['used']['coverage'] * 100, '%')} · fonte: {p['source']}",
+        lines += [f"\nCobertura: {pct(p['used']['coverage'])} · fonte: {p['source']}",
                   "Estimativa local; com lacunas, o consumo real pode ser maior."]
         return "\n".join(lines)
     if command == "qualidade":
@@ -106,7 +117,7 @@ def render(db: Database, settings: Any, command: str, period: str = "24h") -> st
             f"Latência p95: {number(q['latency_p95_ms'], ' ms')}",
             f"Jitter estimado: {number(q['jitter_ms'], ' ms')}",
             f"Perda de ping: {number(q['loss_pct'], '%')}",
-            f"\nCobertura: {number(q['coverage'] * 100, '%')} · fonte: {q['source']}",
+            f"\nCobertura: {pct(q['coverage'])} · fonte: {q['source']}",
             "Latência antena → PoP; percentis das médias por minuto. Lacunas ficam fora da disponibilidade.",
         ])
     if command == "quedas":
@@ -148,7 +159,7 @@ def render(db: Database, settings: Any, command: str, period: str = "24h") -> st
         used = db.scalar("SELECT requests FROM ai_usage_daily WHERE day = ?", (day,)) or 0
         n = Notifier(db, settings).status()
         ai = bool(settings.groq_api_key and settings.groq_api_key.get_secret_value())
-        return "\n".join([
+        lines = [
             "⚙️ **Meu ASTRYON**", "",
             f"Assistente: {'IA configurada' if ai else 'diagnóstico por regras'}",
             f"Perguntas hoje (UTC, compartilhadas com o painel): {used}/{settings.ai_daily_request_limit}",
@@ -156,10 +167,17 @@ def render(db: Database, settings: Any, command: str, period: str = "24h") -> st
             f"Notificações pendentes: {n['pending']} · falhas nas últimas 24 h: {n['failed_24h']}",
             f"Resumo semanal: {'ativado' if settings.weekly_digest_enabled else 'desativado'}",
             f"Clima: {loc.name if (loc := weather.get_location(db, settings)) else 'sem cidade (defina em Configurações → Clima)'}",
-            f"Fuso: {tz}", "",
-            "Os comandos de consulta não gastam a cota de IA.",
-            "Envie texto ou uma nota de voz para conversar. Use /nova para reiniciar o contexto.",
-        ])
+            f"Fuso: {tz}",
+        ]
+        if stats:
+            latency = stats.get("ai_latency_avg_s")
+            avg = f"{str(latency).replace('.', ',')} s" if latency is not None else "—"
+            lines.append(f"Sessão do agente: {stats.get('ai_answered', 0)} respostas de IA · "
+                         f"{stats.get('ai_failed', 0)} falhas · resposta média {avg}")
+        lines += ["",
+                  "Os comandos de consulta não gastam a cota de IA.",
+                  "Envie texto ou uma nota de voz para conversar. Use /nova para reiniciar o contexto."]
+        return "\n".join(lines)
     if command == "clima":
         return render_weather(db, settings, when)
     if command == "horario":

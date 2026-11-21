@@ -150,8 +150,13 @@ def summary(db: Database, terminal_id: int | None, start: int, end: int, tz: str
                                 f"{len(an)} hora(s) com perda/latência acima do padrão histórico do mesmo horário.",
                                 an[0]["method"]))
 
-    good = (avail is None or avail >= 99.5) and (q["loss_pct"] or 0) < 1 and not unreachable
+    good = avail is not None and avail >= 99.5 and (q["loss_pct"] or 0) < 1 and not unreachable
+    if avail is None:
+        findings.append(Finding("info", "evento_observado",
+                                "Disponibilidade e perda ao PoP indisponíveis: as amostras do período não têm medida de perda.",
+                                "Segundos sem drop_rate não são contados como disponíveis nem como perda zero."))
     if good:
+        assert avail is not None  # estreita o tipo para o formatador; `good` já garante a medida
         headline = (f"Conexão satelital estável no período observado: disponibilidade {avail:.2f}%, "
                     f"latência mediana {q['latency_p50_ms'] or 0:.0f} ms até o PoP. "
                     "Se houve lentidão percebida, a origem provável está fora do enlace satelital (Wi-Fi, roteador ou dispositivo).")

@@ -226,5 +226,62 @@ if command -v openssl >/dev/null 2>&1; then
   check "cert: arquivo ilegível -> vazio" "$(cert_days_left "${TMP}/nao-existe.crt")" ""
 fi
 
+# --- instalação: saúde ruim é erro e nunca anuncia conclusão
+INSTALL_OUT="${TMP}/install-health.out"
+if (health_check() { return 1; }; install_health_check 1) >"${INSTALL_OUT}" 2>&1; then r=0; else r=$?; fi
+if [[ ${r} -ne 0 ]]; then r=sim; else r=nao; fi
+check "instalação com saúde ruim retorna erro" "${r}" "sim"
+check "falha da instalação aponta diagnóstico" "$(grep -c 'sudo astryonctl doctor' "${INSTALL_OUT}")" "1"
+check "falha da instalação não anuncia sucesso" "$(grep -c 'instalação concluída' "${INSTALL_OUT}" || true)" "0"
+if (health_check() { return 0; }; install_health_check 1) >"${INSTALL_OUT}" 2>&1; then r=sim; else r=nao; fi
+check "instalação saudável mantém sucesso" "${r}" "sim"
+check "instalação saudável mantém mensagem de conclusão" "$(grep -c 'instalação concluída' "${INSTALL_OUT}")" "1"
+
+# --- atualização: backup/restauração inclui headers, configuração divergente e arquivos antes ausentes
+RB="${TMP}/rollback"
+CFG="${TMP}/config"
+mkdir -p "${CFG}"
+SCRIPT_FILE="${CFG}/astryonctl"
+UNIT_FILE="${CFG}/astryon-web.service"
+HEADERS_FILE="${CFG}/astryon-headers.conf"
+ABSENT_FILE="${CFG}/nova-unidade.service"
+RB_FILES=("${SCRIPT_FILE}" "${UNIT_FILE}" "${HEADERS_FILE}" "${ABSENT_FILE}")
+printf 'script antigo\n' > "${SCRIPT_FILE}"
+printf 'unidade antiga\n' > "${UNIT_FILE}"
+printf 'headers antigos\n' > "${HEADERS_FILE}"
+backup_files "${RB}" "${RB_FILES[@]}"
+printf 'script novo\n' > "${SCRIPT_FILE}"
+printf 'unidade nova\n' > "${UNIT_FILE}"
+printf 'headers novos\n' > "${HEADERS_FILE}"
+printf 'unidade criada pelo update\n' > "${ABSENT_FILE}"
+restore_files "${RB}" "${HEADERS_FILE}"
+check "rollback imediato do Nginx restaura backup de headers" "$(cat "${HEADERS_FILE}")" "headers antigos"
+printf 'headers novos de novo\n' > "${HEADERS_FILE}"
+
+mkdir -p "${TMP}/releases/old" "${TMP}/releases/new"
+OL_CURRENT="${TMP}/current"
+ln -s "${TMP}/releases/new" "${OL_CURRENT}"
+CALLS="${TMP}/systemctl.calls"
+systemctl() { printf '%s\n' "$*" >> "${CALLS}"; }
+health_check() { return 0; }
+rollback_update "${RB}" "${TMP}/releases/old" 1 1 "${RB_FILES[@]}" >/dev/null
+check "rollback restaura script antigo" "$(cat "${SCRIPT_FILE}")" "script antigo"
+check "rollback restaura unidade antiga" "$(cat "${UNIT_FILE}")" "unidade antiga"
+check "rollback completo restaura headers antigos" "$(cat "${HEADERS_FILE}")" "headers antigos"
+check "rollback remove arquivo que não existia antes" "$(test -e "${ABSENT_FILE}" && echo sim || echo nao)" "nao"
+check "rollback reativa release antiga" "$(readlink -f "${OL_CURRENT}")" "${TMP}/releases/old"
+check "rollback recarrega unidades restauradas" "$(grep -cFx 'daemon-reload' "${CALLS}")" "1"
+check "rollback recarrega Nginx restaurado" "$(grep -cFx 'reload nginx' "${CALLS}")" "1"
+check "rollback reinicia os serviços" "$(grep -cFx 'restart astryon-agent.service astryon-web.service' "${CALLS}")" "1"
+
+printf 'headers divergentes\n' > "${HEADERS_FILE}"
+ln -sfn "${TMP}/releases/new" "${OL_CURRENT}.tmp"
+mv -Tf "${OL_CURRENT}.tmp" "${OL_CURRENT}"
+health_check() { return 1; }
+if rollback_update "${RB}" "${TMP}/releases/old" 1 1 "${RB_FILES[@]}" >/dev/null 2>&1; then r=sim; else r=nao; fi
+check "rollback com saúde ruim retorna erro" "${r}" "nao"
+check "rollback malsucedido ainda restaura configuração antiga" "$(cat "${HEADERS_FILE}")" "headers antigos"
+unset -f systemctl health_check
+
 echo
 if [[ ${fails} -eq 0 ]]; then echo "todos os testes passaram"; else echo "${fails} falha(s)"; exit 1; fi

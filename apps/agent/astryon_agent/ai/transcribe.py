@@ -96,15 +96,32 @@ def check_audio_quota(db: Database, settings: Settings) -> None:
         raise PermissionError(f"Limite diário de {limit} áudios ao assistente atingido.")
 
 
+def reserve_audio_quota(db: Database, settings: Settings) -> None:
+    """Confere e reserva uma transcrição atomicamente, imediatamente antes de chamar a Groq.
+
+    A reserva NÃO é estornada em falha/cancelamento: toda tentativa enviada ao fluxo de transcrição conta,
+    impedindo que retries de erro burlem a cota. Duração e custo são acrescentados só após uma resposta.
+    """
+    day = _today(settings)
+    limit = int(getattr(settings, "ai_audio_daily_request_limit", 50))
+    with db.tx() as c:
+        row = c.execute("SELECT requests FROM ai_audio_usage_daily WHERE day = ?", (day,)).fetchone()
+        n = int(row[0]) if row is not None else 0
+        if n >= limit:
+            raise PermissionError(f"Limite diário de {limit} áudios ao assistente atingido.")
+        c.execute("""INSERT INTO ai_audio_usage_daily (day, requests) VALUES (?, 1)
+                      ON CONFLICT(day) DO UPDATE SET requests = requests + 1""", (day,))
+
+
 def record_audio_usage(db: Database, settings: Settings, seconds: int) -> float:
-    """Grava o uso e devolve o custo estimado em USD (mínimo de 10 s cobrados pela Groq)."""
+    """Acrescenta duração/custo à reserva atômica, sem contar uma segunda requisição."""
     billed = max(int(seconds), MIN_BILLED_SECONDS)
     model = str(getattr(settings, "ai_transcribe_model", "whisper-large-v3-turbo"))
     cost = round(billed / 3600 * AUDIO_PRICING_USD_PER_HOUR.get(model, 0.0), 10)
     db.execute(
         """INSERT INTO ai_audio_usage_daily (day, requests, audio_seconds, estimated_cost_usd)
-           VALUES (?, 1, ?, ?)
-           ON CONFLICT(day) DO UPDATE SET requests = requests + 1,
+           VALUES (?, 0, ?, ?)
+           ON CONFLICT(day) DO UPDATE SET
              audio_seconds = audio_seconds + excluded.audio_seconds,
              estimated_cost_usd = estimated_cost_usd + excluded.estimated_cost_usd""",
         (_today(settings), billed, cost),

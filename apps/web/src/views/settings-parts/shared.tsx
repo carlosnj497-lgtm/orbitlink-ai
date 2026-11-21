@@ -47,6 +47,12 @@ export const SECRET_LABELS: Record<string, string> = {
   supabase_anon_key: "Supabase · chave pública",
   telegram_bot_token: "Bot do Telegram",
   telegram_chat_id: "Chat do Telegram",
+  smtp_host: "SMTP · servidor",
+  smtp_port: "SMTP · porta",
+  smtp_user: "SMTP · usuário",
+  smtp_password: "SMTP · senha",
+  smtp_from: "SMTP · remetente (From)",
+  smtp_security: "SMTP · segurança (starttls/ssl/none)",
 };
 
 export const envName = (key: string) => `ASTRYON_${key.toUpperCase()}`;

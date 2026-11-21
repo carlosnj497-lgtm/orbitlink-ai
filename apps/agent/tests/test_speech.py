@@ -63,9 +63,29 @@ async def test_speech_failure_keeps_answer_and_conversation(tmp_path, db, monkey
 
 
 def test_spoken_text_strips_markup_and_limits_long_answers():
-    assert speech.spoken_text("## Olá\n**Tudo bem** [painel](https://example.com)", 100) == "Olá Tudo bem painel"
+    assert speech.spoken_text("## Olá\n**Tudo bem** [painel](https://example.com)", 100) == "Olá. Tudo bem painel"
     assert "resposta completa" in speech.spoken_text("uma resposta longa " * 100, 100)
     assert "print" not in speech.spoken_text("```python\nprint('x')\n```", 200)
+
+
+def test_spoken_text_sounds_natural():
+    # emojis não são lidos como "sinal de alerta"/"satélite" e não colam palavras
+    assert speech.spoken_text("⚠️ Queda detectada 🌧🛰️ agora", 500) == "Queda detectada agora"
+    # lista com '-' vira frases, sem ler "hífen, hífen"
+    assert speech.spoken_text("Quedas recentes:\n- 10h perda de ping\n- 15h falta de energia", 500) \
+        == "Quedas recentes: 10h perda de ping. 15h falta de energia"
+    # etiquetas técnicas do copiloto ficam só no texto escrito
+    assert speech.spoken_text("A conexão está ok. Período: agora. Fonte: API local.", 500) == "A conexão está ok."
+    # "35 ms" não é lido como a sigla "éme-ésse"
+    assert speech.spoken_text("Latência de 35 ms e p95 de 80ms.", 500) \
+        == "Latência de 35 milissegundos e p95 de 80 milissegundos."
+
+
+def test_spoken_text_cuts_at_sentence_boundary():
+    text = "Primeira frase completa. Segunda frase que é bem mais comprida e passa do limite."
+    out = speech.spoken_text(text, 40)
+    assert out.startswith("Primeira frase completa.")
+    assert "Segunda" not in out and "resposta completa" in out
 
 
 def test_model_receives_current_voice_preference(tmp_path, db):

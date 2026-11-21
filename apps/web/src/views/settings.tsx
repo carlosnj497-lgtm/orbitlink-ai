@@ -2,7 +2,7 @@
 
 import type { AgentInfo, DigestStatus, NotificationStatus, UsagePlan, WeatherStatus } from "@astryon/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { BellRing, Cable, CloudSun, Database, Gauge, Info, KeyRound, Save, Settings, SlidersHorizontal } from "lucide-react";
+import { BellRing, Cable, CloudSun, Database, Eye, EyeOff, Gauge, Info, KeyRound, Save, Settings, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { PageHeader, QueryError } from "@/components/domain";
 import { WeatherLocationForm } from "@/components/weather";
@@ -59,6 +59,14 @@ function useSaveSettings() {
   const qc = useQueryClient();
   return useMutation<unknown, ApiError, Record<string, unknown>>({
     mutationFn: (body) => api("settings", { method: "PUT", body: JSON.stringify(body) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent"] }),
+  });
+}
+
+function useSaveCredentials() {
+  const qc = useQueryClient();
+  return useMutation<{ restart_required?: string[] }, ApiError, Record<string, string | null>>({
+    mutationFn: (credentials) => api("settings/credentials", { method: "PUT", body: JSON.stringify({ credentials }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["agent"] }),
   });
 }
@@ -399,9 +407,39 @@ function ConnectionsModule({ d }: { d: SettingsData }) {
 }
 
 /* ----------------------------------------------------------------- Credenciais */
+const SECRET_INPUT_TYPE: Record<string, "password" | "text"> = {
+  api_token: "password",
+  groq_api_key: "password",
+  setup_code: "password",
+  supabase_agent_token: "password",
+  supabase_anon_key: "password",
+  telegram_bot_token: "password",
+  telegram_chat_id: "text",
+  healthcheck_url: "text",
+  alert_webhook_url: "text",
+  mqtt_username: "text",
+  mqtt_password: "password",
+  telegram_allowed_user_ids: "text",
+  smtp_host: "text",
+  smtp_port: "text",
+  smtp_user: "text",
+  smtp_password: "password",
+  smtp_from: "text",
+  smtp_security: "text",
+};
+
+const EDITABLE_SECRETS = Object.keys(SECRET_LABELS).filter((k) => k !== "setup_code");
+
 function CredentialsModule({ d }: { d: SettingsData }) {
-  const entries = Object.entries(d.secrets_configured);
-  const defined = entries.filter(([, v]) => v).length;
+  const demo = useDemo();
+  const save = useSaveCredentials();
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(EDITABLE_SECRETS.map((k) => [k, ""])));
+  const [cleared, setCleared] = useState<Record<string, boolean>>({});
+  const [visible, setVisible] = useState<Record<string, boolean>>({});
+
+  // Só entra no envio o que a pessoa digitou ou apagou de propósito; os demais segredos ficam intactos.
+  const dirty = EDITABLE_SECRETS.some((k) => values[k].trim() !== "" || cleared[k]);
+
   return (
     <Section
       id="credenciais"
@@ -410,30 +448,100 @@ function CredentialsModule({ d }: { d: SettingsData }) {
       state="ok"
       value={
         <>
-          <Num>{defined}</Num> de <Num>{entries.length}</Num> definidas
+          <Num>{EDITABLE_SECRETS.filter((k) => d.secrets_configured[k]).length}</Num> de <Num>{EDITABLE_SECRETS.length}</Num> definidas
         </>
       }
       detail="O valor de cada segredo nunca sai do agente"
-      description="Só mostramos se cada segredo está definido. O valor nunca sai do agente."
+      description="Defina ou remova segredos pelo painel. O valor atual nunca é exibido nem enviado ao navegador."
     >
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {entries.map(([k, v]) => (
-          <li key={k} className="flex items-center justify-between gap-3 rounded-md border border-border bg-bg-elev/60 px-3 py-2.5">
-            <span className="min-w-0 truncate text-sm text-fg" title={`Variável: ${envName(k)}`}>
-              {SECRET_LABELS[k] ?? k}
-            </span>
-            <Badge tone={v ? "accent" : "neutral"}>{v ? "definida" : "ausente"}</Badge>
-          </li>
-        ))}
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {EDITABLE_SECRETS.map((k) => {
+          const configured = !!d.secrets_configured[k];
+          const type = SECRET_INPUT_TYPE[k] ?? "password";
+          const isVisible = visible[k] && type === "password";
+          return (
+            <li key={k} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor={k} className="text-xs text-fg-muted" title={`Variável: ${envName(k)}`}>
+                  {SECRET_LABELS[k] ?? k}
+                </Label>
+                <Badge tone={configured ? "accent" : "neutral"} className="text-[10px]">
+                  {configured ? "definida" : "ausente"}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  id={k}
+                  type={isVisible ? "text" : type}
+                  value={values[k]}
+                  onChange={(e) => {
+                    setValues((prev) => ({ ...prev, [k]: e.target.value }));
+                    setCleared((prev) => (prev[k] ? { ...prev, [k]: false } : prev));
+                  }}
+                  placeholder={configured ? "•••••••• (para trocar, digite o novo valor)" : `ASTRYON_${k.toUpperCase()}`}
+                  disabled={demo}
+                  className="flex-1"
+                />
+                {type === "password" && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setVisible((prev) => ({ ...prev, [k]: !prev[k] }))}
+                    aria-label={isVisible ? "Ocultar" : "Revelar"}
+                    disabled={demo}
+                  >
+                    {isVisible ? <EyeOff /> : <Eye />}
+                  </Button>
+                )}
+                {configured && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => {
+                      setValues((prev) => ({ ...prev, [k]: "" }));
+                      setCleared((prev) => ({ ...prev, [k]: true }));
+                    }}
+                    title="Apagar valor salvo ao salvar"
+                    disabled={demo}
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
+              </div>
+              {cleared[k] && configured && (
+                <p className="text-[11px] text-crit">O segredo atual será removido ao salvar.</p>
+              )}
+            </li>
+          );
+        })}
       </ul>
-      <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-fg-muted sm:grid-cols-2">
-        <p className="rounded-md border border-border px-3 py-2.5">
-          <span className="font-medium text-fg">Ubuntu:</span> edite <span className="font-mono">/etc/astryon/astryon.env</span> e rode <span className="font-mono">sudo astryonctl restart</span>.
-        </p>
-        <p className="rounded-md border border-border px-3 py-2.5">
-          <span className="font-medium text-fg">Windows:</span> edite o <span className="font-mono">.env</span> na raiz e rode <span className="font-mono">scripts\stop.ps1</span> e <span className="font-mono">start.ps1</span>.
-        </p>
-      </div>
+      <SaveRow
+        dirty={dirty}
+        valid
+        pending={save.isPending}
+        onSave={() => {
+          // Envia só os campos alterados: vazio com o ícone de lixeira remove; vazio sem toque não mexe.
+          const payload: Record<string, string | null> = {};
+          for (const k of EDITABLE_SECRETS) {
+            if (values[k].trim() !== "") payload[k] = values[k].trim();
+            else if (cleared[k]) payload[k] = null;
+          }
+          save.mutate(payload, {
+            onSuccess: () => {
+              setValues(Object.fromEntries(EDITABLE_SECRETS.map((k) => [k, ""])));
+              setCleared({});
+            },
+          });
+        }}
+        onDiscard={() => {
+          setValues(Object.fromEntries(EDITABLE_SECRETS.map((k) => [k, ""])));
+          setCleared({});
+          save.reset();
+        }}
+        error={save.error}
+        saved={save.isSuccess && !dirty}
+      />
+
     </Section>
   );
 }

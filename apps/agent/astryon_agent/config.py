@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr | None = None
     telegram_chat_id: str | None = None
     # Se telegram_chat_id for um grupo, só estas pessoas (user id do Telegram) usam o bot. Ex.: [123456789]
+    # Em grupos, desligue o "privacy mode" do bot no @BotFather (/setprivacy), senão ele só recebe comandos.
     telegram_allowed_user_ids: list[int] = []
     # O bot responde perguntas (copiloto) vindas SÓ de telegram_chat_id. Long polling: nenhuma porta aberta.
     telegram_chat_enabled: bool = True
@@ -136,6 +137,15 @@ class Settings(BaseSettings):
     # de senha nem segredos cifrados, e nunca para chat de grupo.
     backup_telegram: bool = False
     backup_telegram_every_days: int = Field(default=7, ge=1, le=90)
+
+    # Recuperação de senha por e-mail (SMTP). Sem host e remetente, a tela usa o código do servidor/terminal.
+    # Funciona com Gmail (senha de app), Outlook e qualquer provedor SMTP. Configurável em Configurações → Credenciais.
+    smtp_host: str | None = None
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_user: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_from: str | None = None
+    smtp_security: str = "starttls"  # starttls (587) | ssl (465) | none (relay local)
 
     # Aparelho pronto (ex.: Raspberry Pi vendido já instalado): enquanto NÃO estiver pareado, a página
     # http://astryon.local/aparelho aceita o código da conta sem login de administrador (só na rede local).

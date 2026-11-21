@@ -43,7 +43,7 @@
 
 ## Servidor Linux
 
-- O primeiro administrador exige `ASTRYON_SETUP_CODE`. É gerado pelo instalador e só root lê, em `/etc/astryon/setup-code`. Isso impede que alguém da LAN crie o administrador antes de você.
+- O primeiro administrador exige `ASTRYON_SETUP_CODE`. É gerado pelo instalador e só root lê, em `/etc/astryon/setup-code`. Isso impede que alguém da LAN crie o administrador antes de você. O mesmo código libera a **redefinição de senha pela tela** (`/login/redefinir`); sem ele, a troca sem a senha atual só acontece pelo console do servidor.
 - Unidades systemd endurecidas: `ProtectSystem=strict`, sem capabilities, `NoNewPrivileges`, escrita só em `/var/lib/astryon`.
 - O Nginx é a única porta publicada (TLS, ACL só para LAN e Tailnet, limite de taxa). `/v1/` e `/esp32/` devolvem 404.
 - A faixa CGNAT usada pelo Tailscale só é liberada na ACL quando o Tailscale existe no servidor, porque também é a CGNAT da Starlink.
@@ -68,7 +68,9 @@
 
 - Backup: automático todo dia às 03:30 em `/var/lib/astryon/backups` (14 cópias). Na hora: `sudo astryonctl backup`. Restaurar: `sudo astryonctl restore /var/lib/astryon/backups/<arquivo>.sqlite3.gz`.
 - Para guardar fora do servidor, copie também `/etc/astryon/` (contém o `secrets.key`, sem o qual os segredos de ESP32 do backup não abrem). Guarde em local seguro, nunca no repositório.
-- Esqueceu a senha local (mantém o histórico; apaga só usuários e sessões):
+- Esqueceu a senha local: a tela **`/login/redefinir`** envia um código temporário (15 min, uso único) pelo canal configurado — **Telegram** (se o bot de alertas existe) ou **e-mail** (se houver SMTP e e-mail cadastrado em **Conta e segurança**). A tela encerra as sessões abertas.
+- Sem Telegram nem SMTP, a tela aceita o **código do servidor** (`ASTRYON_SETUP_CODE`, lido com `sudo astryonctl setup-code`) quando ele está definido. Sem esse código, a redefinição pela tela fica desligada de propósito, para ninguém da LAN tomar a conta.
+- Pelo terminal (mantém o histórico; apaga só usuários e sessões):
 
   ```bash
   sudo systemctl stop astryon-agent

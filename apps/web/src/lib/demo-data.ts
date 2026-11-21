@@ -288,7 +288,7 @@ export async function demoFetch(path: string): Promise<unknown> {
       // Valores padrão do agente (config.py), só para a tela de Configurações ter o que mostrar na demonstração.
       return {
         terminal_name: "Starlink Mini (demonstração)", show_mac_addresses: false, runtime_overrides: {}, version: "demo",
-        secrets_configured: { api_token: true, groq_api_key: false, setup_code: false, supabase_agent_token: false, supabase_anon_key: false, telegram_bot_token: false, telegram_chat_id: false },
+        secrets_configured: { api_token: true, groq_api_key: false, setup_code: false, supabase_agent_token: false, supabase_anon_key: false, telegram_bot_token: false, telegram_chat_id: false, smtp_host: false, smtp_port: false, smtp_user: false, smtp_password: false, smtp_from: false, smtp_security: false },
         usage_monthly_limit_gb: 100, usage_cycle_start_day: 3, timezone: "America/Fortaleza",
         dish_target: "demonstração", router_target: "192.168.1.1:9000", router_enabled: true, host: "127.0.0.1", port: 8787, allow_lan: false,
         esp32_enabled: false, supabase_url: null, sync_interval_s: 60,

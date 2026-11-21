@@ -1,7 +1,7 @@
 # CI do ASTRYON. Não usa segredos: nada aqui fala com a antena, com o Supabase ou com o Groq.
 #   agent          ruff + mypy + pytest com as versões travadas (requirements-dev.lock, com hash)
-#   web            lint + typecheck + vitest + testes de RLS (PGlite) + next build
-#   e2e            Playwright com o agente em modo fixture (dados sintéticos identificados)
+#   web            lint + typecheck + vitest + testes de RLS (PGlite) + builds local e nuvem
+#   e2e            OpenAPI em dia + Playwright com o agente em modo fixture (dados sintéticos identificados)
 #   deploy-scripts shellcheck + testes da lib.sh + nenhum CRLF em deploy/linux
 #   audit          vulnerabilidades conhecidas (npm audit + pip-audit); também roda toda segunda-feira
 #   install-ubuntu instalação REAL num Ubuntu 24.04 limpo: install.sh, saúde, segurança, update, rollback, backup
@@ -84,6 +84,13 @@ jobs:
       - name: RLS do Supabase (PGlite, sem Docker)
         run: npm run test -w supabase
       - run: npm run build -w apps/web
+      - name: Build do painel em modo nuvem
+        run: npm run build -w apps/web
+        env:
+          ASTRYON_CLOUD: "1"
+          NEXT_PUBLIC_ASTRYON_CLOUD: "1"
+          ASTRYON_SUPABASE_URL: "https://ci-placeholder.supabase.co"
+          ASTRYON_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
 
   e2e:
     name: Ponta a ponta (Playwright)
@@ -109,6 +116,10 @@ jobs:
           .venv/bin/pip install --quiet --require-hashes -r requirements-dev.lock
           .venv/bin/pip install --quiet --no-deps -e .
       - run: npm ci --no-audit --no-fund
+      - name: Tipos OpenAPI em dia
+        run: |
+          npm run gen:types
+          git diff --exit-code -- packages/shared/src/generated/agent-openapi.d.ts
       - run: npm run build -w apps/web
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web

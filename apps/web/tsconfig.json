@@ -46,7 +46,9 @@
     ".next-astryon/types/**/*.ts",
     ".next-astryon/dev/types/**/*.ts",
     ".next-cloudtest/types/**/*.ts",
-    ".next-cloudtest/dev/types/**/*.ts"
+    ".next-cloudtest/dev/types/**/*.ts",
+    ".next-deploy/types/**/*.ts",
+    ".next-deploy/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

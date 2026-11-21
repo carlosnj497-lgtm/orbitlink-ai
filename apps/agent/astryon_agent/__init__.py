@@ -3,4 +3,4 @@
 Projeto independente. Não é um aplicativo oficial da Starlink/SpaceX e não possui afiliação.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

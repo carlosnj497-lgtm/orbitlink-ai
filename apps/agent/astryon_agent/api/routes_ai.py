@@ -8,7 +8,7 @@ import time
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from ..ai import copilot, telegram_bot, transcribe
@@ -92,6 +92,34 @@ async def ask(c: Ctx, user: User, body: AskBody) -> dict[str, Any]:
                                  "disponível na Visão Geral.") from exc
 
 
+@router.post("/transcribe")
+async def transcribe_audio(c: Ctx, _u: User, file: UploadFile = File(...)) -> dict[str, str]:
+    """Transcreve uma nota de voz enviada pelo navegador (WebRTC/MediaRecorder) usando Whisper da Groq.
+
+    O arquivo NÃO é salvo em disco: lido para memória, transcrito e descartado.
+    """
+    transcriber = transcribe.Transcriber(c.settings, transport=c.extras.get("audio_transport"))
+    if not transcriber.enabled():
+        raise HTTPException(403, "Transcrição de áudio desativada ou não configurada.")
+    try:
+        max_bytes = c.settings.ai_audio_max_bytes
+        # Lê no máximo um byte além do permitido; uploads gigantes não são carregados inteiros na memória.
+        data = await file.read(max_bytes + 1)
+        if len(data) > max_bytes:
+            raise HTTPException(413, f"Áudio grande demais: o limite é {max_bytes} bytes.")
+        await c.db.run(transcribe.reserve_audio_quota, c.db, c.settings)
+        text = await transcriber.transcribe(
+            data, mime=file.content_type or "audio/webm", filename=file.filename or "audio.webm"
+        )
+        seconds = max(1, len(data) // 16000)  # estimativa grossa só para contabilidade
+        transcribe.record_audio_usage(c.db, c.settings, seconds)
+        return {"text": text}
+    except PermissionError as exc:
+        raise HTTPException(429, str(exc)) from exc
+    except transcribe.TranscriptionError as exc:
+        raise HTTPException(502, f"Não foi possível transcrever o áudio: {exc}") from exc
+
+
 @router.get("/conversations")
 def conversations(c: Ctx, user: User) -> dict[str, Any]:
     return {"conversations": c.db.query("SELECT id, title, created_at, updated_at FROM ai_conversations WHERE user_id = ? "
@@ -131,6 +159,9 @@ def register(app: FastAPI) -> None:
             ctx.extras["telegram_bot_task"] = asyncio.create_task(bot.run(), name="telegram-bot")
 
     async def stop(ctx: AppContext) -> None:
+        bot = ctx.extras.get("telegram_bot")
+        if bot:
+            await bot.stop()
         for key in ("ai_purge_task", "telegram_bot_task"):
             t = ctx.extras.get(key)
             if t:

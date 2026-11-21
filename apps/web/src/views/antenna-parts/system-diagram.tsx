@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { SourceBadge, STATE_META } from "@/components/domain";
 import { hrefOf } from "@/components/shell/nav";
 import { useAgent, useStatusInterval } from "@/lib/api";
+import { CLOUD } from "@/lib/cloud-flag";
 import { cn } from "@/lib/cn";
 import { useBasePath, useDemo } from "@/lib/demo-context";
 import { fmtAgo, fmtNumber, fmtPct } from "@/lib/format";
@@ -197,9 +198,9 @@ function useParts(devicesOverride?: DevicesSnapshot) {
   const status = useAgent<StatusResponse>("status", { refetchInterval: useStatusInterval(10_000) });
   const agent = useAgent<AgentInfo>("agent", { refetchInterval: 30_000 });
   const spark = useAgent<Telemetry>("telemetry?range=15m", { refetchInterval: 30_000 });
-  const devicesQ = useAgent<DevicesSnapshot>("devices", { refetchInterval: 60_000 });
-  const esp = useAgent<Esp32Snapshot>("esp32/nodes", { refetchInterval: 15_000 });
-  const caps = useAgent<{ checked_at: number | null; capabilities: Capability[] }>("capabilities", { refetchInterval: 60_000 });
+  const devicesQ = useAgent<DevicesSnapshot>(CLOUD ? null : "devices", { refetchInterval: 60_000 });
+  const esp = useAgent<Esp32Snapshot>(CLOUD ? null : "esp32/nodes", { refetchInterval: 15_000 });
+  const caps = useAgent<{ checked_at: number | null; capabilities: Capability[] }>(CLOUD ? null : "capabilities", { refetchInterval: 60_000 });
   const now = useNow(15_000);
 
   const s = status.data;
@@ -366,6 +367,8 @@ function fmtDur(s: number): string {
 export function SystemDiagram({ current, devices: devicesOverride }: { current: PartId | PartId[]; devices?: DevicesSnapshot }) {
   const demo = useDemo();
   const { parts, links, source } = useParts(devicesOverride);
+  // O diagrama local oferece controle, roteador e ESP32; na nuvem só a Antena tem uma tela equivalente.
+  if (CLOUD) return null;
   const isCurrent = (id: PartId) => (Array.isArray(current) ? current.includes(id) : current === id);
   const all = Object.values(parts);
   const attention = all.filter((p) => p.state === "warn" || p.state === "crit").length;

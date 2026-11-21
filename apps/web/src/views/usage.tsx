@@ -9,6 +9,7 @@ import { CoverageBar, PageHeader, QueryError, SourceBadge } from "@/components/d
 import { Button, Callout, Card, CardBody, CardHeader, EmptyState, Label, Select, Skeleton, Tabs } from "@/components/ui/primitives";
 import { api, useAgent } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { CLOUD } from "@/lib/cloud-flag";
 import { useDemo } from "@/lib/demo-context";
 import { fmtBytes, fmtBytesStr, fmtDateTime, fmtDay, fmtHM, fmtMonth, fmtNumber } from "@/lib/format";
 import { useDisplayTimezone } from "@/lib/timezone";
@@ -276,8 +277,8 @@ export default function UsageView() {
           <CardBody>
             {series.isLoading && <Skeleton className="h-64 w-full" />}
             {series.error && <QueryError error={series.error} />}
-            {series.data && !series.data.points.length && <EmptyState icon={<BarChart3 />} title="Nenhum consumo registrado neste período" />}
-            {series.data && series.data.points.length > 0 && <UsageBarChart data={series.data.points} tickFormatter={tick} height={420} />}
+            {series.data && series.data.points.every((p) => p.coverage === 0) && <EmptyState icon={<BarChart3 />} title="Nenhum consumo registrado neste período" />}
+            {series.data && series.data.points.some((p) => p.coverage > 0) && <UsageBarChart data={series.data.points} tickFormatter={tick} height={420} />}
             {series.data?.peak_hour && (
               <p className="mt-2 text-xs text-fg-subtle">
                 Hora de maior consumo no período: <span className="tabular text-fg-muted">{fmtDateTime(series.data.peak_hour.h)}</span> (<span className="tabular">{fmtBytesStr(series.data.peak_hour.b)}</span>)
@@ -327,7 +328,7 @@ export default function UsageView() {
         <div className="lg:col-span-2">
           <WindowsTable s={s} />
         </div>
-        <CsvImport />
+        {!CLOUD && <CsvImport />}
       </div>
     </>
   );

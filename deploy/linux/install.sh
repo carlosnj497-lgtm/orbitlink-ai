@@ -272,11 +272,7 @@ fi
 
 # ================================================================= 11. verificação
 step "Verificação"
-if health_check 40; then
-  ok "instalação concluída"
-else
-  warn "algum serviço não respondeu — veja: sudo astryonctl doctor"
-fi
+install_health_check 40 || die "instalação não concluída: a verificação de saúde falhou; rode: sudo astryonctl doctor"
 ss -ltn '( sport = :8787 or sport = :3000 )' | awk 'NR>1 {print "    escutando em " $4}'
 
 IP_SHOW="$(lan_ip)"

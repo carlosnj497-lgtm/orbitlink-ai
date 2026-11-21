@@ -84,22 +84,35 @@ O projeto usa o mesmo prefixo em tudo: variáveis `ASTRYON_*`, serviços `astryo
 
 ---
 
-## 📑 Sumário
+<details>
+<summary><b>📑 Sumário</b> — 15 seções</summary>
 
-- [💡 Por que o ASTRYON?](#-por-que-o-astryon)
-- [✨ O que ele faz](#-o-que-ele-faz)
-- [📺 Telas](#-telas)
-- [💎 Princípios](#-princípios)
-- [🔧 Instalação](#-instalação)
-- [🤖 Telegram e IA](#-telegram-e-ia)
-- [🧩 Arquitetura](#-arquitetura)
-- [🚦 Estado do projeto](#-estado-do-projeto)
-- [🧭 Roteiro](#-roteiro)
-- [❓ Perguntas frequentes](#-perguntas-frequentes)
-- [💻 Desenvolvimento](#-desenvolvimento)
-- [🤝 Contribuição](#-contribuição)
-- [📚 Documentação](#-documentação)
-- [🙏 Créditos](#-créditos--credits)
+**🚀 Começando**
+- [Início rápido](#-início-rápido-linux)
+- [Instalação](#-instalação)
+
+**🛰️ O projeto**
+- [Por que ASTRYON?](#-por-que-o-astryon)
+- [O que ele faz](#-o-que-ele-faz)
+- [Telas](#-telas)
+- [Princípios](#-princípios)
+- [Arquitetura](#-arquitetura)
+- [Estado do projeto](#-estado-do-projeto)
+- [Roteiro](#-roteiro)
+
+**🔌 Uso e integrações**
+- [Telegram e IA](#-telegram-e-ia)
+- [Perguntas frequentes](#-perguntas-frequentes)
+- [Documentação](#-documentação)
+
+**🤝 Comunidade**
+- [Desenvolvimento](#-desenvolvimento)
+- [Contribuição](#-contribuição)
+- [Créditos](#-créditos--credits)
+
+🌐 [English version](#-english)
+
+</details>
 
 ## 💡 Por que o ASTRYON?
 
@@ -431,22 +444,35 @@ The project uses the same prefix everywhere: `ASTRYON_*` variables, `astryon-*` 
 
 ---
 
-### 📑 Table of contents
+<details>
+<summary><b>📑 Table of contents</b> — 15 sections</summary>
 
-- [💡 Why ASTRYON?](#-why-astryon)
-- [✨ What it does](#-what-it-does)
-- [📺 Screenshots](#-screenshots)
-- [💎 Principles](#-principles)
-- [🔧 Installation](#-installation)
-- [🤖 Telegram and AI](#-telegram-and-ai)
-- [🧩 Architecture](#-architecture)
-- [🚦 Project status](#-project-status)
-- [🧭 Roadmap](#-roadmap)
-- [❓ FAQ](#-faq)
-- [💻 Development](#-development)
-- [🤝 Contributing](#-contributing)
-- [📚 Documentation](#-documentation)
-- [🙏 Credits](#-créditos--credits)
+**🚀 Getting started**
+- [Quick start](#-quick-start-linux)
+- [Installation](#-installation)
+
+**🛰️ The project**
+- [Why ASTRYON?](#-why-astryon)
+- [What it does](#-what-it-does)
+- [Screenshots](#-screenshots)
+- [Principles](#-principles)
+- [Architecture](#-architecture)
+- [Project status](#-project-status)
+- [Roadmap](#-roadmap)
+
+**🔌 Usage and integrations**
+- [Telegram and AI](#-telegram-and-ai)
+- [FAQ](#-faq)
+- [Documentation](#-documentation)
+
+**🤝 Community**
+- [Development](#-development)
+- [Contributing](#-contributing)
+- [Credits](#-créditos--credits)
+
+🌐 [Versão em português](#astryon)
+
+</details>
 
 ### 💡 Why ASTRYON?
 

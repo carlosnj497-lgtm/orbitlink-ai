@@ -1,31 +1,37 @@
 <div align="center">
 
-<img src="docs/screenshots/banner.webp" alt="ASTRYON">
+<img src="docs/screenshots/banner.webp" alt="ASTRYON — monitoramento local de antenas Starlink" width="100%">
 
 # ASTRYON
 
-### 📡 Monitoramento local das antenas Starlink
+### 📡 Monitoramento local da sua antena Starlink, com histórico completo.
 
-**Painel em tempo real · Alertas no Telegram · Assistente de IA · Controle seguro da antena**
+**Painel em tempo real · Alertas no Telegram · Assistente de IA · Controle auditado da antena**
 
-Tudo rodando na sua rede — sem nuvem obrigatória, sem dado inventado.
+<sub>100% na sua rede — sem Docker, sem nuvem obrigatória, sem dado inventado.</sub>
 
-<!-- Badges de stack -->
-![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-agente-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
-![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)
-![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4?style=for-the-badge&logo=windows&logoColor=white)
+<!-- Ações principais -->
+[![Baixar para Windows](https://img.shields.io/badge/Baixar_para_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases/latest)
+[![Ver telas](https://img.shields.io/badge/Ver_telas-374151?style=for-the-badge)](#-telas)
+[![Documentação](https://img.shields.io/badge/Documenta%C3%A7%C3%A3o-374151?style=for-the-badge)](#-documentação)
+[![English](https://img.shields.io/badge/English-374151?style=for-the-badge)](#-english)
 
 <!-- Status do projeto -->
-[![CI](https://img.shields.io/github/actions/workflow/status/carlosnj497-lgtm/orbitlink-ai/ci.yml?style=for-the-badge&label=CI)](https://github.com/carlosnj497-lgtm/orbitlink-ai/actions/workflows/ci.yml)
-[![Stars](https://img.shields.io/github/stars/carlosnj497-lgtm/orbitlink-ai?style=for-the-badge&logo=github)](https://github.com/carlosnj497-lgtm/orbitlink-ai/stargazers)
-![Last commit](https://img.shields.io/github/last-commit/carlosnj497-lgtm/orbitlink-ai?style=for-the-badge&label=last%20commit)
-![License MIT](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)
-[![Installers](https://img.shields.io/badge/installers-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/carlosnj497-lgtm/astryon-releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/carlosnj497-lgtm/orbitlink-ai/ci.yml?style=flat-square&label=CI&labelColor=0f172a)](https://github.com/carlosnj497-lgtm/orbitlink-ai/actions/workflows/ci.yml)
+[![Versão](https://img.shields.io/github/v/release/carlosnj497-lgtm/orbitlink-ai?style=flat-square&label=vers%C3%A3o&labelColor=0f172a&color=22c55e)](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases/latest)
+[![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-22c55e?style=flat-square&labelColor=0f172a)](LICENSE)
+[![Estrelas](https://img.shields.io/github/stars/carlosnj497-lgtm/orbitlink-ai?style=flat-square&label=estrelas&labelColor=0f172a&logo=github&logoColor=white)](https://github.com/carlosnj497-lgtm/orbitlink-ai/stargazers)
 
-[🎬 **See English version**](#-english) · [📺 **Ver telas**](#-telas) · [📦 **Download para Windows**](https://github.com/carlosnj497-lgtm/astryon-releases) · [🐛 **Reportar bug**](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues) · [📚 **Documentação**](#-documentação)
+<!-- Stack -->
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?style=flat-square&logo=ubuntu&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4?style=flat-square&logo=windows&logoColor=white)
+
+<sub>🐛 Encontrou um problema? [Abra uma issue](https://github.com/carlosnj497-lgtm/orbitlink-ai/issues)</sub>
 
 </div>
 
@@ -110,7 +116,7 @@ O app oficial da Starlink mostra como a antena está **agora**. O ASTRYON guarda
 | 🔔 | **Alertas** | Regras com debounce, histerese e cooldown, entregues pelo Telegram ou por webhook, com fila que sobrevive à queda da internet. |
 | 🤖 | **Central de IA** | Perguntas em português respondidas com os dados do agente (Groq). Sem chave, responde por regras. |
 | 💬 | **Bot do Telegram** | `/menu`, consultas por comando sem gastar IA, perguntas em texto ou nota de voz e resumo semanal. |
-| 🔁 | **Controle seguro** | Reiniciar a antena exige administrador, código de uso único e fica auditado. A IA só sugere. |
+| 🔁 | **Controle seguro e auditado** | Reiniciar a antena exige administrador, código de uso único e fica auditado. A IA só sugere. |
 | 🌦️ | **Clima (opcional)** | Clima da sua cidade pela Open-Meteo (gratuita): cartão no Dashboard, faixas de chuva nos gráficos e o tempo de cada queda em Eventos. |
 | 🔌 | **ESP32 (opcional)** | Sensores de tensão, falta de energia e temperatura, autenticados por HMAC. |
 | 🏠 | **Home Assistant (opcional)** | Sensores da Starlink no Home Assistant via MQTT, com descoberta automática. Veja [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md). |
@@ -173,7 +179,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1      # agente :8787 +
 
 Abra `http://localhost:3000` no próprio PC e crie o administrador. Para parar: `scripts\stop.ps1`. Guia: [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
 
-Prefere o instalador com ícone na bandeja? Baixe o `.exe` em [astryon-releases](https://github.com/carlosnj497-lgtm/astryon-releases) (em validação num Windows real).
+Prefere o instalador com ícone na bandeja? Baixe o `.exe` nas [releases do ASTRYON](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases/latest) (em validação num Windows real).
 
 > [!TIP]
 > Sem antena por perto? Abra `/demo` para ver o painel com dados fictícios.
@@ -255,7 +261,7 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - [ ] Nó ESP32 gravado e testado numa placa
 - [x] Serviço na nuvem: conta por e-mail, código de pareamento e painel lendo o Supabase ([NUVEM.md](docs/NUVEM.md))
 - [ ] Aparelho pronto (Raspberry Pi) com página de configuração: script pronto, falta testar no hardware ([APARELHO.md](docs/APARELHO.md))
-- [ ] Instalador `.exe` para Windows com ícone na bandeja: gerado no GitHub Actions e publicado em [astryon-releases](https://github.com/carlosnj497-lgtm/astryon-releases), falta validar num Windows real
+- [ ] Instalador `.exe` para Windows com ícone na bandeja: gerado no GitHub Actions e publicado nas [releases do ASTRYON](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases), falta validar num Windows real
 
 ## ❓ Perguntas frequentes
 
@@ -440,7 +446,7 @@ The official Starlink app shows how your dish is doing **right now**. ASTRYON st
 | 🔔 | **Alerts** | Rules with debounce, hysteresis, and cooldown, delivered via Telegram or webhook, with a queue that survives internet outages. |
 | 🤖 | **AI hub** | Questions in Portuguese answered with data from the agent (Groq). Without a key, it answers by rules. |
 | 💬 | **Telegram bot** | `/menu`, command queries without spending AI, text or voice questions, and weekly summary. |
-| 🔁 | **Safe control** | Rebooting the dish requires an administrator, a single-use code, and is audited. AI only suggests. |
+| 🔁 | **Safe, audited control** | Rebooting the dish requires an administrator, a single-use code, and is audited. AI only suggests. |
 | 🌦️ | **Weather (optional)** | City weather from Open-Meteo (free): card on the Dashboard, rain bands in charts, and weather at each outage in Events. |
 | 🔌 | **ESP32 (optional)** | Voltage, power outage, and temperature sensors, authenticated by HMAC. |
 | 🏠 | **Home Assistant (optional)** | Starlink sensors in Home Assistant via MQTT, with auto-discovery. See [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md). |
@@ -503,7 +509,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1      # agent :8787 + 
 
 Open `http://localhost:3000` on the same PC and create the administrator. To stop: `scripts\stop.ps1`. Guide: [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
 
-Prefer the installer with a tray icon? Download the `.exe` from [astryon-releases](https://github.com/carlosnj497-lgtm/astryon-releases) (being validated on real Windows).
+Prefer the installer with a tray icon? Download the `.exe` from the [ASTRYON releases](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases/latest) (being validated on real Windows).
 
 > [!TIP]
 > No dish nearby? Open `/demo` to see the dashboard with fictitious data.
@@ -585,7 +591,7 @@ Project decisions and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [ ] ESP32 node flashed and tested on a board
 - [x] Cloud service: email accounts, pairing code, and dashboard reading Supabase ([NUVEM.md](docs/NUVEM.md))
 - [ ] Ready device (Raspberry Pi) with config page: script ready, hardware test pending ([APARELHO.md](docs/APARELHO.md))
-- [ ] `.exe` installer for Windows with tray icon: built in GitHub Actions and published in [astryon-releases](https://github.com/carlosnj497-lgtm/astryon-releases), pending validation on real Windows
+- [ ] `.exe` installer for Windows with tray icon: built in GitHub Actions and published in the [ASTRYON releases](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases), pending validation on real Windows
 
 ## ❓ FAQ
 

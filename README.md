@@ -75,7 +75,7 @@ Pronto — o agente está no ar e vai começar a ler a sua antena assim que ela 
 
 O projeto usa o mesmo prefixo em tudo: variáveis `ASTRYON_*`, serviços `astryon-*` e o comando `astryonctl`.
 
-🎮 **Sem antena por perto?** Abra `/demo` · 🔄 **Vindo do nome antigo?** Veja [Migração para ASTRYON](docs/MIGRATION_ASTRYON.md)
+🎮 **Sem antena por perto?** Abra `https://SEU-IP/demo` · 🔄 **Vindo do nome antigo?** Veja [Migração para ASTRYON](docs/MIGRATION_ASTRYON.md)
 
 > [!IMPORTANT]
 > **Projeto independente, sem afiliação com a Starlink ou a SpaceX.** Usa apenas a API local gRPC que a própria antena expõe na sua rede.
@@ -95,6 +95,8 @@ O projeto usa o mesmo prefixo em tudo: variáveis `ASTRYON_*`, serviços `astryo
 - [O que ele faz](#-o-que-ele-faz)
 - [Telas](#-telas)
 - [Princípios](#-princípios)
+- [Compatibilidade](#-compatibilidade)
+- [Privacidade e segurança](#-privacidade-e-segurança)
 - [Arquitetura](#-arquitetura)
 - [Estado do projeto](#-estado-do-projeto)
 - [Roteiro](#-roteiro)
@@ -205,9 +207,34 @@ Todas as capturas vêm da rota `/demo`, com dados fictícios e a faixa de demons
 - **Ações só com confirmação humana.** A IA tem ferramentas somente de leitura.
 - **Demonstração isolada.** Dados fictícios existem só em `/demo`, sempre sinalizados.
 
+## 🛰️ Compatibilidade
+
+- **Modelos alvo:** Mini · Standard (e gerações anteriores) · Standard Actuated · High Performance · Flat High Performance.
+- **Validação em hardware real:** ainda não realizada (nov/2026); o conector foi testado contra servidor gRPC sintético com reflection.
+- **Descoberta de capacidades:** o agente consulta o firmware por reflection em runtime; o que não for exposto aparece como indisponível.
+- **Detalhes por modelo e firmware:** [docs/STARLINK_COMPATIBILITY.md](docs/STARLINK_COMPATIBILITY.md).
+
+## 🔒 Privacidade e segurança
+
+Por padrão, tudo fica no SQLite local. Estes são os únicos caminhos que podem sair da sua rede — todos opcionais:
+
+- **Telegram** — alertas, resumo semanal, comandos e perguntas; só com o bot configurado.
+- **Groq (IA e Whisper)** — a pergunta e os dados necessários para respondê-la; o áudio da nota de voz; só com a chave configurada.
+- **Voz do bot (Microsoft)** — o texto da resposta; só se as respostas em voz estiverem ativadas.
+- **Open-Meteo** — coordenadas da cidade (~1 km); só com o clima ativado.
+- **Webhook** — o conteúdo do alerta; só com a URL configurada.
+- **Supabase / painel na nuvem** — agregados por minuto (consumo, latência, perda, quedas), não as amostras de 1 s nem a lista de dispositivos; só se a nuvem for configurada.
+- **ESP32** — os dados dos sensores ficam na rede local; o listener é local.
+
+**Segurança:** segredos ficam no agente/servidor; o navegador nunca recebe tokens; ações de controle exigem administrador, código de uso único e auditoria. Modelo completo: [docs/SECURITY.md](docs/SECURITY.md). Para reportar uma vulnerabilidade, use a aba **Security** (relato privado).
+
 ## 🔧 Instalação
 
-**Pré-requisitos:** Linux: Ubuntu Server 24.04 LTS e acesso à rede da antena (o instalador cuida das dependências). Windows ou instalação manual: Python 3.11+ e Node.js 20+ (LTS), num computador na mesma rede da antena.
+### Requisitos
+
+- **Linux (recomendado):** Ubuntu Server 24.04 LTS, 2 GB+ de RAM, 4 GB livres em disco e acesso à rede da antena. O instalador cuida de Python, Node.js, Nginx e das demais dependências. x86_64 testado no CI; ARM64 ainda não validado.
+- **Raspberry Pi (aparelho):** Pi 4 ou 5, 2 GB+ de RAM, cartão de 16 GB+ e Raspberry Pi OS Lite 64-bit. Script pronto; falta validar no hardware. Veja [docs/APARELHO.md](docs/APARELHO.md).
+- **Windows 10/11:** Python 3.11+ e Node.js 20+; monitoramento enquanto o computador estiver ligado.
 
 ### Servidor Linux (Ubuntu Server 24.04 LTS), recomendado
 
@@ -223,6 +250,8 @@ sudo astryonctl update --git-pull
 sudo astryonctl rollback
 sudo astryonctl backup
 ```
+
+**Atualização e backup:** `update --git-pull` usa troca atômica com rollback automático; `rollback` volta à versão anterior; `backup` gera um backup agora (o diário fica em `/var/lib/astryon/backups`, com 14 cópias). Guia: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
 
 Os serviços `astryon-agent` e `astryon-web` reiniciam sozinhos em falhas e registram no journald. Agente e painel escutam só em loopback; o Nginx publica o painel apenas para a LAN e a Tailnet. Guia completo: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
 
@@ -242,7 +271,7 @@ Prefere o instalador com ícone na bandeja? Baixe o `.exe` nas [releases do ASTR
 </details>
 
 > [!TIP]
-> Sem antena por perto? Abra `/demo` para ver o painel com dados fictícios.
+> Sem antena por perto? Abra `https://SEU-IP/demo` (Linux) ou `http://localhost:3000/demo` (Windows) para ver o painel com dados fictícios.
 
 ## 🤖 Telegram e IA
 
@@ -308,6 +337,11 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 
 ## 🚦 Estado do projeto
 
+**Releases:** [notas e instaladores](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases) — o badge no topo mostra a versão atual.
+
+> [!NOTE]
+> **Resumo:** a validação em antenas reais, a publicação da nuvem e o instalador Windows ainda estão pendentes; o restante está coberto pelos testes listados abaixo.
+
 - **Conector gRPC** — testado contra servidor gRPC sintético com reflection. **Ainda não validado em antenas reais**; a compatibilidade por modelo e firmware precisa ser confirmada.
 - **Agente** — pytest, ruff e mypy strict; dependências travadas com hash.
 - **Painel** — Vitest e E2E Playwright, incluindo acessibilidade com axe.
@@ -358,11 +392,8 @@ acontece enquanto o computador estiver ligado.
 <details>
 <summary><b>Meus dados vão para algum lugar?</b></summary>
 <br>
-Não por padrão. Tudo fica no SQLite local. Só sai alguma coisa se você ativar o Telegram, a IA da Groq (a pergunta e
-os dados necessários para respondê-la), as respostas em voz do bot (o texto da resposta vai ao serviço de voz da
-Microsoft), o clima (só as coordenadas da cidade escolhida, arredondadas a cerca de 1 km, vão para a Open-Meteo), os
-webhooks de alerta (o conteúdo do alerta vai para o endereço que você configurar) ou a sincronização com o seu próprio
-projeto Supabase.
+Não por padrão. Tudo fica no SQLite local. A lista completa do que pode sair — e quando — está em
+[Privacidade e segurança](#-privacidade-e-segurança).
 </details>
 
 <details>
@@ -507,7 +538,7 @@ Done — the agent is running and will start reading your dish once it is reacha
 
 The project uses the same prefix everywhere: `ASTRYON_*` variables, `astryon-*` services, and the `astryonctl` command.
 
-🎮 **No dish nearby?** Open `/demo` · 🔄 **Coming from the old name?** See [Migration to ASTRYON](docs/MIGRATION_ASTRYON.md)
+🎮 **No dish nearby?** Open `https://YOUR-IP/demo` · 🔄 **Coming from the old name?** See [Migration to ASTRYON](docs/MIGRATION_ASTRYON.md)
 
 > [!IMPORTANT]
 > **Independent project, not affiliated with Starlink or SpaceX.** It only uses the local gRPC API that the dish exposes on your network.
@@ -527,6 +558,8 @@ The project uses the same prefix everywhere: `ASTRYON_*` variables, `astryon-*` 
 - [What it does](#-what-it-does)
 - [Screenshots](#-screenshots)
 - [Principles](#-principles)
+- [Compatibility](#-compatibility)
+- [Privacy and security](#-privacy-and-security)
 - [Architecture](#-architecture)
 - [Project status](#-project-status)
 - [Roadmap](#-roadmap)
@@ -637,9 +670,34 @@ All screenshots come from the `/demo` route, with fictitious data and the demo b
 - **Actions require human confirmation.** AI tools are read-only.
 - **Demo isolated.** Fictitious data exists only in `/demo`, always labeled.
 
+### 🛰️ Compatibility
+
+- **Target models:** Mini · Standard (and previous generations) · Standard Actuated · High Performance · Flat High Performance.
+- **Real-hardware validation:** not yet performed (Nov 2026); the connector was tested against a synthetic gRPC server with reflection.
+- **Capability discovery:** the agent queries the firmware via reflection at runtime; anything not exposed appears as unavailable.
+- **Details per model and firmware:** [docs/STARLINK_COMPATIBILITY.md](docs/STARLINK_COMPATIBILITY.md).
+
+### 🔒 Privacy and security
+
+By default, everything stays in the local SQLite. These are the only paths that can leave your network — all optional:
+
+- **Telegram** — alerts, weekly summary, commands, and questions; only with the bot configured.
+- **Groq (AI and Whisper)** — the question and the data needed to answer it; the voice-note audio; only with the key configured.
+- **Bot voice (Microsoft)** — the response text; only if voice replies are enabled.
+- **Open-Meteo** — city coordinates (~1 km); only with weather enabled.
+- **Webhook** — the alert content; only with the URL configured.
+- **Supabase / cloud dashboard** — per-minute aggregates (usage, latency, loss, outages), not the 1-second samples or the device list; only if cloud is configured.
+- **ESP32** — sensor data stays on the local network; the listener is local.
+
+**Security:** secrets stay in the agent/server; the browser never receives tokens; control actions require an administrator, a single-use code, and auditing. Full model: [docs/SECURITY.md](docs/SECURITY.md). To report a vulnerability, use the **Security** tab (private report).
+
 ### 🔧 Installation
 
-**Prerequisites:** Linux: Ubuntu Server 24.04 LTS and network access to the dish (the installer handles dependencies). Windows or manual install: Python 3.11+ and Node.js 20+ (LTS), on a computer on the same network as the dish.
+#### Requirements
+
+- **Linux (recommended):** Ubuntu Server 24.04 LTS, 2 GB+ RAM, 4 GB free disk, and network access to the dish. The installer handles Python, Node.js, Nginx, and other dependencies. x86_64 tested in CI; ARM64 not yet validated.
+- **Raspberry Pi (appliance):** Pi 4 or 5, 2 GB+ RAM, 16 GB+ card, and Raspberry Pi OS Lite 64-bit. Script ready; hardware validation pending. See [docs/APARELHO.md](docs/APARELHO.md).
+- **Windows 10/11:** Python 3.11+ and Node.js 20+; monitoring runs while the computer is on.
 
 #### Linux server (Ubuntu Server 24.04 LTS), recommended
 
@@ -655,6 +713,8 @@ sudo astryonctl update --git-pull
 sudo astryonctl rollback
 sudo astryonctl backup
 ```
+
+**Update and backup:** `update --git-pull` uses an atomic switch with automatic rollback; `rollback` returns to the previous release; `backup` creates a backup now (daily copies live in `/var/lib/astryon/backups`, 14 kept). Guide: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
 
 The `astryon-agent` and `astryon-web` services self-restart on failures and log to journald. Agent and dashboard listen only on loopback; Nginx exposes the dashboard only to the LAN and Tailnet. Full guide: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
 
@@ -674,7 +734,7 @@ Prefer the installer with a tray icon? Download the `.exe` from the [ASTRYON rel
 </details>
 
 > [!TIP]
-> No dish nearby? Open `/demo` to see the dashboard with fictitious data.
+> No dish nearby? Open `https://YOUR-IP/demo` (Linux) or `http://localhost:3000/demo` (Windows) to see the dashboard with fictitious data.
 
 ### 🤖 Telegram and AI
 
@@ -742,6 +802,11 @@ Project decisions and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ### 🚦 Project status
 
+**Releases:** [notes and installers](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases) — the badge at the top shows the current version.
+
+> [!NOTE]
+> **Summary:** real-dish validation, cloud publishing, and the Windows installer are still pending; everything else is covered by the tests listed below.
+
 - **gRPC connector** — tested against a synthetic gRPC server with reflection. **Not yet validated on real dishes**; compatibility per model and firmware needs confirmation.
 - **Agent** — pytest, ruff, and mypy strict tests; dependencies locked with hashes.
 - **Dashboard** — Vitest and Playwright E2E tests, including accessibility with axe.
@@ -791,10 +856,8 @@ To monitor 24/7, yes: any mini PC or old computer with Ubuntu works. On Windows,
 <details>
 <summary><b>Does my data go anywhere?</b></summary>
 <br>
-Not by default. Everything stays in the local SQLite. Data only leaves if you enable Telegram, Groq AI (the question and
-necessary data to answer it), bot voice replies (the response text goes to Microsoft's voice service), weather (only the
-chosen city's coordinates, rounded to about 1 km, go to Open-Meteo), alert webhooks (the alert content goes to the URL you
-configure), or sync with your own Supabase project.
+Not by default. Everything stays in the local SQLite. The full list of what can leave — and when — is in
+[Privacy and security](#-privacy-and-security).
 </details>
 
 <details>

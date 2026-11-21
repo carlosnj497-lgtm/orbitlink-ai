@@ -1,8 +1,10 @@
 # Compila o APK do app-gateway mobile.
 # - Manual (Actions → "Build Mobile Gateway APK" → Run workflow): APK como artefato.
 # - Tag v* (ex.: git tag v0.3.1 && git push origin v0.3.1): também publica o APK e um
-#   latest.json no repositório PÚBLICO de releases (este é privado). O app lê esse
-#   latest.json pelo backend para se atualizar (ASTRYON_RELEASE_MANIFEST_URL).
+#   latest.json no repositório PÚBLICO de releases (só binários; o código fica aqui). O app
+#   lê esse latest.json pelo backend para se atualizar (ASTRYON_RELEASE_MANIFEST_URL).
+#   Sem o secret RELEASES_TOKEN o job de publicação REPROVA: release em tag não pode
+#   terminar verde publicando nada.
 #
 # Configuração (Settings → Secrets and variables → Actions):
 #   secret   RELEASES_TOKEN          token com "Contents: read and write" só no repo público de releases
@@ -120,8 +122,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::warning::Falta o secret RELEASES_TOKEN: release do app não publicada."
-            exit 0
+            echo "::error::Falta o secret RELEASES_TOKEN: o APK e o latest.json não foram publicados. Configure o secret em Settings → Secrets and variables → Actions e re-dispare este workflow na tag."
+            exit 1
           fi
 
           apk="$(find dist -name '*.apk' | head -n1)"

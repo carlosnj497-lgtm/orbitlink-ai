@@ -1,8 +1,10 @@
 # Monta o ASTRYON-Setup.exe numa máquina Windows de verdade.
 # - Manual (Actions → "Instalador Windows" → Run workflow): instalador como artefato para baixar.
 # - Tag v* (ex.: git tag v0.2.0 && git push origin v0.2.0): também anexa o instalador à release do GitHub e
-#   publica no repositório PÚBLICO de releases (este é privado). O ASTRYON instalado lê o latest.json de lá e se
-#   atualiza sozinho, mas SÓ se o latest.json estiver assinado pela chave de release.
+#   publica no repositório PÚBLICO de releases (só binários; o código fica aqui). O ASTRYON instalado lê o
+#   latest.json de lá e se atualiza sozinho, mas SÓ se o latest.json estiver assinado pela chave de release.
+#   Sem RELEASES_TOKEN, RELEASE_SIGNING_KEY ou ASTRYON_UPDATE_PUBKEY o job de publicação REPROVA: o
+#   instalador continua anexado à release deste repositório, mas a atualização automática não pode sumir calada.
 #
 # Configuração (Settings → Secrets and variables → Actions):
 #   secret   RELEASES_TOKEN          token com "Contents: read and write" só no repo público de releases
@@ -113,8 +115,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$GH_TOKEN" ] || [ -z "$RELEASE_SIGNING_KEY" ] || [ -z "$PUBKEY" ]; then
-            echo "::warning::Falta RELEASES_TOKEN, RELEASE_SIGNING_KEY ou ASTRYON_UPDATE_PUBKEY: atualização automática não publicada."
-            exit 0
+            echo "::error::Falta RELEASES_TOKEN, RELEASE_SIGNING_KEY ou ASTRYON_UPDATE_PUBKEY: o instalador foi anexado à release, mas a atualização automática não foi publicada. Configure os secrets e variáveis (Settings → Secrets and variables → Actions) e re-dispare este workflow na tag."
+            exit 1
           fi
           setup="dist/ASTRYON-Setup-$VERSION.exe"
           url="https://github.com/$RELEASES_REPO/releases/download/$TAG/ASTRYON-Setup-$VERSION.exe"

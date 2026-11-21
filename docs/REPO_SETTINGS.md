@@ -2,28 +2,21 @@
 
 Checklist de coisas que ficam nas configurações do GitHub e não em um arquivo versionado.
 
-## Sobre o repositório
+## About (card lateral)
 
-**Descrição sugerida:**
+1. Clique no ícone de engrenagem ao lado de **About**.
+2. Cole a descrição:
 
-> Monitoramento local das antenas Starlink — painel, histórico, alertas no Telegram e IA.
+   > Monitoramento local das antenas Starlink — painel em tempo real, histórico, alertas no Telegram e IA. Self-hosted, local-first, sem nuvem obrigatória.
 
-**Topics sugeridos:**
+3. Cole os topics (separados por espaço ou vírgula):
 
-```text
-starlink
-starlink-mini
-starlink-monitoring
-self-hosted
-local-first
-fastapi
-nextjs
-sqlite
-telemetry
-home-assistant
-esp32
-privacy
-```
+   ```text
+   starlink starlink-mini starlink-monitoring self-hosted local-first fastapi nextjs sqlite telemetry telegram-bot home-assistant esp32 privacy python typescript
+   ```
+
+4. **Website:** deixe em branco (o card já mostra **Releases**) ou use a página de releases.
+5. Salve.
 
 **Social preview:** enviar `docs/screenshots/social-preview.png` (1280×640) em **Settings → Social preview**.
 

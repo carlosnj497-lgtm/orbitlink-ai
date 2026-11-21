@@ -127,42 +127,71 @@ O app oficial da Starlink mostra o estado atual e um histórico recente. O ASTRY
 
 ## ✨ O que ele faz
 
-| | Recurso | Detalhes |
-|---|---|---|
-| 📡 | **Ao vivo** | Download, upload, latência e perda de pacotes com histórico de 1 s, pausa e exportação CSV. |
-| 📊 | **Consumo e franquia** | Consumo do ciclo, projeção mensal e alertas em 80% e 100% do plano (estimativa local pelo tráfego da antena), com importação do CSV oficial para comparar. |
-| ✅ | **Qualidade** | Disponibilidade, perda, jitter e percentis de latência por hora, comparação com o período anterior (com e sem chuva) e os melhores horários do dia. Segundos sem medição ficam fora da conta. |
-| 🛰️ | **Antena e obstruções** | Estado, firmware, mapa de céu visto pela antena e porcentagem de obstrução. |
-| 📄 | **Eventos e relatórios** | Linha do tempo de quedas com duração, causa (quando informada), confiança e clima; relatórios em PDF e exportação CSV/JSON. |
-| 🔔 | **Alertas** | Regras com debounce, histerese e cooldown, entregues pelo Telegram ou por webhook, com fila que sobrevive à queda da internet. |
-| 🤖 | **Central de IA** | Perguntas em português respondidas com os dados do agente (Groq). Sem chave, responde por regras. |
-| 💬 | **Bot do Telegram** | `/menu`, consultas por comando sem gastar IA, perguntas em texto ou nota de voz e resumo semanal. |
-| 🔁 | **Controle seguro e auditado** | Reiniciar a antena exige administrador, código de uso único e fica auditado. A IA só sugere. |
-| 🌦️ | **Clima (opcional)** | Clima da sua cidade pela Open-Meteo (gratuita): cartão no Dashboard, faixas de chuva nos gráficos e o tempo de cada queda em Eventos. |
-| 🔌 | **ESP32 (opcional)** | Sensores de tensão, falta de energia e temperatura, autenticados por HMAC. |
-| 🏠 | **Home Assistant (opcional)** | Sensores da Starlink no Home Assistant via MQTT, com descoberta automática. Veja [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md). |
-| ☁️ | **Supabase (opcional)** | Sincronização com RLS. O painel continua lendo só o agente local. |
+| Recurso | Detalhes |
+|---|---|
+| 📡 **Ao vivo** | Download, upload, latência e perda de pacotes com histórico de 1 s, pausa e exportação CSV. |
+| 📊 **Consumo e franquia** | Consumo do ciclo, projeção mensal e alertas em 80% e 100% do plano (estimativa local pelo tráfego da antena), com importação do CSV oficial para comparar. |
+| ✅ **Qualidade** | Disponibilidade, perda, jitter e percentis de latência por hora, comparação com o período anterior (com e sem chuva) e os melhores horários do dia. Segundos sem medição ficam fora da conta. |
+| 🛰️ **Antena e obstruções** | Estado, firmware, mapa de céu visto pela antena e porcentagem de obstrução. |
+| 📄 **Eventos e relatórios** | Linha do tempo de quedas com duração, causa (quando informada), confiança e clima; relatórios em PDF e exportação CSV/JSON. |
+| 🔔 **Alertas** | Regras com debounce, histerese e cooldown, entregues pelo Telegram ou por webhook, com fila que sobrevive à queda da internet. |
+| 🤖 **Central de IA** | Perguntas em português respondidas com os dados do agente (Groq). Sem chave, responde por regras. |
+| 💬 **Bot do Telegram** | `/menu`, consultas por comando sem gastar IA, perguntas em texto ou nota de voz e resumo semanal. |
+| 🔁 **Controle seguro e auditado** | Reiniciar a antena exige administrador, código de uso único e fica auditado. A IA só sugere. |
+| 🌦️ **Clima (opcional)** | Clima da sua cidade pela Open-Meteo (gratuita): cartão no Dashboard, faixas de chuva nos gráficos e o tempo de cada queda em Eventos. |
+| 🔌 **ESP32 (opcional)** | Sensores de tensão, falta de energia e temperatura, autenticados por HMAC. |
+| 🏠 **Home Assistant (opcional)** | Sensores da Starlink no Home Assistant via MQTT, com descoberta automática. Veja [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md). |
+| ☁️ **Supabase (opcional)** | Sincronização com RLS. O painel continua lendo só o agente local. |
 
 ## 📺 Telas
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/consumo.png" alt="Consumo"><br><sub><b>Consumo</b>: ciclo, projeção e evolução diária.</sub></td>
-    <td width="50%"><img src="docs/screenshots/antena.png" alt="Antena e Sinal"><br><sub><b>Antena e Sinal</b>: estado, firmware e obstruções.</sub></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/central-ia.png" alt="Central de IA"><br><sub><b>Central de IA</b>: perguntas sobre a conexão com histórico de conversas.</sub></td>
-    <td><img src="docs/screenshots/login.png" alt="Login"><br><sub><b>Login</b>: administrador local criado na instalação.</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/screenshots/consumo.webp" alt="Tela de Consumo do ASTRYON com ciclo, projeção e evolução diária" width="720"><br>
+  <sub><b>Consumo</b>: ciclo, projeção e evolução diária.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/antena.webp" alt="Tela de Antena e Sinal do ASTRYON com estado, firmware e obstruções" width="720"><br>
+  <sub><b>Antena e Sinal</b>: estado, firmware e obstruções.</sub>
+</p>
+
+<details>
+<summary><b>Qualidade, Eventos e Relatórios</b></summary>
+<br>
+<p align="center">
+  <img src="docs/screenshots/qualidade.webp" alt="Tela de Qualidade da Conexão do ASTRYON com disponibilidade, perda, latência e melhores horários" width="720"><br>
+  <sub><b>Qualidade</b>: disponibilidade, perda, latência e horários.</sub>
+</p>
+<p align="center">
+  <img src="docs/screenshots/eventos.webp" alt="Tela de Eventos do ASTRYON com quedas, duração, causa e clima" width="720"><br>
+  <sub><b>Eventos</b>: quedas com duração, causa e clima.</sub>
+</p>
+<p align="center">
+  <img src="docs/screenshots/relatorios.webp" alt="Tela de Relatórios do ASTRYON com PDF, CSV e backup JSON" width="720"><br>
+  <sub><b>Relatórios</b>: PDF, CSV e backup JSON.</sub>
+</p>
+</details>
+
+<details>
+<summary><b>Central de IA e Login</b></summary>
+<br>
+<p align="center">
+  <img src="docs/screenshots/central-ia.webp" alt="Tela da Central de IA do ASTRYON com perguntas e histórico de conversas" width="720"><br>
+  <sub><b>Central de IA</b>: perguntas sobre a conexão com histórico de conversas.</sub>
+</p>
+<p align="center">
+  <img src="docs/screenshots/login.webp" alt="Tela de login do ASTRYON para o administrador local" width="720"><br>
+  <sub><b>Login</b>: administrador local criado na instalação.</sub>
+</p>
+</details>
 
 <details>
 <summary><b>Dashboard completo e versão para celular</b></summary>
 <br>
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard completo" width="720">
+  <img src="docs/screenshots/dashboard.webp" alt="Dashboard completo do ASTRYON" width="720">
   &nbsp;
-  <img src="docs/screenshots/celular.png" alt="Dashboard no celular" width="260">
+  <img src="docs/screenshots/celular.webp" alt="Dashboard do ASTRYON no celular" width="260">
 </p>
 </details>
 
@@ -197,7 +226,8 @@ sudo astryonctl backup
 
 Os serviços `astryon-agent` e `astryon-web` reiniciam sozinhos em falhas e registram no journald. Agente e painel escutam só em loopback; o Nginx publica o painel apenas para a LAN e a Tailnet. Guia completo: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
 
-### Windows 10/11 (PowerShell)
+<details>
+<summary><b>🪟 Windows 10/11 (PowerShell)</b></summary>
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1    # venv, npm, .env com token, build
@@ -208,6 +238,8 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1      # agente :8787 +
 Abra `http://localhost:3000` no próprio PC e crie o administrador. Para parar: `scripts\stop.ps1`. Guia: [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
 
 Prefere o instalador com ícone na bandeja? Baixe o `.exe` nas [releases do ASTRYON](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases/latest) (em validação num Windows real).
+
+</details>
 
 > [!TIP]
 > Sem antena por perto? Abra `/demo` para ver o painel com dados fictícios.
@@ -224,11 +256,19 @@ Prefere o instalador com ícone na bandeja? Baixe o `.exe` nas [releases do ASTR
 | `/status` | Diagnóstico das últimas 24 h |
 | `/consumo 7d` | Download, upload e cobertura no período |
 | `/franquia` | Limite, saldo estimado e projeção do ciclo |
+| `/relatorio` | PDF dos últimos 30 dias, com comparação e clima |
+
+<details>
+<summary><b>Ver todos os comandos</b></summary>
+
+| Comando | O que mostra |
+|---|---|
 | `/qualidade` · `/quedas` · `/alertas` | Qualidade, interrupções (com o clima de cada uma) e alertas ativos |
 | `/clima` | Clima agora, próximas horas e aviso de chuva forte |
 | `/horario` | Melhores horários para downloads e chamadas |
 | `/resumo` | Resumo dos últimos 7 dias |
-| `/relatorio` | PDF dos últimos 30 dias, com comparação e clima |
+
+</details>
 
 Consultas por comando não gastam IA. Perguntas em texto ou voz usam a cota diária, compartilhada com o painel. Todos os comandos: [docs/TELEGRAM.md](docs/TELEGRAM.md).
 
@@ -245,10 +285,14 @@ flowchart LR
     Agent --> AI["🤖 Groq + Whisper<br/>somente leitura"]
     Agent -.->|"HTTPS opcional"| Meteo["🌦️ Open-Meteo"]
     Agent -.->|"HTTPS opcional"| Supa[("☁️ Supabase RLS")]
+    Supa -.->|"leitura RLS"| Cloud["☁️ Painel na nuvem<br/>Vercel"]
     ESP["🔌 Sensores ESP32"] -.->|"HMAC"| Agent
 ```
 
-O coletor lê o status a cada 10 s, o histórico a cada 30 s e as obstruções a cada 5 min, gravando no SQLite (WAL, migrações e retenção automática). O login usa cookie httpOnly (`SameSite=Strict`) e o painel fala com o agente por um proxy autenticado: o token nunca chega ao navegador. Alertas, diagnóstico por regras, relatórios e o controle auditado da antena rodam dentro do agente; o clima envia só as coordenadas da cidade, e a sincronização com o Supabase usa RLS. O listener ESP32 autentica os sensores por HMAC.
+- **Coleta:** status a cada 10 s, histórico a cada 30 s e obstruções a cada 5 min, gravando no SQLite (WAL, migrações e retenção automática).
+- **Login e proxy:** cookie httpOnly (`SameSite=Strict`); o painel fala com o agente por um proxy autenticado, e o token nunca chega ao navegador.
+- **No agente:** alertas, diagnóstico por regras, relatórios e o controle auditado da antena.
+- **Integrações opcionais:** clima (só as coordenadas da cidade), Supabase (RLS) e sensores ESP32 (HMAC).
 
 | Pasta | Conteúdo |
 |---|---|
@@ -264,18 +308,16 @@ Decisões de projeto e fluxo de dados: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 
 ## 🚦 Estado do projeto
 
-| Componente | Situação |
-|---|---|
-| Conector gRPC | Testado contra servidor gRPC sintético com reflection. **Ainda não validado em antenas reais**; a compatibilidade por modelo e firmware precisa ser confirmada. |
-| Agente | Testes pytest, ruff e mypy strict. Dependências travadas com hash. |
-| Painel | Testes Vitest e E2E Playwright (incluindo acessibilidade com axe). |
-| Telegram e notificações | Comandos, fila de reenvio e resumo semanal testados com servidor simulado. |
-| IA (Groq) e Whisper | Testados com o endpoint real da Groq; áudio validado com voz sintética. |
-| Supabase | Testes de isolamento RLS em Postgres (PGlite). Ainda não aplicado a um projeto real. |
-| Firmware ESP32 | A versão 0.2.0 com pareamento v2 ainda precisa de compilação nos dois ambientes e validação em placa. |
-| Implantação Linux | Testes dos scripts e instalação real num Ubuntu 24.04 limpo no CI. |
-| Instalador Windows | Gerado no GitHub Actions e publicado nas releases (`.exe` e `.zip`); falta validar num Windows real. |
-| Painel na nuvem (Vercel + Supabase) | Login por e-mail, pareamento por código, Dashboard, Consumo, Qualidade, Eventos e Conta. Código testado com Supabase simulado; falta publicar e aplicar o SQL no projeto Supabase de destino. |
+- **Conector gRPC** — testado contra servidor gRPC sintético com reflection. **Ainda não validado em antenas reais**; a compatibilidade por modelo e firmware precisa ser confirmada.
+- **Agente** — pytest, ruff e mypy strict; dependências travadas com hash.
+- **Painel** — Vitest e E2E Playwright, incluindo acessibilidade com axe.
+- **Telegram e notificações** — comandos, fila de reenvio e resumo semanal testados com servidor simulado.
+- **IA (Groq) e Whisper** — testados com o endpoint real da Groq; áudio validado com voz sintética.
+- **Supabase** — testes de isolamento RLS em Postgres (PGlite); ainda não aplicado a um projeto real.
+- **Firmware ESP32** — versão 0.2.0 com pareamento v2 ainda precisa de compilação nos dois ambientes e validação em placa.
+- **Implantação Linux** — testes dos scripts e instalação real num Ubuntu 24.04 limpo no CI.
+- **Instalador Windows** — gerado no GitHub Actions e publicado nas releases (`.exe` e `.zip`); falta validar num Windows real.
+- **Painel na nuvem (Vercel + Supabase)** — login por e-mail, pareamento por código, Dashboard, Consumo, Qualidade, Eventos e Conta. Código testado com Supabase simulado; falta publicar e aplicar o SQL no projeto Supabase de destino.
 
 ## 🧭 Roteiro
 
@@ -352,6 +394,34 @@ Não. As ferramentas da IA são somente de leitura. Reiniciar exige um administr
 registrado na auditoria.
 </details>
 
+<details>
+<summary><b>O ASTRYON funciona sem internet?</b></summary>
+<br>
+Sim, para o painel local e a leitura da antena. Telegram, clima e IA precisam de internet; se a conexão cair, os alertas
+ficam na fila e são enviados quando ela volta.
+</details>
+
+<details>
+<summary><b>Como atualizo o ASTRYON?</b></summary>
+<br>
+Linux: `sudo astryonctl update --git-pull` (com rollback automático). Windows: baixe o instalador novo nas releases ou
+rode os scripts de instalação novamente. Guias: [Linux](docs/LINUX_SERVER.md) e [Windows](docs/WINDOWS_SETUP.md).
+</details>
+
+<details>
+<summary><b>Como faço backup?</b></summary>
+<br>
+Linux: `sudo astryonctl backup`. O agente também mantém uma cópia diária do banco; o envio de uma cópia semanal pelo
+Telegram é opcional. Detalhes em [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
+</details>
+
+<details>
+<summary><b>Funciona no celular?</b></summary>
+<br>
+Sim. O painel é responsivo e não precisa de app: abra o endereço do ASTRYON no navegador do celular. O Telegram também
+funciona como interface móvel para alertas e consultas.
+</details>
+
 ## 💻 Desenvolvimento
 
 | Comando (na raiz) | O que faz |
@@ -381,32 +451,26 @@ O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda agente, paine
 
 ### 🚀 Começando
 
-| Guia | O que tem dentro |
-|---|---|
-| [🐧 Servidor Ubuntu](docs/LINUX_SERVER.md) | Instalação, atualização, backup e rollback |
-| [🪟 Windows 10/11](docs/WINDOWS_SETUP.md) | Instalação e scripts no Windows |
-| [🔄 Migração para ASTRYON](docs/MIGRATION_ASTRYON.md) | Atualização de instalações com o nome anterior |
-| [🔍 Solução de problemas](docs/TROUBLESHOOTING.md) | Diagnóstico da rede, da antena e dos serviços |
+- [🐧 Servidor Ubuntu](docs/LINUX_SERVER.md) — instalação, atualização, backup e rollback.
+- [🪟 Windows 10/11](docs/WINDOWS_SETUP.md) — instalação e scripts no Windows.
+- [🔄 Migração para ASTRYON](docs/MIGRATION_ASTRYON.md) — atualização de instalações com o nome anterior.
+- [🔍 Solução de problemas](docs/TROUBLESHOOTING.md) — diagnóstico da rede, da antena e dos serviços.
 
 ### 🔌 Integrações
 
-| Guia | O que tem dentro |
-|---|---|
-| [📲 Telegram](docs/TELEGRAM.md) | Bot, comandos, voz e resumo semanal |
-| [📡 ESP32](docs/ESP32_SETUP.md) | Montagem e pareamento do nó de sensores |
-| [🏠 Home Assistant](docs/HOME_ASSISTANT.md) | Sensores via MQTT com descoberta automática |
-| [☁️ Nuvem (Vercel + Supabase)](docs/NUVEM.md) | Contas por e-mail, pareamento e painel na nuvem |
-| [🔄 Supabase](docs/SUPABASE.md) | Sincronização opcional com RLS |
-| [🍓 Aparelho pronto](docs/APARELHO.md) | Raspberry Pi com página de configuração |
+- [📲 Telegram](docs/TELEGRAM.md) — bot, comandos, voz e resumo semanal.
+- [📡 ESP32](docs/ESP32_SETUP.md) — montagem e pareamento do nó de sensores.
+- [🏠 Home Assistant](docs/HOME_ASSISTANT.md) — sensores via MQTT com descoberta automática.
+- [☁️ Nuvem (Vercel + Supabase)](docs/NUVEM.md) — contas por e-mail, pareamento e painel na nuvem.
+- [🔄 Supabase](docs/SUPABASE.md) — sincronização opcional com RLS.
+- [🍓 Aparelho pronto](docs/APARELHO.md) — Raspberry Pi com página de configuração.
 
 ### 🧠 Referência técnica
 
-| Guia | O que tem dentro |
-|---|---|
-| [🧩 Arquitetura](docs/ARCHITECTURE.md) | Decisões de projeto e fluxo de dados |
-| [🛰️ Compatibilidade Starlink](docs/STARLINK_COMPATIBILITY.md) | O que a API local informa — e o que não informa |
-| [🛡️ Segurança](docs/SECURITY.md) | Modelo de segurança |
-| [✅ Testes de aceitação](docs/ACCEPTANCE_TESTS.md) | Roteiro de validação ponta a ponta |
+- [🧩 Arquitetura](docs/ARCHITECTURE.md) — decisões de projeto e fluxo de dados.
+- [🛰️ Compatibilidade Starlink](docs/STARLINK_COMPATIBILITY.md) — o que a API local informa e o que não informa.
+- [🛡️ Segurança](docs/SECURITY.md) — modelo de segurança.
+- [✅ Testes de aceitação](docs/ACCEPTANCE_TESTS.md) — roteiro de validação ponta a ponta.
 
 ---
 
@@ -495,42 +559,71 @@ The official Starlink app shows current status and a short history. ASTRYON stor
 
 ### ✨ What it does
 
-| | Feature | Details |
-|---|---|---|
-| 📡 | **Live** | Download, upload, latency, and packet loss with 1-second history, pause, and CSV export. |
-| 📊 | **Usage and data cap** | Cycle usage, monthly projection, and alerts at 80% and 100% of the plan (local estimate from dish traffic), with official CSV import for comparison. |
-| ✅ | **Quality** | Availability, loss, jitter, and latency percentiles per hour, comparison with the previous period (with and without rain), and the best times of day. Seconds without measurement are excluded. |
-| 🛰️ | **Dish and obstructions** | Status, firmware, sky map as seen by the dish, and obstruction percentage. |
-| 📄 | **Events and reports** | Outage timeline with duration, cause (when reported), confidence, and weather; PDF reports and CSV/JSON export. |
-| 🔔 | **Alerts** | Rules with debounce, hysteresis, and cooldown, delivered via Telegram or webhook, with a queue that survives internet outages. |
-| 🤖 | **AI hub** | Questions in Portuguese answered with data from the agent (Groq). Without a key, it answers by rules. |
-| 💬 | **Telegram bot** | `/menu`, command queries without spending AI, text or voice questions, and weekly summary. |
-| 🔁 | **Safe, audited control** | Rebooting the dish requires an administrator, a single-use code, and is audited. AI only suggests. |
-| 🌦️ | **Weather (optional)** | City weather from Open-Meteo (free): card on the Dashboard, rain bands in charts, and weather at each outage in Events. |
-| 🔌 | **ESP32 (optional)** | Voltage, power outage, and temperature sensors, authenticated by HMAC. |
-| 🏠 | **Home Assistant (optional)** | Starlink sensors in Home Assistant via MQTT, with auto-discovery. See [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md). |
-| ☁️ | **Supabase (optional)** | Sync with RLS. The dashboard keeps reading only the local agent. |
+| Feature | Details |
+|---|---|
+| 📡 **Live** | Download, upload, latency, and packet loss with 1-second history, pause, and CSV export. |
+| 📊 **Usage and data cap** | Cycle usage, monthly projection, and alerts at 80% and 100% of the plan (local estimate from dish traffic), with official CSV import for comparison. |
+| ✅ **Quality** | Availability, loss, jitter, and latency percentiles per hour, comparison with the previous period (with and without rain), and the best times of day. Seconds without measurement are excluded. |
+| 🛰️ **Dish and obstructions** | Status, firmware, sky map as seen by the dish, and obstruction percentage. |
+| 📄 **Events and reports** | Outage timeline with duration, cause (when reported), confidence, and weather; PDF reports and CSV/JSON export. |
+| 🔔 **Alerts** | Rules with debounce, hysteresis, and cooldown, delivered via Telegram or webhook, with a queue that survives internet outages. |
+| 🤖 **AI hub** | Questions in Portuguese answered with data from the agent (Groq). Without a key, it answers by rules. |
+| 💬 **Telegram bot** | `/menu`, command queries without spending AI, text or voice questions, and weekly summary. |
+| 🔁 **Safe, audited control** | Rebooting the dish requires an administrator, a single-use code, and is audited. AI only suggests. |
+| 🌦️ **Weather (optional)** | City weather from Open-Meteo (free): card on the Dashboard, rain bands in charts, and weather at each outage in Events. |
+| 🔌 **ESP32 (optional)** | Voltage, power outage, and temperature sensors, authenticated by HMAC. |
+| 🏠 **Home Assistant (optional)** | Starlink sensors in Home Assistant via MQTT, with auto-discovery. See [HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md). |
+| ☁️ **Supabase (optional)** | Sync with RLS. The dashboard keeps reading only the local agent. |
 
 ### 📺 Screenshots
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/consumo.png" alt="Usage"><br><sub><b>Usage</b>: cycle, projection, and daily evolution.</sub></td>
-    <td width="50%"><img src="docs/screenshots/antena.png" alt="Dish and Signal"><br><sub><b>Dish and Signal</b>: status, firmware, and obstructions.</sub></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/central-ia.png" alt="AI Hub"><br><sub><b>AI Hub</b>: questions about the connection with conversation history.</sub></td>
-    <td><img src="docs/screenshots/login.png" alt="Login"><br><sub><b>Login</b>: local administrator created during installation.</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/screenshots/consumo.webp" alt="ASTRYON Usage screen with cycle, projection, and daily evolution" width="720"><br>
+  <sub><b>Usage</b>: cycle, projection, and daily evolution.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/antena.webp" alt="ASTRYON Dish and Signal screen with status, firmware, and obstructions" width="720"><br>
+  <sub><b>Dish and Signal</b>: status, firmware, and obstructions.</sub>
+</p>
+
+<details>
+<summary><b>Quality, Events, and Reports</b></summary>
+<br>
+<p align="center">
+  <img src="docs/screenshots/qualidade.webp" alt="ASTRYON Quality screen with availability, loss, latency, and best times" width="720"><br>
+  <sub><b>Quality</b>: availability, loss, latency, and best times.</sub>
+</p>
+<p align="center">
+  <img src="docs/screenshots/eventos.webp" alt="ASTRYON Events screen with outages, duration, cause, and weather" width="720"><br>
+  <sub><b>Events</b>: outages with duration, cause, and weather.</sub>
+</p>
+<p align="center">
+  <img src="docs/screenshots/relatorios.webp" alt="ASTRYON Reports screen with PDF, CSV, and JSON backup" width="720"><br>
+  <sub><b>Reports</b>: PDF, CSV, and JSON backup.</sub>
+</p>
+</details>
+
+<details>
+<summary><b>AI Hub and Login</b></summary>
+<br>
+<p align="center">
+  <img src="docs/screenshots/central-ia.webp" alt="ASTRYON AI Hub with questions and conversation history" width="720"><br>
+  <sub><b>AI Hub</b>: questions about the connection with conversation history.</sub>
+</p>
+<p align="center">
+  <img src="docs/screenshots/login.webp" alt="ASTRYON login screen for the local administrator" width="720"><br>
+  <sub><b>Login</b>: local administrator created during installation.</sub>
+</p>
+</details>
 
 <details>
 <summary><b>Full dashboard and mobile version</b></summary>
 <br>
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Full dashboard" width="720">
+  <img src="docs/screenshots/dashboard.webp" alt="Full ASTRYON dashboard" width="720">
   &nbsp;
-  <img src="docs/screenshots/celular.png" alt="Dashboard on mobile" width="260">
+  <img src="docs/screenshots/celular.webp" alt="ASTRYON dashboard on mobile" width="260">
 </p>
 </details>
 
@@ -565,7 +658,8 @@ sudo astryonctl backup
 
 The `astryon-agent` and `astryon-web` services self-restart on failures and log to journald. Agent and dashboard listen only on loopback; Nginx exposes the dashboard only to the LAN and Tailnet. Full guide: [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
 
-#### Windows 10/11 (PowerShell)
+<details>
+<summary><b>🪟 Windows 10/11 (PowerShell)</b></summary>
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1    # venv, npm, .env with token, build
@@ -576,6 +670,8 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1      # agent :8787 + 
 Open `http://localhost:3000` on the same PC and create the administrator. To stop: `scripts\stop.ps1`. Guide: [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md).
 
 Prefer the installer with a tray icon? Download the `.exe` from the [ASTRYON releases](https://github.com/carlosnj497-lgtm/orbitlink-ai/releases/latest) (being validated on real Windows).
+
+</details>
 
 > [!TIP]
 > No dish nearby? Open `/demo` to see the dashboard with fictitious data.
@@ -594,11 +690,19 @@ The bot and its commands are in Portuguese.
 | `/status` | Diagnosis of the last 24 h |
 | `/consumo 7d` | Download, upload, and coverage for the period |
 | `/franquia` | Limit, estimated balance, and cycle projection |
+| `/relatorio` | PDF of the last 30 days, with comparison and weather |
+
+<details>
+<summary><b>See all commands</b></summary>
+
+| Command | What it shows |
+|---|---|
 | `/qualidade` · `/quedas` · `/alertas` | Quality, interruptions (with weather for each), and active alerts |
 | `/clima` | Weather now, next hours, and heavy-rain warning |
 | `/horario` | Best times for downloads and calls |
 | `/resumo` | Summary of the last 7 days |
-| `/relatorio` | PDF of the last 30 days, with comparison and weather |
+
+</details>
 
 Command queries do not consume AI. Text or voice questions use the daily quota, shared with the dashboard. All commands: [docs/TELEGRAM.md](docs/TELEGRAM.md).
 
@@ -615,10 +719,14 @@ flowchart LR
     Agent --> AI["🤖 Groq + Whisper<br/>read-only"]
     Agent -.->|"optional HTTPS"| Meteo["🌦️ Open-Meteo"]
     Agent -.->|"optional HTTPS"| Supa[("☁️ Supabase RLS")]
+    Supa -.->|"RLS reads"| Cloud["☁️ Cloud dashboard<br/>Vercel"]
     ESP["🔌 ESP32 sensors"] -.->|"HMAC"| Agent
 ```
 
-The collector reads status every 10 s, history every 30 s, and obstructions every 5 min, writing to SQLite (WAL, migrations, and automatic retention). Login uses an httpOnly cookie (`SameSite=Strict`) and the dashboard talks to the agent via an authenticated proxy: the token never reaches the browser. Alerts, rule-based diagnosis, reports, and audited dish control run inside the agent; weather sends only the city coordinates, and Supabase sync uses RLS. The ESP32 listener authenticates sensors by HMAC.
+- **Collection:** status every 10 s, history every 30 s, and obstructions every 5 min, writing to SQLite (WAL, migrations, and automatic retention).
+- **Login and proxy:** httpOnly cookie (`SameSite=Strict`); the dashboard talks to the agent through an authenticated proxy, and the token never reaches the browser.
+- **Inside the agent:** alerts, rule-based diagnosis, reports, and audited dish control.
+- **Optional integrations:** weather (city coordinates only), Supabase (RLS), and ESP32 sensors (HMAC).
 
 | Folder | Content |
 |---|---|
@@ -634,18 +742,16 @@ Project decisions and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ### 🚦 Project status
 
-| Component | Status |
-|---|---|
-| gRPC connector | Tested against a synthetic gRPC server with reflection. **Not yet validated on real dishes**; compatibility per model and firmware needs confirmation. |
-| Agent | pytest, ruff, and mypy strict tests. Dependencies locked with hashes. |
-| Dashboard | Vitest and Playwright E2E tests (including accessibility with axe). |
-| Telegram and notifications | Commands, retry queue, and weekly summary tested with a simulated server. |
-| AI (Groq) and Whisper | Tested with the real Groq endpoint; audio validated with synthetic voice. |
-| Supabase | RLS isolation tests in Postgres (PGlite). Not yet applied to a real project. |
-| ESP32 firmware | Version 0.2.0 with v2 pairing still needs compilation in both environments and validation on a board. |
-| Linux deployment | Script tests and real installation on a clean Ubuntu 24.04 in CI. |
-| Windows installer | Built in GitHub Actions and published in the releases (`.exe` and `.zip`); pending validation on real Windows. |
-| Cloud dashboard (Vercel + Supabase) | Email login, pairing code, Dashboard, Usage, Quality, Events, and Account. Code tested with simulated Supabase; needs publishing and SQL applied to the target Supabase project. |
+- **gRPC connector** — tested against a synthetic gRPC server with reflection. **Not yet validated on real dishes**; compatibility per model and firmware needs confirmation.
+- **Agent** — pytest, ruff, and mypy strict tests; dependencies locked with hashes.
+- **Dashboard** — Vitest and Playwright E2E tests, including accessibility with axe.
+- **Telegram and notifications** — commands, retry queue, and weekly summary tested with a simulated server.
+- **AI (Groq) and Whisper** — tested with the real Groq endpoint; audio validated with synthetic voice.
+- **Supabase** — RLS isolation tests in Postgres (PGlite); not yet applied to a real project.
+- **ESP32 firmware** — version 0.2.0 with v2 pairing still needs compilation in both environments and validation on a board.
+- **Linux deployment** — script tests and real installation on a clean Ubuntu 24.04 in CI.
+- **Windows installer** — built in GitHub Actions and published in the releases (`.exe` and `.zip`); pending validation on real Windows.
+- **Cloud dashboard (Vercel + Supabase)** — email login, pairing code, Dashboard, Usage, Quality, Events, and Account. Code tested with simulated Supabase; needs publishing and SQL applied to the target Supabase project.
 
 ### 🧭 Roadmap
 
@@ -719,6 +825,34 @@ Periods without observation are excluded. To compare, import the CSV from your S
 No. AI tools are read-only. Rebooting requires an administrator, a single-use code, and is recorded in the audit log.
 </details>
 
+<details>
+<summary><b>Does ASTRYON work without internet?</b></summary>
+<br>
+Yes, for the local dashboard and dish readings. Telegram, weather, and AI need internet; if the connection drops, alerts
+wait in the queue and are sent when it returns.
+</details>
+
+<details>
+<summary><b>How do I update ASTRYON?</b></summary>
+<br>
+Linux: `sudo astryonctl update --git-pull` (with automatic rollback). Windows: download the new installer from the
+releases or run the install scripts again. Guides: [Linux](docs/LINUX_SERVER.md) and [Windows](docs/WINDOWS_SETUP.md).
+</details>
+
+<details>
+<summary><b>How do I back up?</b></summary>
+<br>
+Linux: `sudo astryonctl backup`. The agent also keeps a daily database copy; sending a weekly copy via Telegram is
+optional. Details in [docs/LINUX_SERVER.md](docs/LINUX_SERVER.md).
+</details>
+
+<details>
+<summary><b>Does it work on mobile?</b></summary>
+<br>
+Yes. The dashboard is responsive and needs no app: open the ASTRYON address in your phone's browser. Telegram also works
+as a mobile interface for alerts and queries.
+</details>
+
 ### 💻 Development
 
 | Command (from root) | What it does |
@@ -750,32 +884,26 @@ The detailed guides are currently in Portuguese.
 
 #### 🚀 Getting started
 
-| Guide | What's inside |
-|---|---|
-| [🐧 Ubuntu Server](docs/LINUX_SERVER.md) | Installation, update, backup, and rollback |
-| [🪟 Windows 10/11](docs/WINDOWS_SETUP.md) | Installation and scripts on Windows |
-| [🔄 Migration to ASTRYON](docs/MIGRATION_ASTRYON.md) | Updating installations with the previous name |
-| [🔍 Troubleshooting](docs/TROUBLESHOOTING.md) | Network, dish, and service diagnosis |
+- [🐧 Ubuntu Server](docs/LINUX_SERVER.md) — installation, update, backup, and rollback.
+- [🪟 Windows 10/11](docs/WINDOWS_SETUP.md) — installation and scripts on Windows.
+- [🔄 Migration to ASTRYON](docs/MIGRATION_ASTRYON.md) — updating installations with the previous name.
+- [🔍 Troubleshooting](docs/TROUBLESHOOTING.md) — network, dish, and service diagnosis.
 
 #### 🔌 Integrations
 
-| Guide | What's inside |
-|---|---|
-| [📲 Telegram](docs/TELEGRAM.md) | Bot, commands, voice, and weekly summary |
-| [📡 ESP32](docs/ESP32_SETUP.md) | Assembly and pairing of the sensor node |
-| [🏠 Home Assistant](docs/HOME_ASSISTANT.md) | Sensors via MQTT with auto-discovery |
-| [☁️ Cloud (Vercel + Supabase)](docs/NUVEM.md) | Email accounts, pairing, and cloud dashboard |
-| [🔄 Supabase](docs/SUPABASE.md) | Optional sync with RLS |
-| [🍓 Ready device](docs/APARELHO.md) | Raspberry Pi with configuration page |
+- [📲 Telegram](docs/TELEGRAM.md) — bot, commands, voice, and weekly summary.
+- [📡 ESP32](docs/ESP32_SETUP.md) — assembly and pairing of the sensor node.
+- [🏠 Home Assistant](docs/HOME_ASSISTANT.md) — sensors via MQTT with auto-discovery.
+- [☁️ Cloud (Vercel + Supabase)](docs/NUVEM.md) — email accounts, pairing, and cloud dashboard.
+- [🔄 Supabase](docs/SUPABASE.md) — optional sync with RLS.
+- [🍓 Ready device](docs/APARELHO.md) — Raspberry Pi with configuration page.
 
 #### 🧠 Technical reference
 
-| Guide | What's inside |
-|---|---|
-| [🧩 Architecture](docs/ARCHITECTURE.md) | Project decisions and data flow |
-| [🛰️ Starlink compatibility](docs/STARLINK_COMPATIBILITY.md) | What the local API reports — and what it doesn't |
-| [🛡️ Security](docs/SECURITY.md) | Security model |
-| [✅ Acceptance tests](docs/ACCEPTANCE_TESTS.md) | End-to-end validation checklist |
+- [🧩 Architecture](docs/ARCHITECTURE.md) — project decisions and data flow.
+- [🛰️ Starlink compatibility](docs/STARLINK_COMPATIBILITY.md) — what the local API reports and what it doesn't.
+- [🛡️ Security](docs/SECURITY.md) — security model.
+- [✅ Acceptance tests](docs/ACCEPTANCE_TESTS.md) — end-to-end validation checklist.
 
 ---
 

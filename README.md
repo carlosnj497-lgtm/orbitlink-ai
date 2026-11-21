@@ -84,8 +84,7 @@ O projeto usa o mesmo prefixo em tudo: variáveis `ASTRYON_*`, serviços `astryo
 
 ---
 
-<details>
-<summary><b>📑 Sumário</b> — 15 seções</summary>
+## 📑 Sumário
 
 **🚀 Começando**
 - [Início rápido](#-início-rápido-linux)
@@ -111,8 +110,6 @@ O projeto usa o mesmo prefixo em tudo: variáveis `ASTRYON_*`, serviços `astryo
 - [Créditos](#-créditos--credits)
 
 🌐 [English version](#-english)
-
-</details>
 
 ## 💡 Por que o ASTRYON?
 
@@ -444,8 +441,7 @@ The project uses the same prefix everywhere: `ASTRYON_*` variables, `astryon-*` 
 
 ---
 
-<details>
-<summary><b>📑 Table of contents</b> — 15 sections</summary>
+### 📑 Table of contents
 
 **🚀 Getting started**
 - [Quick start](#-quick-start-linux)
@@ -471,8 +467,6 @@ The project uses the same prefix everywhere: `ASTRYON_*` variables, `astryon-*` 
 - [Credits](#-créditos--credits)
 
 🌐 [Versão em português](#astryon)
-
-</details>
 
 ### 💡 Why ASTRYON?
 
